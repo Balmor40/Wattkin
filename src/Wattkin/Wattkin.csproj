@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\Wattkin.ico</ApplicationIcon>
+    <AssemblyName>Wattkin</AssemblyName>
+    <RootNamespace>Wattkin</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>Wattkin</Product>
+    <Description>Lightweight control center for MSI laptops</Description>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <TieredPGO>true</TieredPGO>
+    <!-- WPF reads PerMonitorV2 from the manifest; the WinForms analyzer only covers the NotifyIcon. -->
+    <NoWarn>$(NoWarn);WFO0003</NoWarn>
+    <!-- Runs elevated: don't let DOTNET_STARTUP_HOOKS (user-writable environment) inject code. -->
+    <StartupHookSupport>false</StartupHookSupport>
+    <ServerGarbageCollector>false</ServerGarbageCollector>
+    <ConcurrentGarbageCollection>false</ConcurrentGarbageCollection>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- A tray app idles most of the time: favour a small heap over allocation speed. -->
+    <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="7" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- WPF and WinForms both define Application/MessageBox/etc. Keep WinForms opt-in per file. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Management" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Wattkin.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Wattkin.Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,38 @@
+<Window x:Class="Wattkin.UI.WidgetWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Wattkin widget" SizeToContent="WidthAndHeight"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" AllowsTransparency="True" Background="Transparent"
+        FontFamily="{DynamicResource Lc.Font}" Foreground="{DynamicResource Lc.Text}" UseLayoutRounding="True">
+    <Border x:Name="Root" Background="{DynamicResource Lc.WidgetBg}" BorderBrush="{DynamicResource Lc.CardBorder}" BorderThickness="1" CornerRadius="10" Padding="14,10" MinWidth="190">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem x:Name="CompactItem" Header="Compact" IsCheckable="True" Click="OnCompact" />
+                <MenuItem x:Name="TopmostItem" Header="Always on top" IsCheckable="True" Click="OnTopmost" />
+                <MenuItem Header="Opacity">
+                    <MenuItem Header="100%" Tag="1.0" Click="OnOpacity" />
+                    <MenuItem Header="90%" Tag="0.9" Click="OnOpacity" />
+                    <MenuItem Header="75%" Tag="0.75" Click="OnOpacity" />
+                    <MenuItem Header="60%" Tag="0.6" Click="OnOpacity" />
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="Open Wattkin" Click="OnOpen" />
+                <MenuItem Header="Hide widget" Click="OnHide" />
+            </ContextMenu>
+        </Border.ContextMenu>
+        <StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="Watts" Text="—" FontFamily="{DynamicResource Lc.Display}" FontSize="30" FontWeight="SemiBold" />
+                <TextBlock Text=" W" FontSize="15" VerticalAlignment="Bottom" Margin="0,0,10,5" Foreground="{DynamicResource Lc.SubText}" />
+                <TextBlock x:Name="Battery" FontSize="13" VerticalAlignment="Bottom" Margin="0,0,0,6" Foreground="{DynamicResource Lc.SubText}" />
+            </StackPanel>
+            <TextBlock x:Name="Runtime" FontSize="12" Foreground="{DynamicResource Lc.SubText}" />
+            <StackPanel x:Name="Details" Margin="0,6,0,0">
+                <TextBlock x:Name="Cpu" FontSize="12" />
+                <TextBlock x:Name="Ram" FontSize="12" />
+                <TextBlock x:Name="Disk" FontSize="12" />
+                <TextBlock x:Name="Gpu" FontSize="12" Foreground="{DynamicResource Lc.SubText}" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

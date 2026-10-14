@@ -1,0 +1,121 @@
+<Window x:Class="Wattkin.UI.FlyoutWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="clr-namespace:Wattkin.UI"
+        Title="Wattkin" Width="392" SizeToContent="Height"
+        WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
+        Background="{DynamicResource Lc.Window}" BorderBrush="{DynamicResource Lc.CardBorder}" BorderThickness="1"
+        FontFamily="{DynamicResource Lc.Font}" Foreground="{DynamicResource Lc.Text}"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <StackPanel Margin="12">
+
+        <!-- Header -->
+        <Grid Margin="2,0,0,8">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <ui:BrandMark Width="19" Height="13" Margin="0,1,7,0" VerticalAlignment="Center" />
+                <TextBlock Text="wattkin" FontFamily="{DynamicResource Lc.Display}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center" />
+                <TextBlock x:Name="ModelText" Margin="8,0,0,0" Style="{StaticResource Lc.Label}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="WidgetButton" Style="{StaticResource Lc.IconButton}" Content="&#xE7F4;" ToolTip="Desktop widget on/off" Click="OnWidget" />
+                <Button Style="{StaticResource Lc.IconButton}" Content="&#xE713;" ToolTip="Settings" Click="OnSettings" />
+            </StackPanel>
+        </Grid>
+
+        <!-- Admin / MSI warnings -->
+        <Border x:Name="Banner" Style="{StaticResource Lc.Card}" Visibility="Collapsed" BorderBrush="{DynamicResource Lc.Warn}">
+            <StackPanel>
+                <TextBlock x:Name="BannerText" TextWrapping="Wrap" FontSize="12" />
+                <Button x:Name="BannerButton" Style="{StaticResource Lc.LinkButton}" Margin="0,6,0,0" HorizontalAlignment="Left" Click="OnBannerAction" />
+            </StackPanel>
+        </Border>
+
+        <!-- Power headline: watts and battery, one short line each, and the last 10 minutes. Details in the tooltip. -->
+        <Border x:Name="HeadlineCard" Style="{StaticResource Lc.Card}" ToolTipService.InitialShowDelay="400">
+            <Border.ToolTip>
+                <ToolTip>
+                    <TextBlock x:Name="HeadlineDetails" FontSize="12" />
+                </ToolTip>
+            </Border.ToolTip>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock x:Name="WattsText" Text="—" FontFamily="{DynamicResource Lc.Display}" FontSize="40" FontWeight="SemiBold" />
+                    <TextBlock Text=" W" FontSize="20" VerticalAlignment="Bottom" Margin="0,0,0,7" Foreground="{DynamicResource Lc.SubText}" />
+                </StackPanel>
+                <TextBlock x:Name="PercentText" Grid.Column="1" Text="—" FontFamily="{DynamicResource Lc.Display}" FontSize="40" FontWeight="SemiBold" HorizontalAlignment="Right" />
+                <TextBlock x:Name="WattsCaption" Grid.Row="1" Style="{StaticResource Lc.Label}" />
+                <TextBlock x:Name="BatteryLine" Grid.Row="1" Grid.Column="1" Style="{StaticResource Lc.Label}" HorizontalAlignment="Right" />
+                <ui:Sparkline x:Name="Spark" Grid.Row="2" Grid.ColumnSpan="2" Height="44" Margin="0,10,0,0" VerticalAlignment="Bottom" />
+            </Grid>
+        </Border>
+
+        <!-- System stats: one full-width bar per row, its numbers inside -->
+        <Border Style="{StaticResource Lc.Card}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="44" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="CPU" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <ui:MeterBar x:Name="CpuBar" Grid.Column="1" Height="22" Margin="0,0,0,6" />
+
+                <TextBlock Grid.Row="1" Text="Fans" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <ui:MeterBar x:Name="FanBar" Grid.Row="1" Grid.Column="1" Height="22" Margin="0,0,0,6" LabelAtFill="True" ToolTip="The faster fan, against the fastest it has been seen to spin" />
+
+                <TextBlock Grid.Row="2" Text="RAM" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <ui:MeterBar x:Name="RamBar" Grid.Row="2" Grid.Column="1" Height="22" Margin="0,0,0,6" />
+
+                <TextBlock Grid.Row="3" Text="Disk" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <ui:MeterBar x:Name="DiskBar" Grid.Row="3" Grid.Column="1" Height="22" Margin="0,0,0,6" ToolTip="How busy the busiest drive is, with total read and write speed" />
+
+                <TextBlock x:Name="Gpu1Label" Grid.Row="4" Text="iGPU" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <ui:MeterBar x:Name="Gpu1Bar" Grid.Row="4" Grid.Column="1" Height="22" Margin="0,0,0,6" />
+
+                <TextBlock x:Name="Gpu2Label" Grid.Row="5" Text="RTX" Style="{StaticResource Lc.Label}" />
+                <ui:MeterBar x:Name="Gpu2Bar" Grid.Row="5" Grid.Column="1" Height="22" />
+            </Grid>
+        </Border>
+        <!-- Controls: every choice fills the card's width -->
+        <Border x:Name="ControlsCard" Style="{StaticResource Lc.Card}">
+            <StackPanel>
+                <TextBlock Text="Profile" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <UniformGrid x:Name="ProfilePanel" Rows="1" Margin="-2,0,-2,6" />
+                <TextBlock x:Name="ProfileDetails" Style="{StaticResource Lc.Hint}" Margin="0,0,0,12" />
+
+                <TextBlock Text="Charge limit" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <Grid x:Name="LimitPanel" Margin="-2,0,-2,4" />
+                <TextBlock x:Name="ChargeStatus" Style="{StaticResource Lc.Hint}" Margin="0,2,0,0" Visibility="Collapsed" />
+                <Border Height="12" />
+
+                <TextBlock Text="Keyboard light" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <UniformGrid x:Name="KeyboardPanel" Rows="1" Margin="-2,0,-2,0" />
+
+                <StackPanel x:Name="GraphicsSection" Margin="0,12,0,0">
+                    <TextBlock Text="Graphics" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                    <UniformGrid x:Name="GraphicsPanel" Rows="1" Margin="-2,0,-2,4" />
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock x:Name="GraphicsHint" Style="{StaticResource Lc.Hint}" TextWrapping="NoWrap" />
+                        <Button x:Name="RestartButton" Style="{StaticResource Lc.LinkButton}" Content="Restart now" Margin="8,0,0,0" Click="OnRestartForGpu" Visibility="Collapsed" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </Border>    </StackPanel>
+</Window>

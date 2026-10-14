@@ -1,0 +1,409 @@
+using Wattkin.Monitoring;
+
+namespace Wattkin.Hardware;
+
+/// <summary>EC performance mode (MSI "shift mode"). Mapped to each model's register values.</summary>
+public enum ShiftMode
+{
+    /// <summary>MSI "Super Battery".</summary>
+    Eco,
+    /// <summary>MSI "Balanced" / "Silent" (msi-ec "comfort").</summary>
+    Balanced,
+    /// <summary>MSI "Extreme Performance".</summary>
+    Turbo,
+}
+
+/// <summary>EC fan mode.</summary>
+public enum FanMode
+{
+    Auto,
+    Silent,
+    /// <summary>
+    /// The controller's own fan table (<see cref="FanCurve"/>), MSI Center's "advanced" mode. Wattkin
+    /// switches to it only when the table is sane, and never changes the table (it hands the same
+    /// bytes back, as MSI Center does before switching).
+    /// </summary>
+    Custom,
+}
+
+public enum EcSupport
+{
+    /// <summary>Register map verified on Windows on this exact firmware family.</summary>
+    Verified,
+    /// <summary>Firmware covered by msi-ec's per-model map (tested on Linux); passed the sanity check here.</summary>
+    Community,
+    /// <summary>Not in any table, but uses MSI's standard WMI v2 layout and passed the sanity check here.</summary>
+    Standard,
+    /// <summary>Old firmware interface, or registers that don't look like any known layout: monitoring only.</summary>
+    Unknown,
+}
+
+/// <summary>
+/// Typed access to an MSI laptop's embedded controller.
+///
+/// The register map comes from, in order: the verified map for this firmware family, msi-ec's per-model
+/// map (<see cref="EcModels"/>), or MSI's standard WMI v2 layout (the addresses MSI Center itself uses
+/// on every WMI v2 notebook). Before any write is allowed, a sanity check reads the battery-limit and
+/// performance-mode registers and requires values that only make sense for that layout; anything
+/// else leaves the laptop on monitoring only. On MSI's standard layout, writes follow MSI's own
+/// bit-level semantics; other msi-ec maps use msi-ec's values. Shared registers are read-modify-write.
+///
+/// The verified map (EC 1594EMS1.*, Prestige 16 Studio) was cross-checked three ways: MSI Center's call
+/// log on the laptop, MSI's decompiled code, and msi-ec CONF_G2_1 (tested on 1594EMS1.113, PR #797).
+/// </summary>
+public sealed class EmbeddedController : IEcSensorSource
+{
+    public const int MinChargeLimit = 10;
+    public const int MaxChargeLimit = 100;
+
+    // MSI's generic WMI v2 registers (hard-coded in MSI Center for all such notebooks).
+    private const byte RegAdapter = 0xBF;          // bit0 = simulate unplugged (battery discharges on AC)
+    private const byte RegHostFlags = 0xD9;        // bit0 = vendor software present, bit1 = Fn lock
+    private const byte RegCapabilities = 0x2F;     // bit1 = webcam switch supported, bit6 = GPU switch supported
+
+    private static readonly string[] VerifiedFirmwarePrefixes = ["1594EMS1."];
+
+    private readonly MsiAcpi _acpi;
+    private readonly EcModel? _model;
+    private readonly bool _shiftOk;
+    private readonly bool _fanOk;
+
+    public EmbeddedController(MsiAcpi acpi)
+    {
+        _acpi = acpi;
+        var listed = EcModels.Find(acpi.EcVersion);
+        var verified = VerifiedFirmwarePrefixes.Any(p => acpi.EcVersion.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+        var candidate = listed ?? (acpi.WmiMajor >= 2 ? EcModels.MsiStandardWmi2 : null);
+
+        // MSI's software only uses Get_Data/Set_Data on WMI v2+, and only then do we write anything.
+        var why = "";
+        if (acpi.WmiMajor >= 2 && candidate is not null && Sane(candidate, out _shiftOk, out _fanOk, out why))
+        {
+            _model = candidate;
+            Support = verified ? EcSupport.Verified : listed is not null ? EcSupport.Community : EcSupport.Standard;
+            CanWrite = true;
+        }
+        else
+        {
+            _model = candidate;
+            Support = EcSupport.Unknown;
+            CanWrite = false;
+            Reason = acpi.WmiMajor < 2
+                ? $"This laptop uses MSI's older firmware interface (WMI {acpi.WmiMajor}.{acpi.WmiMinor}), which Wattkin can't control yet."
+                : candidate is null ? "No register map for this firmware." : $"The registers didn't look like {candidate.Source} ({why}), so Wattkin stays read-only.";
+            Log.Warn($"EC {acpi.EcVersion}: controls disabled. {Reason}");
+        }
+    }
+
+    /// <summary>
+    /// The battery-limit register must read "limit enabled, 10–100%" (MSI firmware keeps bit7 set on
+    /// WMI v2) and, if the map has one, the performance-mode register must hold one of its known values.
+    /// Fan mode is checked separately so an odd fan value only disables fan control.
+    /// </summary>
+    private bool Sane(EcModel model, out bool shiftOk, out bool fanOk, out string why)
+    {
+        shiftOk = fanOk = false;
+        why = "";
+        if (model.ChargeAddress is not { } charge || _acpi.ReadEc(charge) is not { } raw || (raw & 0x80) == 0 || (raw & 0x7F) is < MinChargeLimit or > MaxChargeLimit)
+        {
+            why = "battery-limit register";
+            return false;
+        }
+
+        if (model.ShiftAddress is { } shift)
+        {
+            var value = _acpi.ReadEc(shift);
+            shiftOk = value is { } v && (v == model.ShiftEco || v == model.ShiftBalanced || v == model.ShiftSport || v == model.ShiftTurbo || v == 0x80);
+            if (!shiftOk)
+            {
+                why = "performance-mode register";
+                return false;
+            }
+        }
+
+        if (model.FanModeAddress is { } fan && _acpi.ReadEc(fan) is { } f)
+        {
+            fanOk = f == model.FanAuto || f == model.FanSilent || f == model.FanAdvanced || (UsesMsiLayout(model) && (f & 0x6F) == 0x0D);
+        }
+
+        return true;
+    }
+
+    /// <summary>MSI's standard WMI v2 layout (fan 0xD4, keyboard 0xD3): write with MSI Center's exact bit semantics.</summary>
+    private static bool UsesMsiLayout(EcModel? model) => model is { FanModeAddress: 0xD4, KeyboardStateAddress: 0xD3 };
+
+    public string FirmwareVersion => _acpi.EcVersion;
+    public string FirmwareFull => _acpi.EcFirmware;
+    public string WmiVersion => $"{_acpi.WmiMajor}.{_acpi.WmiMinor}";
+    public EcSupport Support { get; }
+    public string? MapSource => _model?.Source;
+
+    /// <summary>Why controls are off, when they are.</summary>
+    public string? Reason { get; }
+
+    public bool CanWrite { get; }
+
+    /// <summary>
+    /// Drain-to-limit and calibration use MSI's generic "simulate unplug" register (MSI's own calibration
+    /// tool uses it on every WMI v2 notebook). The GPU switch also checks the firmware's own capability bits.
+    /// </summary>
+    public bool CanSimulateUnplug => CanWrite;
+    public bool CanSwitchGpuMode => CanWrite;
+    public bool HasCoolerBoost => CanWrite && _model?.CoolerBoostAddress is not null;
+    public bool HasKeyboardLight => CanWrite && _model?.KeyboardStateAddress is not null;
+    public bool HasKeyboardTimeout => CanWrite && _model is { KeyboardModeAddress: not null, KeyboardAlwaysOnValue: not null, KeyboardAutoOffValue: not null };
+    public int KeyboardMaxLevel => _model?.KeyboardMaxLevel ?? 0;
+    // ---- Battery -----------------------------------------------------------------------------
+
+    /// <summary>Charge stop percentage (10..100), ignoring whether the limit is switched on.</summary>
+    public int? GetChargeLimit() => GetChargeLimitRaw() is { } r ? r & 0x7F : null;
+
+    /// <summary>Raw register: bit7 = limit enabled, bits0-6 = stop %. Compare this, not the masked value.</summary>
+    public byte? GetChargeLimitRaw() => _model?.ChargeAddress is { } address ? _acpi.ReadEc(address) : null;
+
+    public static byte EncodeChargeLimit(int percent) => (byte)(0x80 | Math.Clamp(percent, MinChargeLimit, MaxChargeLimit));
+
+    public bool SetChargeLimit(int percent) =>
+        _model?.ChargeAddress is { } address && Write(() => _acpi.WriteEc(address, EncodeChargeLimit(percent)));
+
+    /// <summary>Battery discharges even though the charger is connected (verified firmware only).</summary>
+    public bool? GetSimulatedUnplug() => CanSimulateUnplug ? Bit(RegAdapter, 0) : false;
+
+    /// <param name="heartbeat">Write even if already set, as MSI's tool does every 30 s.</param>
+    public bool SetSimulatedUnplug(bool enabled, bool heartbeat = false) =>
+        CanSimulateUnplug && Write(() => _acpi.WriteEcBits(RegAdapter, 0x01, enabled ? (byte)0x01 : (byte)0x00, force: heartbeat && enabled));
+
+    // ---- Performance ------------------------------------------------------------------------
+
+    private byte? ShiftValue(ShiftMode mode) => mode switch
+    {
+        ShiftMode.Eco => _model?.ShiftEco,
+        ShiftMode.Balanced => _model?.ShiftBalanced,
+        ShiftMode.Turbo => _model?.ShiftTurbo ?? _model?.ShiftSport,
+        _ => null,
+    };
+
+    public ShiftMode? GetShiftMode()
+    {
+        if (_model?.ShiftAddress is not { } address || _acpi.ReadEc(address) is not { } value)
+        {
+            return null;
+        }
+
+        return value == _model.ShiftEco ? ShiftMode.Eco
+            : value == _model.ShiftBalanced ? ShiftMode.Balanced
+            : value == _model.ShiftTurbo || value == _model.ShiftSport ? ShiftMode.Turbo
+            : null;
+    }
+
+    /// <summary>Only values from the model's map ever reach the EC; nothing is written when it already holds the value.</summary>
+    public bool SetShiftMode(ShiftMode mode) =>
+        _shiftOk && _model?.ShiftAddress is { } address && ShiftValue(mode) is { } value && Write(() => _acpi.WriteEcBits(address, 0xFF, value));
+
+    public FanMode? GetFanMode()
+    {
+        if (_model?.FanModeAddress is not { } address || _acpi.ReadEc(address) is not { } value)
+        {
+            return null;
+        }
+
+        if (UsesMsiLayout(_model))
+        {
+            // MSI's semantics: bit7 = custom curve, bit4 = silent.
+            return (value & 0x80) != 0 ? FanMode.Custom : (value & 0x10) != 0 ? FanMode.Silent : FanMode.Auto;
+        }
+
+        return value == _model.FanSilent ? FanMode.Silent
+            : value == _model.FanAdvanced ? FanMode.Custom
+            : FanMode.Auto;
+    }
+
+    public bool SetFanMode(FanMode mode)
+    {
+        if (!_fanOk || _model?.FanModeAddress is not { } address)
+        {
+            return false;
+        }
+
+        if (mode == FanMode.Custom)
+        {
+            return SelectFanCurve(address);
+        }
+
+        if (UsesMsiLayout(_model))
+        {
+            // Like MSI Center: Silent sets bit4; both clear the custom-curve bit; the low nibble stays.
+            return Write(() => _acpi.WriteEcBits(address, 0x90, mode == FanMode.Silent ? (byte)0x10 : (byte)0x00));
+        }
+
+        var value = mode == FanMode.Silent ? _model.FanSilent : _model.FanAuto;
+        return value is { } v && Write(() => _acpi.WriteEc(address, v));
+    }
+
+    /// <summary>
+    /// MSI Center's sequence for its custom curve: hand each fan's table to the controller with
+    /// Set_Fan(n) (8 bytes, exactly as Get_Fan(n) returned them), then set 0xD4 bit 7, always written.
+    /// Setting the bit alone left the fans on the built-in curve (measured: 50% duty at 42°C under a
+    /// table that says off below 60°C). Wattkin hands the table back unchanged and checks that it still
+    /// reads the same; if it doesn't, the fans go back to Auto.
+    /// </summary>
+    private bool SelectFanCurve(byte address)
+    {
+        // Only MSI's own layout, and only onto a table that can cool the laptop.
+        var cpu = _acpi.Get("Get_Fan", 1);
+        var gpu = _acpi.Get("Get_Fan", 2);
+        if (!HasFanCurves || cpu is null || gpu is null || ReadFanCurves() is not { Sane: true })
+        {
+            Log.Warn("Not switching to the fan curve: the controller's fan table is missing or doesn't look safe.");
+            return false;
+        }
+
+        if (!Write(() => _acpi.Set("Set_Fan", 1, cpu.AsSpan(0, 8)) && _acpi.Set("Set_Fan", 2, gpu.AsSpan(0, 8))))
+        {
+            Log.Warn("The controller didn't accept its fan table back; staying on the current fan mode.");
+            return false;
+        }
+
+        if (_acpi.Get("Get_Fan", 1) is not { } cpuAfter || _acpi.Get("Get_Fan", 2) is not { } gpuAfter
+            || !cpuAfter.AsSpan(1, 7).SequenceEqual(cpu.AsSpan(1, 7)) || !gpuAfter.AsSpan(1, 7).SequenceEqual(gpu.AsSpan(1, 7)))
+        {
+            Log.Error("The fan table read differently after handing it back; switching the fans to Auto.");
+            Write(() => _acpi.WriteEcBits(address, 0x90, 0x00, force: true));
+            return false;
+        }
+
+        Log.Info($"Fan curve handed to the controller (CPU {BitConverter.ToString(cpu, 1, 7)}, GPU {BitConverter.ToString(gpu, 1, 7)}) and selected.");
+        return Write(() => _acpi.WriteEcBits(address, 0x90, 0x80, force: true));
+    }
+
+    /// <summary>The fan-curve mode, on MSI's standard layout (where the table's format is known).</summary>
+    public bool HasFanCurves => CanWrite && _fanOk && UsesMsiLayout(_model);
+
+    /// <summary>Both fans' tables from the firmware, or null. Reads only.</summary>
+    public FanCurves? ReadFanCurves()
+    {
+        var cpu = FanCurve.Parse(_acpi.Get("Get_Temperature", 1), _acpi.Get("Get_Fan", 1));
+        var gpu = FanCurve.Parse(_acpi.Get("Get_Temperature", 2), _acpi.Get("Get_Fan", 2));
+        return cpu is not null && gpu is not null ? new FanCurves(cpu, gpu) : null;
+    }
+
+    public bool? GetCoolerBoost() => _model?.CoolerBoostAddress is { } address ? Bit(address, _model.CoolerBoostBit) : null;
+
+    public bool SetCoolerBoost(bool enabled) =>
+        _model?.CoolerBoostAddress is { } address && WriteBit(address, _model.CoolerBoostBit, enabled);
+
+    // ---- Keyboard / LEDs / webcam -------------------------------------------------------------
+
+    /// <summary>Keyboard backlight level 0 (off) .. max.</summary>
+    public int? GetKeyboardLevel() =>
+        _model?.KeyboardStateAddress is { } address && _acpi.ReadEc(address) is { } v ? v & 0x03 : null;
+
+    public bool SetKeyboardLevel(int level)
+    {
+        if (_model?.KeyboardStateAddress is not { } address)
+        {
+            return false;
+        }
+
+        level = Math.Clamp(level, 0, Math.Max(0, (int)_model.KeyboardMaxLevel));
+        return UsesMsiLayout(_model)
+            // Exactly MSI Center's write: D3 = (D3 & 0x80) + level.
+            ? Write(() => _acpi.WriteEcBits(address, 0x7F, (byte)level))
+            : Write(() => _acpi.WriteEc(address, (byte)(_model.KeyboardStateBase | level)));
+    }
+
+    /// <summary>True = backlight switches off after ~10 s without typing and back on with a key press.</summary>
+    public bool? GetKeyboardAutoOff()
+    {
+        if (!HasKeyboardTimeout || _acpi.ReadEc(_model!.KeyboardModeAddress!.Value) is not { } value)
+        {
+            return null;
+        }
+
+        var mask = (byte)(_model.KeyboardAlwaysOnValue!.Value ^ _model.KeyboardAutoOffValue!.Value);
+        return (value & mask) == (_model.KeyboardAutoOffValue.Value & mask);
+    }
+
+    /// <summary>Changes only the bits that differ between the two modes (the register also holds LED bits).</summary>
+    public bool SetKeyboardAutoOff(bool enabled)
+    {
+        if (!HasKeyboardTimeout)
+        {
+            return false;
+        }
+
+        var mask = (byte)(_model!.KeyboardAlwaysOnValue!.Value ^ _model.KeyboardAutoOffValue!.Value);
+        var value = enabled ? _model.KeyboardAutoOffValue.Value : _model.KeyboardAlwaysOnValue.Value;
+        return mask != 0 && Write(() => _acpi.WriteEcBits(_model.KeyboardModeAddress!.Value, mask, value));
+    }
+
+    public bool SetMuteLed(bool on) => _model?.MuteLedAddress is { } address && WriteBit(address, _model.LedBit, on);
+
+    public bool SetMicMuteLed(bool on) => _model?.MicMuteLedAddress is { } address && WriteBit(address, _model.LedBit, on);
+
+    /// <summary>On the verified model MSI checks EC 0x2F bit1 before offering the webcam switch.</summary>
+    public bool WebcamSupported =>
+        _model?.WebcamAddress is not null && (!UsesMsiLayout(_model) || Bit(RegCapabilities, 1) == true);
+
+    public bool? GetWebcam() => WebcamSupported ? Bit(_model!.WebcamAddress!.Value, _model.WebcamBit) : null;
+
+    public bool SetWebcam(bool enabled) => WebcamSupported && WriteBit(_model!.WebcamAddress!.Value, _model.WebcamBit, enabled);
+
+    public bool? GetFnLock() => CanWrite ? Bit(RegHostFlags, 1) : null;
+
+    /// <summary>MSI's service sets D9 bit0 at every start and resume ("vendor software present"); so do we.</summary>
+    public bool MarkVendorSoftwarePresent() => CanWrite && Write(() => _acpi.WriteEcBits(RegHostFlags, 0x01, 0x01));
+
+    // ---- Sensors ------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Get_Temperature(0): [0] CPU °C, [1] GPU °C (0 when the dGPU is off); falls back to the model's EC
+    /// temperature registers. Get_Fan(0): big-endian 16-bit tach periods, RPM = 480000 / raw (0 = stopped).
+    /// </summary>
+    public EcSensors? ReadSensors()
+    {
+        var temps = _acpi.Get("Get_Temperature", 0);
+        var fans = _acpi.Get("Get_Fan", 0);
+        int? cpu = temps is { } t && t[0] is > 0 and < 120 ? t[0] : null;
+        int? gpu = temps is { } g && g[1] is > 0 and < 120 ? g[1] : null;
+        if (temps is null && _model is not null)
+        {
+            cpu = _model.CpuTempAddress is { } ca && _acpi.ReadEc(ca) is { } c and > 0 and < 120 ? c : null;
+            gpu = _model.GpuTempAddress is { } ga && _acpi.ReadEc(ga) is { } gv and > 0 and < 120 ? gv : null;
+        }
+
+        if (cpu is null && gpu is null && fans is null)
+        {
+            return null;
+        }
+
+        return new EcSensors(cpu, gpu, fans is { } f1 ? Rpm(f1[0], f1[1]) : null, fans is { } f2 ? Rpm(f2[2], f2[3]) : null);
+    }
+
+    /// <summary>One register as it is, for the Debug page. Never writes.</summary>
+    public byte? ReadRegister(byte address) => _acpi.ReadEc(address);
+
+    private static int Rpm(byte high, byte low)
+    {
+        var raw = (high << 8) | low;
+        return raw == 0 ? 0 : 480000 / raw;
+    }
+
+    private bool? Bit(byte address, int bit) => _acpi.ReadEc(address) is { } v ? (v & (1 << bit)) != 0 : null;
+
+    private bool WriteBit(byte address, int bit, bool on)
+    {
+        var mask = (byte)(1 << bit);
+        return Write(() => _acpi.WriteEcBits(address, mask, on ? mask : (byte)0));
+    }
+
+    private bool Write(Func<bool> write)
+    {
+        if (!CanWrite)
+        {
+            return false;
+        }
+
+        return write();
+    }
+}

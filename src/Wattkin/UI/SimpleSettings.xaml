@@ -1,0 +1,178 @@
+<UserControl x:Class="Wattkin.UI.SimpleSettings"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:Wattkin.UI">
+    <!-- The everyday settings, one control per row. Expert view has everything else. -->
+    <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
+        <StackPanel MaxWidth="720" HorizontalAlignment="Center" Margin="28,60,28,28">
+
+            <!-- Warnings only when they apply -->
+            <Border x:Name="NoticeGroup" Style="{StaticResource Lc.Group}" BorderBrush="{DynamicResource Lc.Warn}" Visibility="Collapsed">
+                <Grid Style="{StaticResource Lc.Row}">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock x:Name="NoticeTitle" Style="{StaticResource Lc.RowTitle}" />
+                        <TextBlock x:Name="NoticeText" Style="{StaticResource Lc.RowText}" />
+                    </StackPanel>
+                    <Button x:Name="NoticeButton" Grid.Column="1" Click="OnNotice" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Battery -->
+            <TextBlock Text="Battery" Style="{StaticResource Lc.GroupTitle}" />
+            <Border Style="{StaticResource Lc.Group}">
+                <StackPanel>
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Health" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="HealthText" Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <TextBlock x:Name="HealthPercent" Grid.Column="1" FontFamily="{DynamicResource Lc.Display}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <StackPanel x:Name="CalibrationRow" Visibility="Collapsed">
+                        <Border Style="{StaticResource Lc.Divider}" />
+                        <Grid Style="{StaticResource Lc.Row}">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="CalibrationTitle" Style="{StaticResource Lc.RowTitle}" />
+                                <TextBlock x:Name="CalibrationText" Style="{StaticResource Lc.RowText}" />
+                                <ProgressBar x:Name="CalibrationBar" Height="4" Margin="0,8,16,0" Maximum="100" Visibility="Collapsed" />
+                            </StackPanel>
+                            <Button x:Name="CalibrationButton" Grid.Column="1" Click="OnCalibration" VerticalAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Stop charging at" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="LimitText" Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <UniformGrid x:Name="LimitPanel" Grid.Column="1" Rows="1" Width="290" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Charge to 100% once" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="For a long day away. Goes back to your limit afterwards." Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <CheckBox x:Name="FullOnceToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnFullOnce" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Performance -->
+            <TextBlock Text="Performance" Style="{StaticResource Lc.GroupTitle}" />
+            <Border Style="{StaticResource Lc.Group}">
+                <StackPanel>
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="On the charger" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="AcText" Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <ComboBox x:Name="AcProfile" Grid.Column="1" Width="190" VerticalAlignment="Center" SelectionChanged="OnProfileChoice" />
+                    </Grid>
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="On battery" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="DcText" Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <ComboBox x:Name="DcProfile" Grid.Column="1" Width="190" VerticalAlignment="Center" SelectionChanged="OnProfileChoice" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Graphics: only where MSI's firmware switch exists -->
+            <StackPanel x:Name="GraphicsGroup">
+                <TextBlock Text="Graphics" Style="{StaticResource Lc.GroupTitle}" />
+                <Border Style="{StaticResource Lc.Group}">
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="GpuTitle" Text="NVIDIA graphics" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="GpuText" Style="{StaticResource Lc.RowText}" />
+                            <Button x:Name="RestartButton" Style="{StaticResource Lc.LinkButton}" Content="Restart now" HorizontalAlignment="Left" Margin="0,4,0,0" Click="OnRestart" Visibility="Collapsed" />
+                        </StackPanel>
+                        <UniformGrid x:Name="GpuPanel" Grid.Column="1" Rows="1" Width="240" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- Keyboard -->
+            <TextBlock Text="Keyboard" Style="{StaticResource Lc.GroupTitle}" />
+            <Border Style="{StaticResource Lc.Group}">
+                <StackPanel>
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Backlight" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="The light under the keys." Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <UniformGrid x:Name="KeyboardPanel" Grid.Column="1" Rows="1" Width="240" VerticalAlignment="Center" />
+                    </Grid>
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Turn off when not typing" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="After about 10 seconds; any key brings it back." Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <CheckBox x:Name="AutoOffToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnAutoOff" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Wattkin -->
+            <TextBlock Text="Wattkin" Style="{StaticResource Lc.GroupTitle}" />
+            <Border Style="{StaticResource Lc.Group}">
+                <StackPanel>
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Start with Windows" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="Runs at sign-in, with no UAC prompt." Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <CheckBox x:Name="StartToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnStartWithWindows" />
+                    </Grid>
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Watts in the taskbar" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="The tray icon shows what the laptop is drawing." Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <CheckBox x:Name="TrayToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnTray" />
+                    </Grid>
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Desktop widget" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="A small panel with watts and battery time on the desktop." Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <CheckBox x:Name="WidgetToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnWidget" />
+                    </Grid>
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="Update automatically" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="UpdateText" Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <CheckBox x:Name="UpdateToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnUpdates" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <Button Style="{StaticResource Lc.LinkButton}" Content="Expert view: every setting, sensors and diagnostics" HorizontalAlignment="Left" Margin="2,0,0,0" Click="OnExpert" />
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Maintainer tool: makes the release key, signs builds and publishes GitHub releases. Not shipped. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Wattkin.Release</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The same statement and verification code the app uses, so the two can't drift apart. -->
+    <Compile Include="..\..\src\Wattkin\Features\Releases.cs" Link="Releases.cs" />
+  </ItemGroup>
+
+</Project>
