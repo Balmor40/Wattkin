@@ -140,8 +140,11 @@ public sealed class BatteryLog
         File.AppendAllText(CapacityFile, $"{dayText},{info.FullChargedCapacityMWh},{info.DesignedCapacityMWh},{info.CycleCount}{Environment.NewLine}");
     }
 
-    /// <summary>Capacity history: Windows' battery report (goes back to Windows install) merged with Wattkin's own daily records.</summary>
-    public async Task<IReadOnlyList<CapacityPoint>> LoadCapacityHistoryAsync()
+    /// <summary>
+    /// Capacity history: Windows' battery report (goes back to Windows install) merged with Wattkin's own
+    /// daily records. <paramref name="since"/>: the day a new battery went in; older days were another battery's.
+    /// </summary>
+    public async Task<IReadOnlyList<CapacityPoint>> LoadCapacityHistoryAsync(DateTime? since = null)
     {
         var points = new SortedDictionary<DateTime, CapacityPoint>();
         foreach (var point in await Task.Run(ReadWindowsBatteryReport).ConfigureAwait(false))
@@ -170,7 +173,7 @@ public sealed class BatteryLog
         {
         }
 
-        return [.. points.Values];
+        return [.. points.Values.Where(p => since is not { } day || p.Date.Date >= day.Date)];
     }
 
     /// <summary>

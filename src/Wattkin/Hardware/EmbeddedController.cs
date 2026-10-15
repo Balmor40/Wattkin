@@ -73,11 +73,12 @@ public sealed class EmbeddedController : IEcSensorSource
         _acpi = acpi;
         var listed = EcModels.Find(acpi.EcVersion);
         var verified = VerifiedFirmwarePrefixes.Any(p => acpi.EcVersion.StartsWith(p, StringComparison.OrdinalIgnoreCase));
-        var candidate = listed ?? (acpi.WmiMajor >= 2 ? EcModels.MsiStandardWmi2 : null);
+        var candidate = listed ?? (acpi.WmiMajor == 2 ? EcModels.MsiStandardWmi2 : null);
 
-        // MSI's software only uses Get_Data/Set_Data on WMI v2+, and only then do we write anything.
+        // Writes only on WMI v2, the version MSI's register access is known for. v3 (newer laptops) goes
+        // through different calls in MSI's own library, so it stays read-only until someone reports one.
         var why = "";
-        if (acpi.WmiMajor >= 2 && candidate is not null && Sane(candidate, out _shiftOk, out _fanOk, out why))
+        if (acpi.WmiMajor == 2 && candidate is not null && Sane(candidate, out _shiftOk, out _fanOk, out why))
         {
             _model = candidate;
             Support = verified ? EcSupport.Verified : listed is not null ? EcSupport.Community : EcSupport.Standard;
@@ -88,9 +89,12 @@ public sealed class EmbeddedController : IEcSensorSource
             _model = candidate;
             Support = EcSupport.Unknown;
             CanWrite = false;
-            Reason = acpi.WmiMajor < 2
-                ? $"This laptop uses MSI's older firmware interface (WMI {acpi.WmiMajor}.{acpi.WmiMinor}), which Wattkin can't control yet."
-                : candidate is null ? "No register map for this firmware." : $"The registers didn't look like {candidate.Source} ({why}), so Wattkin stays read-only.";
+            Reason = acpi.WmiMajor switch
+            {
+                < 2 => $"This laptop uses MSI's older firmware interface (version {acpi.WmiMajor}.{acpi.WmiMinor}), which Wattkin can't control yet. Monitoring works.",
+                > 2 => $"This laptop uses a newer version of MSI's firmware interface ({acpi.WmiMajor}.{acpi.WmiMinor}) that Wattkin hasn't been tested with, so it only monitors for now. A diagnostics report (Settings › Debug) would help add it.",
+                _ => candidate is null ? "No register map for this firmware." : $"The registers didn't look like {candidate.Source} ({why}), so Wattkin stays read-only.",
+            };
             Log.Warn($"EC {acpi.EcVersion}: controls disabled. {Reason}");
         }
     }
@@ -218,7 +222,9 @@ public sealed class EmbeddedController : IEcSensorSource
             : FanMode.Auto;
     }
 
-    public bool SetFanMode(FanMode mode)
+    /// <param name="curve">For <see cref="FanMode.Custom"/>: the speeds to use; null hands the controller back the table it holds.</param>
+    /// <param name="unrestricted">The user accepted the experimental mode: curves that let the laptop run hot are allowed.</param>
+    public bool SetFanMode(FanMode mode, FanSpeeds? curve = null, bool unrestricted = false)
     {
         if (!_fanOk || _model?.FanModeAddress is not { } address)
         {
@@ -227,7 +233,7 @@ public sealed class EmbeddedController : IEcSensorSource
 
         if (mode == FanMode.Custom)
         {
-            return SelectFanCurve(address);
+            return WriteFanTable(curve, unrestricted) && Write(() => _acpi.WriteEcBits(address, 0x90, 0x80, force: true));
         }
 
         if (UsesMsiLayout(_model))
@@ -241,39 +247,69 @@ public sealed class EmbeddedController : IEcSensorSource
     }
 
     /// <summary>
-    /// MSI Center's sequence for its custom curve: hand each fan's table to the controller with
-    /// Set_Fan(n) (8 bytes, exactly as Get_Fan(n) returned them), then set 0xD4 bit 7, always written.
-    /// Setting the bit alone left the fans on the built-in curve (measured: 50% duty at 42°C under a
-    /// table that says off below 60°C). Wattkin hands the table back unchanged and checks that it still
-    /// reads the same; if it doesn't, the fans go back to Auto.
+    /// Hands both fans' tables to the controller with Set_Fan(n): 8 bytes laid out as Get_Fan(n) returns
+    /// them, with the six editable speeds replaced by <paramref name="curve"/> (or unchanged when it's
+    /// null). That's MSI Center's sequence for its custom curve; selecting it (0xD4 bit 7) is the caller's
+    /// step. Setting the bit alone left the fans on the built-in curve (measured: 50% duty at 42°C under a
+    /// table that says off below 60°C).
+    ///
+    /// Only on MSI's own layout, only firmware temperature steps that look right, and (unless
+    /// <paramref name="unrestricted"/>) only a resulting table that can cool the laptop. The table is
+    /// read back and must match; if it doesn't, the original is written back and the fans go to Auto.
     /// </summary>
-    private bool SelectFanCurve(byte address)
+    public bool WriteFanTable(FanSpeeds? curve, bool unrestricted = false)
     {
-        // Only MSI's own layout, and only onto a table that can cool the laptop.
         var cpu = _acpi.Get("Get_Fan", 1);
         var gpu = _acpi.Get("Get_Fan", 2);
-        if (!HasFanCurves || cpu is null || gpu is null || ReadFanCurves() is not { Sane: true })
+        var before = ReadFanCurves();
+        if (!HasFanCurves || cpu is null || gpu is null || before is null || _model?.FanModeAddress is not { } address)
         {
-            Log.Warn("Not switching to the fan curve: the controller's fan table is missing or doesn't look safe.");
+            Log.Warn("Not using the fan curve: the controller's fan table couldn't be read.");
             return false;
         }
 
-        if (!Write(() => _acpi.Set("Set_Fan", 1, cpu.AsSpan(0, 8)) && _acpi.Set("Set_Fan", 2, gpu.AsSpan(0, 8))))
+        if (curve?.Problem(unrestricted) is { } problem)
         {
-            Log.Warn("The controller didn't accept its fan table back; staying on the current fan mode.");
+            Log.Warn($"Not using this fan curve: {problem}");
+            return false;
+        }
+
+        var wantCpu = cpu[..8];
+        var wantGpu = gpu[..8];
+        if (curve is not null)
+        {
+            for (var i = 0; i < FanSpeeds.Steps; i++)
+            {
+                wantCpu[1 + i] = (byte)curve.Cpu[i];
+                wantGpu[1 + i] = (byte)curve.Gpu[i];
+            }
+        }
+
+        var after = new FanCurves(before.Cpu with { Speeds = [.. wantCpu[1..8].Select(b => (int)b)] }, before.Gpu with { Speeds = [.. wantGpu[1..8].Select(b => (int)b)] });
+        var stepsOk = new[] { after.Cpu, after.Gpu }.All(c => c.Temps.All(t => t is >= 20 and <= 110) && c.Temps.Zip(c.Temps.Skip(1)).All(p => p.Second > p.First));
+        if (!stepsOk || (!unrestricted && !after.Sane))
+        {
+            Log.Warn("Not using the fan curve: the controller's temperature steps or the resulting table don't look safe.");
+            return false;
+        }
+
+        if (!Write(() => _acpi.Set("Set_Fan", 1, wantCpu) && _acpi.Set("Set_Fan", 2, wantGpu)))
+        {
+            Log.Warn("The controller didn't accept the fan table.");
             return false;
         }
 
         if (_acpi.Get("Get_Fan", 1) is not { } cpuAfter || _acpi.Get("Get_Fan", 2) is not { } gpuAfter
-            || !cpuAfter.AsSpan(1, 7).SequenceEqual(cpu.AsSpan(1, 7)) || !gpuAfter.AsSpan(1, 7).SequenceEqual(gpu.AsSpan(1, 7)))
+            || !cpuAfter.AsSpan(1, 7).SequenceEqual(wantCpu.AsSpan(1, 7)) || !gpuAfter.AsSpan(1, 7).SequenceEqual(wantGpu.AsSpan(1, 7)))
         {
-            Log.Error("The fan table read differently after handing it back; switching the fans to Auto.");
+            Log.Error("The fan table read back differently; putting the previous one back and switching the fans to Auto.");
+            Write(() => _acpi.Set("Set_Fan", 1, cpu.AsSpan(0, 8)) && _acpi.Set("Set_Fan", 2, gpu.AsSpan(0, 8)));
             Write(() => _acpi.WriteEcBits(address, 0x90, 0x00, force: true));
             return false;
         }
 
-        Log.Info($"Fan curve handed to the controller (CPU {BitConverter.ToString(cpu, 1, 7)}, GPU {BitConverter.ToString(gpu, 1, 7)}) and selected.");
-        return Write(() => _acpi.WriteEcBits(address, 0x90, 0x80, force: true));
+        Log.Info($"Fan table handed to the controller: CPU {BitConverter.ToString(wantCpu, 1, 7)}, GPU {BitConverter.ToString(wantGpu, 1, 7)}{(unrestricted ? " (experimental: unrestricted)" : "")}.");
+        return true;
     }
 
     /// <summary>The fan-curve mode, on MSI's standard layout (where the table's format is known).</summary>

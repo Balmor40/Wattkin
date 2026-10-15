@@ -14,13 +14,41 @@ public enum BatteryPowerState : uint
     Critical = 0x8,
 }
 
+/// <param name="Identity">Windows' unique ID for this battery (BatteryUniqueID), else its maker, name and design capacity.</param>
 public sealed record BatteryInfo(
     uint DesignedCapacityMWh,
     uint FullChargedCapacityMWh,
     uint CycleCount,
     string Chemistry,
     string? Manufacturer,
-    string? DeviceName);
+    string? DeviceName,
+    string Identity);
+
+/// <summary>
+/// Whether the battery was replaced. Windows' unique ID is enough when the battery reports a serial
+/// number, but many don't: the Prestige 16 Studio's says only "MSIBIF0_9" (maker and slot), with no
+/// serial or manufacture date, so a replacement looks identical. A new battery also holds far more
+/// than a worn one, so a jump in full capacity of over a tenth of the design capacity counts too;
+/// a calibration moves it by a few watt-hours at most.
+/// </summary>
+public static class BatterySwap
+{
+    public static bool IsNewBattery(string? knownIdentity, uint? lastFullMWh, BatteryInfo now)
+    {
+        if (knownIdentity is null)
+        {
+            return false; // first look at this laptop's battery
+        }
+
+        if (knownIdentity != now.Identity)
+        {
+            return true;
+        }
+
+        var jump = Math.Max(5000u, now.DesignedCapacityMWh / 10);
+        return lastFullMWh is { } last && now.FullChargedCapacityMWh > last + jump;
+    }
+}
 
 public readonly record struct BatteryReading(
     BatteryPowerState State,
@@ -140,7 +168,10 @@ internal sealed class BatteryDevice : IDisposable
 
         var chem = info.Chemistry;
         var chemistry = new string([(char)(chem & 0xFF), (char)((chem >> 8) & 0xFF), (char)((chem >> 16) & 0xFF), (char)((chem >> 24) & 0xFF)]).TrimEnd('\0', ' ');
-        return new BatteryInfo(info.DesignedCapacity, info.FullChargedCapacity, info.CycleCount, chemistry, QueryString(6), QueryString(4));
+        var manufacturer = QueryString(6);
+        var name = QueryString(4);
+        var identity = QueryString(7) ?? $"{manufacturer}|{name}|{info.DesignedCapacity}"; // 7 = BatteryUniqueID
+        return new BatteryInfo(info.DesignedCapacity, info.FullChargedCapacity, info.CycleCount, chemistry, manufacturer, name, identity);
     }
 
     /// <summary>Battery temperature in °C, if the gauge reports it (many don't).</summary>

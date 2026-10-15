@@ -64,3 +64,63 @@ public sealed record FanCurves(FanCurve Cpu, FanCurve Gpu)
 {
     public bool Sane => Cpu.Sane && Gpu.Sane;
 }
+
+/// <summary>
+/// The part of both fan tables a user can set: the speed below the first temperature step and from
+/// each of the next five, as MSI Center's own fan page does. The seventh speed, at the hottest step,
+/// always stays the firmware's (130% on the Prestige 16 Studio).
+/// </summary>
+public sealed class FanSpeeds
+{
+    public const int Steps = 6;
+    public const int Max = 150;
+
+    /// <summary>From this step (0-based) up the fans must be at full speed, unless the user accepted the experimental mode.</summary>
+    public const int FullSpeedFrom = 5;
+
+    public int[] Cpu { get; set; } = [];
+    public int[] Gpu { get; set; } = [];
+
+    public FanSpeeds Clone() => new() { Cpu = [.. Cpu], Gpu = [.. Gpu] };
+
+    public static FanSpeeds From(FanCurves curves) => new() { Cpu = [.. curves.Cpu.Speeds.Take(Steps)], Gpu = [.. curves.Gpu.Speeds.Take(Steps)] };
+
+    /// <summary>Fans off until it's properly warm; full speed from the fifth step.</summary>
+    public static FanSpeeds Quiet() => new() { Cpu = [0, 0, 40, 55, 75, 100], Gpu = [0, 40, 60, 80, 100, 100] };
+
+    /// <summary>Always spinning, and faster at every step.</summary>
+    public static FanSpeeds Cool() => new() { Cpu = [40, 55, 65, 80, 100, 130], Gpu = [40, 60, 80, 100, 130, 130] };
+
+    /// <summary>
+    /// What's wrong with these speeds, or null. Always: six speeds per fan, 0–150%. Unless
+    /// <paramref name="unrestricted"/>: speeds never fall as it gets hotter, and from the fifth step the
+    /// fans run at 100% or more, so the laptop can't be left to overheat.
+    /// </summary>
+    public string? Problem(bool unrestricted)
+    {
+        foreach (var (name, speeds) in new[] { ("CPU", Cpu), ("GPU", Gpu) })
+        {
+            if (speeds is not { Length: Steps } || speeds.Any(s => s is < 0 or > Max))
+            {
+                return $"The {name} fan needs {Steps} speeds between 0 and {Max}%.";
+            }
+
+            if (unrestricted)
+            {
+                continue;
+            }
+
+            if (speeds.Zip(speeds.Skip(1)).Any(p => p.Second < p.First))
+            {
+                return $"The {name} fan's speed can't drop as the temperature rises.";
+            }
+
+            if (speeds[FullSpeedFrom] < 100)
+            {
+                return $"The {name} fan must reach 100% at the hottest editable step, so the laptop can't overheat. To set it lower, allow any curve (experimental).";
+            }
+        }
+
+        return null;
+    }
+}

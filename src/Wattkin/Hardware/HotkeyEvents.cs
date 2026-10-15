@@ -3,8 +3,8 @@ using System.Management;
 namespace Wattkin.Hardware;
 
 /// <summary>
-/// Hotkey notifications from the BIOS (root\WMI:MSI_Event, code = MSIEvt &amp; 0xFF, extra data in
-/// the higher bits). Codes from MSI's OmApSvcBroker.exe and API_NB_Base Module.dll. The EC already
+/// Hotkey notifications from the BIOS (MSI's event GUID 5B3CC38A-…, through Wattkin's own class
+/// <see cref="WmiSchema.EventClass"/>; code = MSIEvt &amp; 0xFF, extra data in the higher bits). Codes from MSI's OmApSvcBroker.exe and API_NB_Base Module.dll. The EC already
 /// handles keyboard-backlight, webcam power and Fn-lock itself; these events are the parts MSI did in
 /// software, which Wattkin takes over.
 /// </summary>
@@ -55,7 +55,7 @@ internal sealed class HotkeyEvents : IDisposable
             StopWatcher();
             try
             {
-                _watcher = new ManagementEventWatcher(new ManagementScope(@"root\WMI"), new WqlEventQuery("SELECT * FROM MSI_Event"));
+                _watcher = new ManagementEventWatcher(new ManagementScope(@"root\WMI"), new WqlEventQuery($"SELECT * FROM {WmiSchema.EventClass}"));
                 _watcher.EventArrived += OnEvent;
                 _watcher.Stopped += OnStopped;
                 _watcher.Start();

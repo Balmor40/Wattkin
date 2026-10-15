@@ -357,6 +357,7 @@ public partial class App : Application
 
             SaveLearned(force: false);
             RememberFanMax(snapshot);
+            TrackBattery();
         }
         catch (Exception ex)
         {
@@ -396,6 +397,37 @@ public partial class App : Application
                 s.Fan1MaxRpm = Math.Max(s.Fan1MaxRpm ?? 0, sensors.Fan1Rpm ?? 0);
                 s.Fan2MaxRpm = Math.Max(s.Fan2MaxRpm ?? 0, sensors.Fan2Rpm ?? 0);
             });
+        }
+    }
+
+    /// <summary>
+    /// A different battery (see <see cref="BatterySwap"/>): its capacity history and the calibration
+    /// advice start from today, not from the old battery's readings.
+    /// </summary>
+    private void TrackBattery()
+    {
+        var settings = Store.Current;
+        if (_previewOnly || Monitor.BatteryInfo is not { } info
+            || (settings.BatteryIdentity == info.Identity && settings.BatteryFullMWh == info.FullChargedCapacityMWh))
+        {
+            return;
+        }
+
+        var replaced = BatterySwap.IsNewBattery(settings.BatteryIdentity, settings.BatteryFullMWh, info);
+        Store.Update(s =>
+        {
+            if (replaced)
+            {
+                s.BatteryChangedUtc = DateTime.UtcNow;
+            }
+
+            s.BatteryIdentity = info.Identity;
+            s.BatteryFullMWh = info.FullChargedCapacityMWh;
+        });
+        if (replaced)
+        {
+            Log.Info($"New battery detected: {info.Manufacturer} {info.DeviceName}, {info.DesignedCapacityMWh / 1000.0:0.0} Wh design, {info.FullChargedCapacityMWh / 1000.0:0.0} Wh full (was {settings.BatteryFullMWh / 1000.0:0.0} Wh), {info.CycleCount} cycles. Capacity history starts again.");
+            Dispatcher.BeginInvoke(() => ShowOsd("New battery detected"));
         }
     }
 

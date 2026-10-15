@@ -152,13 +152,9 @@ internal static class Fmt
         {
             "CPU " + (p.Performance switch { ShiftMode.Eco => "Eco", ShiftMode.Turbo => "Extreme", _ => "Balanced" }),
         };
-        if (p.CoolerBoost)
+        if (FanWords(p) is { } fans)
         {
-            parts.Add("fans at maximum");
-        }
-        else if (p.Fan is { } fan)
-        {
-            parts.Add(fan switch { FanMode.Silent => "silent fans", FanMode.Custom => "fan curve", _ => "auto fans" });
+            parts.Add(fans);
         }
 
         if (p.WindowsMode != Settings.WindowsPowerMode.Unchanged)
@@ -194,6 +190,19 @@ internal static class Fmt
         return string.Join("  ·  ", parts);
     }
 
+    /// <summary>A profile's fan setting in a few words; null when it leaves the fans alone.</summary>
+    private static string? FanWords(Settings.Profile p) => p switch
+    {
+        { CoolerBoost: true } => "fans at full speed",
+        { Fan: FanMode.Auto } => "auto fans",
+        { Fan: FanMode.Silent } => "silent fans",
+        { Fan: FanMode.Custom, FanProfileName: null } => "laptop's fan curve",
+        { Fan: FanMode.Custom, FanProfileName: var name } when string.Equals(name, Settings.FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => "laptop's fan curve",
+        { Fan: FanMode.Custom, FanProfileName: var name } when string.Equals(name, Settings.FanProfile.Off, StringComparison.OrdinalIgnoreCase) => "fans off",
+        { Fan: FanMode.Custom, FanProfileName: var name } => $"{name} fans",
+        _ => null,
+    };
+
     /// <summary>What a profile changes, in plain words, built from its settings so it stays true after editing.</summary>
     public static string ProfileSummary(Settings.Profile p)
     {
@@ -206,17 +215,12 @@ internal static class Fmt
                 _ => "normal power",
             },
         };
-        if (p.CoolerBoost)
+        if (p.Fan != FanMode.Auto || p.CoolerBoost)
         {
-            parts.Add("fans at maximum");
-        }
-        else if (p.Fan == FanMode.Silent)
-        {
-            parts.Add("quiet fans");
-        }
-        else if (p.Fan == FanMode.Custom)
-        {
-            parts.Add("fans on the controller's curve");
+            if (FanWords(p) is { } fans)
+            {
+                parts.Add(fans);
+            }
         }
 
         if (p.CpuBoost == false)

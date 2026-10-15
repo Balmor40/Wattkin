@@ -58,6 +58,12 @@ internal static class Installation
                 Log.Warn(taskError);
             }
 
+            // How Windows reaches MSI's firmware interface without any MSI software (also checked at every start).
+            if (global::Wattkin.Hardware.WmiSchema.EnsureRegistered() is { } schemaError)
+            {
+                Log.Warn(schemaError);
+            }
+
             Log.Info($"Installed Wattkin {CurrentVersion.ToString(3)} to {Folder}.");
             return null;
         }
@@ -69,8 +75,8 @@ internal static class Installation
     }
 
     /// <summary>
-    /// Elevated. Puts back what Wattkin changed in Windows (power settings, a disabled NVIDIA GPU) and
-    /// removes it. The charge limit stays at its last value: the laptop's controller keeps it.
+    /// Elevated. Puts back what Wattkin changed (Windows power settings, a disabled NVIDIA GPU, the
+    /// charge limit and the fans) and removes it, including its WMI classes.
     /// </summary>
     public static void Uninstall(bool removeData)
     {
@@ -80,7 +86,8 @@ internal static class Installation
             new SettingsStore().Update(WindowsPower.RestoreOriginals);
             global::Wattkin.Hardware.DiscreteGpu.Enable();
         });
-        Step("charge limit", ResetChargeLimit);
+        Step("laptop controller", ResetHardware);
+        Step("WMI classes", global::Wattkin.Hardware.WmiSchema.Remove); // after the controller, which needs them
         Step("logon task", () => StartupTask.Disable());
         Step("shortcuts", () =>
         {
@@ -116,8 +123,11 @@ internal static class Installation
         });
     }
 
-    /// <summary>Leaves the laptop charging normally: 100%, and not running from battery on the charger.</summary>
-    private static void ResetChargeLimit()
+    /// <summary>
+    /// Leaves the laptop as it came: charging to 100%, not running from battery on the charger, and the
+    /// fans on Auto with the factory fan table back in the controller.
+    /// </summary>
+    private static void ResetHardware()
     {
         using var acpi = global::Wattkin.Hardware.MsiAcpi.TryOpen(out _);
         if (acpi is null)
@@ -126,11 +136,20 @@ internal static class Installation
         }
 
         var ec = new global::Wattkin.Hardware.EmbeddedController(acpi);
-        if (ec.CanWrite)
+        if (!ec.CanWrite)
         {
-            ec.SetSimulatedUnplug(false);
-            ec.SetChargeLimit(100);
+            return;
         }
+
+        ec.SetSimulatedUnplug(false);
+        ec.SetChargeLimit(100);
+        ec.SetCoolerBoost(false);
+        if (new SettingsStore(readOnly: true).Current.FactoryFanCurve is { } factory && ec.HasFanCurves)
+        {
+            ec.WriteFanTable(factory);
+        }
+
+        ec.SetFanMode(global::Wattkin.Hardware.FanMode.Auto);
     }
 
     /// <summary>

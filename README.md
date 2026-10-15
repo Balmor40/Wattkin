@@ -38,9 +38,9 @@ Wattkin installs itself, starts with Windows and keeps itself up to date. It nee
 
 To uninstall, go to **Settings › Apps › Installed apps › Wattkin**. Your Windows power settings are put back and the battery charges to 100% again.
 
-### Replacing MSI Center
+### MSI Center
 
-Once Wattkin is set up, uninstall **MSI Center** from **Settings › Apps**, along with **MSI NBFoundation Service** and **MSI Center SDK** if they're listed, then restart. Running both makes them fight over the same settings.
+You don't need MSI Center, and you never need to install it. If it's already on your laptop, uninstall it once Wattkin is set up: **MSI Center** in **Settings › Apps**, along with **MSI NBFoundation Service** and **MSI Center SDK** if they're listed, then restart. Running both makes them fight over the same settings.
 
 ## Features
 
@@ -48,6 +48,7 @@ Once Wattkin is set up, uninstall **MSI Center** from **Settings › Apps**, alo
 - **Charge limits** - Stop charging anywhere from 10% to 100%, charge to 100% once for a long day away, or bring the battery down to the limit while plugged in.
 - **Battery health** - Capacity, health and history, plus MSI's calibration for when the battery gauge drifts.
 - **Profiles** - CPU power, fans, Windows power mode, turbo, refresh rate and keyboard light, each set separately. Profiles switch by themselves when you plug in or unplug. On the Prestige 16 Studio, Quiet keeps the fans off until the CPU reaches 60°C.
+- **Fan profiles** - Make named fan curves, each fan's speed at each of the laptop's temperature steps, and pick one in any profile. Fans can also be set to full speed, or off (experimental). Safety rules keep the fans ahead of the heat unless you accept the experimental mode, if you'd rather let the laptop run hot and throttle.
 - **Monitoring** - CPU, Intel graphics and RTX load and watts, temperatures, fans, RAM and disk.
 - **Keyboard and keys** - Backlight brightness and auto-off. The mic-mute key, the mute lights and the MSI keys keep working without MSI Center.
 - **NVIDIA GPU** - See whether the RTX is asleep or working, and switch between Hybrid and Integrated-only.
@@ -68,7 +69,7 @@ Once Wattkin is set up, uninstall **MSI Center** from **Settings › Apps**, alo
 | --- | --- |
 | ![Battery, expert view](docs/images/settings-expert-battery-light.png) | ![Profiles, expert view](docs/images/settings-expert-profiles-dark.png) |
 | ![Graphics, expert view](docs/images/settings-expert-graphics-dark.png) | ![System details](docs/images/settings-expert-system-light.png) |
-| ![Debug tab](docs/images/settings-expert-debug-dark.png) | |
+| ![Fan profiles](docs/images/settings-expert-fans-dark.png) | ![Debug tab](docs/images/settings-expert-debug-dark.png) |
 </details>
 
 ## Supported laptops
@@ -77,13 +78,13 @@ Once Wattkin is set up, uninstall **MSI Center** from **Settings › Apps**, alo
 | --- | --- |
 | MSI Prestige 16 Studio A13VE | Everything, tested on the real laptop |
 | Other recent MSI laptops, including those known to the Linux [msi-ec](https://github.com/BeardOverflow/msi-ec) project | Everything the laptop supports, after a safety check at startup |
-| Older MSI laptops and other brands | Watts, battery and system readings, without hardware controls |
+| Older MSI laptops, the newest MSI laptops (firmware interface version 3), and other brands | Watts, battery and system readings, without hardware controls |
 
-Only the Prestige 16 Studio has been tested so far. If you try Wattkin on another MSI laptop, please open an issue with a diagnostics report (Expert view, **Debug › Save diagnostics report**).
+Only the Prestige 16 Studio has been tested so far. If you try Wattkin on another MSI laptop, please [open an issue](https://github.com/CoppingEthan/Wattkin/issues/new/choose) with a diagnostics report. When hardware controls aren't available, the flyout has a button that saves one to your desktop.
 
 ## How it works
 
-Wattkin talks to the laptop through the same firmware interface MSI Center uses, so it needs no driver and keeps working after MSI Center is gone. It only changes hardware settings on firmware it recognises, and it logs every change.
+Wattkin talks to the laptop through the same firmware interface MSI Center uses, so it needs no driver. Windows only knows that interface once it has been described to it. MSI Center does that with a file of its own, while Wattkin brings its own description, so it works on a Windows install that has never had MSI software. It only changes hardware settings on firmware it recognises, and it logs every change.
 
 Nothing leaves your laptop apart from the daily update check. Settings are kept in `%APPDATA%\Wattkin` and logs in `%LOCALAPPDATA%\Wattkin`.
 

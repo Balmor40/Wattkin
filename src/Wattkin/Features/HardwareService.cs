@@ -163,6 +163,7 @@ public sealed partial class HardwareService : IDisposable
                 AdoptCurrentHardwareState(ec);
             }
 
+            CaptureFactoryFanCurve(ec); // before any profile can write a curve of its own
             ec.MarkVendorSoftwarePresent();
             _charge = new ChargeController(_store);
             _calibration = new CalibrationController(_store, () => _monitor.BatteryInfo);

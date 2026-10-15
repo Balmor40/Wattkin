@@ -76,16 +76,24 @@ public static class Diagnostics
 
         if (Elevation.IsElevated)
         {
+            Try("WMI", () =>
+            {
+                // How Windows knows the interface: Wattkin's own classes, and whether MSI's description file is around.
+                using var wmiAcpi = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\WmiAcpi");
+                Line($"Interface description: Wattkin's {(WmiSchema.IsRegistered() ? "registered" : "NOT registered")} · MSI's (WmiAcpi MofImagePath) {wmiAcpi?.GetValue("MofImagePath") ?? "none"}");
+            });
+
             Try("EC", () =>
             {
-                using var acpi = MsiAcpi.TryOpen(out var error);
+                // Read-only: the report never registers anything either.
+                using var acpi = MsiAcpi.TryOpen(out var error, readOnly: true);
                 if (acpi is null)
                 {
-                    Line($"MSI_ACPI: {error}");
+                    Line($"Firmware interface: {error}");
                     return;
                 }
 
-                Line($"MSI_ACPI: WMI {acpi.WmiMajor}.{acpi.WmiMinor} · EC firmware '{acpi.EcFirmware}'");
+                Line($"Firmware interface: WMI {acpi.WmiMajor}.{acpi.WmiMinor} · EC firmware '{acpi.EcFirmware}'");
                 foreach (var register in Registers)
                 {
                     var value = acpi.ReadEc(register);

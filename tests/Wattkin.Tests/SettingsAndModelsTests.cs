@@ -20,6 +20,70 @@ public sealed class SettingsAndModelsTests : IDisposable
     }
 
     [Fact]
+    public void ADamagedFanProfileNeverReachesTheController()
+    {
+        Directory.CreateDirectory(_dir);
+        File.WriteAllText(Path.Combine(_dir, "settings.json"), """
+            { "ProfilesVersion": 1,
+              "Profiles": [ { "Name": "Mine", "Fan": "Custom", "FanProfileName": "Broken" } ],
+              "FanProfiles": [
+                { "Name": "Broken", "Speeds": { "Cpu": [0, 500], "Gpu": [] } },
+                { "Name": "Off", "Speeds": { "Cpu": [0, 0, 0, 0, 0, 0], "Gpu": [0, 0, 0, 0, 0, 0] } },
+                { "Name": "Fine", "Speeds": { "Cpu": [0, 0, 40, 55, 75, 100], "Gpu": [0, 40, 60, 80, 100, 100] } },
+                { "Name": "fine", "Speeds": { "Cpu": [0, 0, 40, 55, 75, 100], "Gpu": [0, 40, 60, 80, 100, 100] } } ],
+              "FactoryFanCurve": { "Cpu": [1], "Gpu": [1] } }
+            """);
+        var settings = new SettingsStore(_dir).Current;
+        Assert.Equal(["Fine"], settings.FanProfiles.Select(f => f.Name)); // broken, built-in name and repeat dropped
+        Assert.Null(settings.FindProfile("Mine")!.FanProfileName);          // back to the laptop's own curve
+        Assert.Null(settings.FactoryFanCurve);
+    }
+
+    [Fact]
+    public void EachFanChoiceStandsForTheRightSpeeds()
+    {
+        var factory = new FanSpeeds { Cpu = [0, 50, 55, 70, 80, 130], Gpu = [0, 60, 80, 130, 130, 130] };
+        var settings = new AppSettings { FactoryFanCurve = factory, FanProfiles = FanProfile.Defaults() };
+        FanSpeeds? Speeds(string? name) => settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom, FanProfileName = name }).Speeds;
+
+        Assert.Same(factory, Speeds(null));
+        Assert.Same(factory, Speeds(FanProfile.LaptopDefault));
+        Assert.Same(factory, Speeds("Deleted since"));
+        Assert.Equal(FanSpeeds.Quiet().Cpu, Speeds("quiet")!.Cpu); // names are case-insensitive
+
+        // Off: refused by the safety rules until the user accepts the experimental mode.
+        var (off, unrestricted) = settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom, FanProfileName = FanProfile.Off });
+        Assert.All(off!.Cpu.Concat(off.Gpu), s => Assert.Equal(0, s));
+        Assert.NotNull(off.Problem(unrestricted));
+        settings.UnrestrictedFanCurves = true;
+        (off, unrestricted) = settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom, FanProfileName = FanProfile.Off });
+        Assert.Null(off!.Problem(unrestricted));
+    }
+
+    [Fact]
+    public void ProfilesFollowARenamedOrDeletedFanProfile()
+    {
+        var settings = new AppSettings { Profiles = [new Profile { Name = "A", Fan = FanMode.Custom, FanProfileName = "Quiet" }] };
+        settings.RenameFanProfile("Quiet", "Whisper");
+        Assert.Equal("Whisper", settings.FindProfile("A")!.FanProfileName);
+        settings.RenameFanProfile("whisper", null);
+        Assert.Null(settings.FindProfile("A")!.FanProfileName);
+    }
+
+    [Fact]
+    public void ABatterySwapIsSeenEvenWhenTheBatteryHasNoSerial()
+    {
+        // The Prestige 16 Studio's battery: no serial, so a replacement has the same "unique" ID.
+        BatteryInfo Battery(uint fullMWh, string id = "MSIBIF0_9") => new(80256, fullMWh, 0, "LION", "MSI", "BIF0_9", id);
+
+        Assert.False(BatterySwap.IsNewBattery(null, null, Battery(58216)));            // first run: just remember it
+        Assert.False(BatterySwap.IsNewBattery("MSIBIF0_9", 58216, Battery(58216)));     // same battery
+        Assert.False(BatterySwap.IsNewBattery("MSIBIF0_9", 58216, Battery(64900)));     // a calibration putting a few Wh back
+        Assert.True(BatterySwap.IsNewBattery("MSIBIF0_9", 58216, Battery(79800)));      // a new battery, same ID
+        Assert.True(BatterySwap.IsNewBattery("MSIBIF0_9", 58216, Battery(58000, "SMP|1234"))); // a different ID
+    }
+
+    [Fact]
     public void QuietMovesToTheFanCurveOnceUnlessTheUserChangedIt()
     {
         Directory.CreateDirectory(_dir);

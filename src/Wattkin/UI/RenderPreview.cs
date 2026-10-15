@@ -153,6 +153,14 @@ internal static class RenderPreview
                 Wait(TimeSpan.FromSeconds(2)); // the registers are read in the background
             }
 
+            // Fan profiles: a user one (Quiet, unless deleted) rather than the read-only laptop default.
+            if (tab.Tag is "fans" && App.Current.Store.Current.FanProfiles.FirstOrDefault() is { } fan)
+            {
+                Wait(TimeSpan.FromSeconds(2)); // the laptop's fan table is read in the background
+                ((ListBox)settings.FindName("FanProfileList")).SelectedItem = fan.Name;
+                Pump();
+            }
+
             Save(settings, Path.Combine(folder, $"settings-expert-{tab.Tag}-{theme}.png"));
         }
 

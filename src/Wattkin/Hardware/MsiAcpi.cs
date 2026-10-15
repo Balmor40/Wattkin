@@ -3,21 +3,19 @@ using System.Management;
 namespace Wattkin.Hardware;
 
 /// <summary>
-/// Transport for the BIOS-provided ACPI-WMI interface root\WMI:MSI_ACPI
-/// (GUID ABBC0F6E-8EA1-11D1-00A0-C90629100000). This is the same interface MSI Center uses. It is
-/// part of the firmware (served by Windows' built-in ACPI-WMI driver), not of MSI's software, so it
-/// keeps working after MSI Center is uninstalled.
+/// Transport for MSI's BIOS-provided ACPI-WMI interface (GUID ABBC0F6E-8EA1-11D1-00A0-C90629100000),
+/// the same one MSI Center uses, served by Windows' built-in ACPI-WMI driver. Wattkin reaches it
+/// through its own WMI classes (<see cref="WmiSchema"/>), so no MSI software is needed.
 ///
 /// Wire format (verified against MSI's MSIWMIACPI2.dll and its call log on this laptop):
-///   input  = Package_32 { Bytes[32] }, [0] = subfeature or EC address, [1..] = data
-///   output = Package_32 { Bytes[32] }, [0] = status (1 = success), [1..] = data
+///   input  = 32-byte package { Bytes[32] }, [0] = subfeature or EC address, [1..] = data
+///   output = 32-byte package { Bytes[32] }, [0] = status (1 = success), [1..] = data
 /// Get_WMI / Get_EC take no input. The firmware handler isn't re-entrant, so every call is serialized:
 /// across all instances in this process, and across processes (e.g. a --diagnose run) by a named mutex.
 /// Needs administrator rights.
 /// </summary>
 public sealed class MsiAcpi : IDisposable
 {
-    private const string InstancePath = @"MSI_ACPI.InstanceName='ACPI\PNP0C14\0_0'";
     private const int PackageSize = 32;
     private static readonly object ProcessGate = new();
     private static readonly TimeSpan ReconnectBackoff = TimeSpan.FromSeconds(5);
@@ -53,17 +51,28 @@ public sealed class MsiAcpi : IDisposable
     /// </summary>
     public bool ReadOnly { get; private init; }
 
+    /// <param name="readOnly">A copy that doesn't own the hardware; it doesn't register anything either (the owner has).</param>
     public static MsiAcpi? TryOpen(out string? error, bool readOnly = false)
     {
+        if (!readOnly && WmiSchema.EnsureRegistered() is { } schemaError)
+        {
+            error = $"Couldn't set up access to the firmware interface ({schemaError}).";
+            return null;
+        }
+
         try
         {
-            var (scope, instance, packageClass) = Bind();
-            var acpi = new MsiAcpi(scope, instance, packageClass) { ReadOnly = readOnly };
+            if (Bind() is not var (scope, instance, packageClass))
+            {
+                error = "This laptop's firmware doesn't offer MSI's interface, so hardware controls aren't available. Monitoring still works.";
+                return null;
+            }
 
+            var acpi = new MsiAcpi(scope, instance, packageClass) { ReadOnly = readOnly };
             var wmi = acpi.Call("Get_WMI", null);
             if (wmi is not { Length: PackageSize } || wmi[0] != 1)
             {
-                error = "The MSI WMI interface did not answer.";
+                error = "The firmware interface didn't answer.";
                 acpi.Dispose();
                 return null;
             }
@@ -77,16 +86,20 @@ public sealed class MsiAcpi : IDisposable
             }
 
             error = null;
-            Log.Info($"MSI_ACPI opened: WMI {acpi.WmiMajor}.{acpi.WmiMinor}, EC '{acpi.EcFirmware}'");
+            Log.Info($"Firmware interface opened ({instance["InstanceName"]}): WMI {acpi.WmiMajor}.{acpi.WmiMinor}, EC '{acpi.EcFirmware}'");
             return acpi;
         }
         catch (ManagementException ex) when (ex.ErrorCode == ManagementStatus.AccessDenied)
         {
             error = "Administrator rights are needed to talk to the embedded controller.";
         }
+        catch (ManagementException ex) when (ex.ErrorCode == ManagementStatus.InvalidClass)
+        {
+            error = "Wattkin's access to the firmware interface isn't set up yet. Restart Wattkin as administrator.";
+        }
         catch (ManagementException ex)
         {
-            error = $"MSI WMI interface not available ({ex.ErrorCode}).";
+            error = $"The firmware interface didn't answer ({ex.ErrorCode}).";
         }
         catch (UnauthorizedAccessException)
         {
@@ -100,14 +113,30 @@ public sealed class MsiAcpi : IDisposable
         return null;
     }
 
-    /// <summary>A fresh connection: scope, instance and the Package_32 class all belong to one WMI session.</summary>
-    private static (ManagementScope, ManagementObject, ManagementClass) Bind()
+    /// <summary>
+    /// A fresh connection: scope, instance and the package class all belong to one WMI session. The
+    /// firmware's instance is looked up ("ACPI\PNP0C14\0_0" on the Prestige 16 Studio, but it needn't
+    /// be that elsewhere). Null when the firmware has no active instance of the interface.
+    /// </summary>
+    private static (ManagementScope, ManagementObject, ManagementClass)? Bind()
     {
         var scope = new ManagementScope(@"root\WMI");
         scope.Connect();
-        var instance = new ManagementObject(scope, new ManagementPath(InstancePath), null);
-        instance.Get();
-        return (scope, instance, new ManagementClass(scope, new ManagementPath("Package_32"), null));
+        using var searcher = new ManagementObjectSearcher(scope, new ObjectQuery($"SELECT * FROM {WmiSchema.AcpiClass}"));
+        ManagementObject? instance = null;
+        foreach (ManagementObject candidate in searcher.Get())
+        {
+            if (instance is null && candidate["Active"] is true)
+            {
+                instance = candidate;
+            }
+            else
+            {
+                candidate.Dispose();
+            }
+        }
+
+        return instance is null ? null : (scope, instance, new ManagementClass(scope, new ManagementPath(WmiSchema.PackageClass), null));
     }
 
     /// <summary>Calls a Get_* method with one selector byte. Returns the 31 data bytes, or null on failure.</summary>
@@ -142,10 +171,11 @@ public sealed class MsiAcpi : IDisposable
 
     public byte? ReadEc(byte address) => Get("Get_Data", address)?[0];
 
-    public bool WriteEc(byte address, byte value)
+    /// <param name="log">False for a repeat of the value already there (a heartbeat): only failures are logged then.</param>
+    public bool WriteEc(byte address, byte value, bool log = true)
     {
         var ok = Set("Set_Data", address, [value]);
-        if (ok || _failuresLogged < 20)
+        if ((ok && log) || (!ok && _failuresLogged < 20))
         {
             Log.Info($"EC write 0x{address:X2} = 0x{value:X2} -> {(ok ? "ok" : "FAILED")}");
         }
@@ -168,7 +198,7 @@ public sealed class MsiAcpi : IDisposable
             }
 
             var next = (byte)((current.Value & ~mask) | (value & mask));
-            return (next == current.Value && !force) || WriteEc(address, next);
+            return (next == current.Value && !force) || WriteEc(address, next, log: next != current.Value);
         }
     }
 
@@ -217,12 +247,12 @@ public sealed class MsiAcpi : IDisposable
             }
             catch (ManagementException ex)
             {
-                LogFailure($"MSI_ACPI.{method}({(input is null ? "" : $"0x{input[0]:X2}")}) failed", ex);
+                LogFailure($"Firmware call {method}({(input is null ? "" : $"0x{input[0]:X2}")}) failed", ex);
                 return null;
             }
             catch (Exception ex) when (ex is System.Runtime.InteropServices.COMException or UnauthorizedAccessException or InvalidOperationException)
             {
-                LogFailure($"MSI_ACPI.{method} failed; will reconnect", ex);
+                LogFailure($"Firmware call {method} failed; will reconnect", ex);
                 _broken = true;
                 return null;
             }
@@ -246,18 +276,28 @@ public sealed class MsiAcpi : IDisposable
         _nextReconnectUtc = DateTime.UtcNow + ReconnectBackoff;
         try
         {
-            var (scope, instance, packageClass) = Bind();
+            // A WMI service restart can drop the classes along with the connection: register them again.
+            if (!ReadOnly)
+            {
+                WmiSchema.EnsureRegistered();
+            }
+
+            if (Bind() is not var (scope, instance, packageClass))
+            {
+                return false;
+            }
+
             _instance.Dispose();
             _packageClass.Dispose();
             (_scope, _instance, _packageClass) = (scope, instance, packageClass);
             _broken = false;
             _failuresLogged = 0;
-            Log.Info("MSI_ACPI reconnected.");
+            Log.Info("Firmware interface reconnected.");
             return true;
         }
         catch (Exception ex) when (ex is ManagementException or System.Runtime.InteropServices.COMException or UnauthorizedAccessException)
         {
-            LogFailure("MSI_ACPI reconnect failed", ex);
+            LogFailure("Firmware interface reconnect failed", ex);
             return false;
         }
     }

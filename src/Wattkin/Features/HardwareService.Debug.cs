@@ -85,9 +85,13 @@ public sealed partial class HardwareService
             case FanForce.Full:
                 ec.SetCoolerBoost(true);
                 break;
-            case FanForce.Auto or FanForce.Silent or FanForce.Curve:
+            case FanForce.Auto or FanForce.Silent:
                 ec.SetCoolerBoost(false);
-                ec.SetFanMode(_fanForce switch { FanForce.Silent => FanMode.Silent, FanForce.Curve => FanMode.Custom, _ => FanMode.Auto });
+                ec.SetFanMode(_fanForce == FanForce.Silent ? FanMode.Silent : FanMode.Auto);
+                break;
+            case FanForce.Curve:
+                ec.SetCoolerBoost(false);
+                ec.SetFanMode(FanMode.Custom, _store.Current.FactoryFanCurve);
                 break;
             default:
                 if (profile is null)
@@ -95,8 +99,10 @@ public sealed partial class HardwareService
                     return;
                 }
 
-                // No usable fan table on this laptop: the quietest built-in curve instead.
-                if (profile.Fan is { } fan && !ec.SetFanMode(fan) && fan == FanMode.Custom)
+                // The profile's fan profile, else the laptop's factory curve. No usable fan table (or a
+                // curve the safety rules refuse): the quietest built-in curve instead.
+                var (curve, unrestricted) = _store.Current.ResolveFanCurve(profile);
+                if (profile.Fan is { } fan && !ec.SetFanMode(fan, curve, unrestricted) && fan == FanMode.Custom)
                 {
                     ec.SetFanMode(FanMode.Silent);
                 }
@@ -105,6 +111,25 @@ public sealed partial class HardwareService
                 break;
         }
     }
+
+    /// <summary>
+    /// First time the laptop's fan table is readable: keep its factory speeds, so "Factory" can always
+    /// be restored (custom curves overwrite the controller's copy; uninstalling writes these back).
+    /// </summary>
+    private void CaptureFactoryFanCurve(EmbeddedController ec)
+    {
+        if (_store.Current.FactoryFanCurve is not null || !ec.HasFanCurves || ec.ReadFanCurves() is not { Sane: true } curves)
+        {
+            return;
+        }
+
+        var factory = FanSpeeds.From(curves);
+        _store.Update(s => s.FactoryFanCurve = factory);
+        Log.Info($"Factory fan curve saved (fan mode now {ec.GetFanMode()}): CPU {string.Join("/", factory.Cpu)}, GPU {string.Join("/", factory.Gpu)}.");
+    }
+
+    /// <summary>The laptop's fan tables now, for the profile editor; null without hardware access.</summary>
+    public FanCurves? ReadFanCurves() => _ec?.ReadFanCurves();
 
     /// <summary>Monitor thread: a forced mode ends by itself.</summary>
     private void ExpireFanForce()

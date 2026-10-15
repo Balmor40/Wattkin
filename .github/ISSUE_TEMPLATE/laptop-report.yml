@@ -1,0 +1,47 @@
+name: How Wattkin works on my laptop
+description: Report how Wattkin works (or doesn't) on your MSI laptop.
+labels: ["laptop report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Wattkin! A diagnostics report tells us almost everything: it lists your laptop's firmware and controller settings, and it only reads from the hardware.
+        To get one: click **Save a diagnostics report** on the flyout's yellow banner, or go to **Settings › Expert › Debug › Save diagnostics report**.
+  - type: input
+    id: model
+    attributes:
+      label: Laptop model
+      placeholder: e.g. MSI Prestige 16 Studio A13VE
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Wattkin version
+      description: Shown in Settings › Expert › General.
+      placeholder: e.g. 1.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: msi-center
+    attributes:
+      label: MSI Center on this laptop
+      options:
+        - Never installed (clean Windows install)
+        - Was installed, now uninstalled
+        - Still installed
+        - Not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What works, what doesn't, and any message Wattkin showed. A screenshot helps (please upload it here rather than linking to Imgur, which is blocked in some countries).
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics report
+      description: Drag the .txt file in here (or paste its contents).

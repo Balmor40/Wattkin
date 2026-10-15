@@ -42,4 +42,47 @@ public class FanCurveTests
 
         Assert.Null(FanCurve.Parse(null, CpuSpeeds));
     }
+
+    [Fact]
+    public void TheSafetyRulesKeepTheFansAheadOfTheHeat()
+    {
+        // The laptop's own curve passes.
+        var factory = FanSpeeds.From(new FanCurves(FanCurve.Parse(CpuTemps, CpuSpeeds)!, FanCurve.Parse(GpuTemps, GpuSpeeds)!));
+        Assert.Equal([0, 50, 55, 70, 80, 130], factory.Cpu);
+        Assert.Null(factory.Problem(unrestricted: false));
+
+        // Slower as it gets hotter: refused.
+        var falling = new FanSpeeds { Cpu = [0, 50, 40, 70, 80, 130], Gpu = factory.Gpu };
+        Assert.NotNull(falling.Problem(unrestricted: false));
+
+        // Not at full speed by the hottest editable step: refused, unless the user accepted the experimental mode.
+        var lazy = new FanSpeeds { Cpu = [0, 0, 20, 30, 40, 60], Gpu = factory.Gpu };
+        Assert.NotNull(lazy.Problem(unrestricted: false));
+        Assert.Null(lazy.Problem(unrestricted: true));
+
+        // Out of range or the wrong length: refused even then.
+        Assert.NotNull(new FanSpeeds { Cpu = [0, 0, 20, 30, 40, 200], Gpu = factory.Gpu }.Problem(unrestricted: true));
+        Assert.NotNull(new FanSpeeds { Cpu = [0, 50], Gpu = factory.Gpu }.Problem(unrestricted: true));
+        Assert.NotNull(new FanSpeeds().Problem(unrestricted: true));
+    }
+
+    [Fact]
+    public void ThePresetsPassTheSafetyRules()
+    {
+        Assert.Null(FanSpeeds.Quiet().Problem(unrestricted: false));
+        Assert.Null(FanSpeeds.Cool().Problem(unrestricted: false));
+    }
+
+    [Fact]
+    public void WattkinsInterfaceDescriptionUsesMsisFirmwareIds()
+    {
+        // The class names are Wattkin's own; the GUIDs are the firmware's, so the calls reach the same BIOS methods.
+        Assert.Equal("Wattkin_MsiAcpi", WmiSchema.AcpiClass);
+        Assert.Equal("Wattkin_MsiEvent", WmiSchema.EventClass);
+        var mof = typeof(WmiSchema).GetField("Mof", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null) as string;
+        Assert.Contains("{ABBC0F6E-8EA1-11d1-00A0-C90629100000}", mof);
+        Assert.Contains("{5B3CC38A-40D9-7245-8AE6-1145B751BE3F}", mof);
+        Assert.Contains("[WmiMethodId(18), Implemented, read, write] void Set_Fan", mof);
+        Assert.DoesNotContain("Set_BIOS", mof); // only the calls Wattkin makes
+    }
 }

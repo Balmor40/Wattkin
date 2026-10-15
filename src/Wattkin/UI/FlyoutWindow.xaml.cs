@@ -428,42 +428,72 @@ public partial class FlyoutWindow : Window
         GraphicsHint.Visibility = RestartButton.Visibility = gpu.SwitchPending ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private string? _bannerAction;
+    private enum BannerAction
+    {
+        None,
+        Elevate,
+        ShowMsiHelp,
+        SaveReport,
+    }
+
+    private BannerAction _bannerAction;
 
     private void ShowBanner(HardwareState state)
     {
-        string? text = null;
-        _bannerAction = null;
-        if (!Elevation.IsElevated)
+        (string? text, _bannerAction) = (Elevation.IsElevated, state) switch
         {
-            text = "Monitoring works now. Battery limits, profiles, fans and keyboard need administrator rights.";
-            _bannerAction = "Restart as administrator";
-        }
-        else if (state.MsiSoftwareRunning)
-        {
-            text = "MSI Center is still running and can overwrite these settings. Close or uninstall it.";
-            _bannerAction = "Show me how";
-        }
-        else if (state.Problem is { } problem && !state.CanWrite)
-        {
-            text = problem;
-        }
+            (false, _) => ("Monitoring works now. Battery limits, profiles, fans and keyboard need administrator rights.", BannerAction.Elevate),
+            (_, { MsiSoftwareRunning: true }) => ("MSI Center is still running and can overwrite these settings. Close or uninstall it.", BannerAction.ShowMsiHelp),
+            // Hardware controls are off: a one-click report is what someone needs to help.
+            (_, { Problem: { } problem, CanWrite: false }) => (problem, BannerAction.SaveReport),
+            _ => ((string?)null, BannerAction.None),
+        };
 
         Banner.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
         BannerText.Text = text;
-        BannerButton.Content = _bannerAction;
-        BannerButton.Visibility = _bannerAction is null ? Visibility.Collapsed : Visibility.Visible;
+        BannerButton.Content = _bannerAction switch
+        {
+            BannerAction.Elevate => "Restart as administrator",
+            BannerAction.ShowMsiHelp => "Show me how",
+            BannerAction.SaveReport => "Save a diagnostics report",
+            _ => null,
+        };
+        BannerButton.Visibility = _bannerAction == BannerAction.None ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void OnBannerAction(object sender, RoutedEventArgs e)
+    private async void OnBannerAction(object sender, RoutedEventArgs e)
     {
-        if (!Elevation.IsElevated)
+        switch (_bannerAction)
         {
-            App.Current.RestartElevated();
+            case BannerAction.Elevate:
+                App.Current.RestartElevated();
+                break;
+            case BannerAction.ShowMsiHelp:
+                App.Current.OpenSettings("general");
+                break;
+            case BannerAction.SaveReport:
+                BannerButton.IsEnabled = false;
+                BannerButton.Content = "Reading the hardware…";
+                await SaveReportToDesktopAsync();
+                BannerButton.IsEnabled = true;
+                BannerButton.Content = "Save a diagnostics report";
+                break;
         }
-        else
+    }
+
+    /// <summary>Saves the read-only report on the desktop and shows it in Explorer, ready to attach to an issue.</summary>
+    private static async Task SaveReportToDesktopAsync()
+    {
+        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), $"Wattkin-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.txt");
+        try
         {
-            App.Current.OpenSettings("general");
+            await Task.Run(() => Diagnostics.Run(path));
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            Log.Error("Diagnostics failed", ex);
+            MessageBox.Show(ex.Message, "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
