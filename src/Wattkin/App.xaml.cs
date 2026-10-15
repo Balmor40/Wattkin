@@ -414,6 +414,7 @@ public partial class App : Application
         }
 
         var replaced = BatterySwap.IsNewBattery(settings.BatteryIdentity, settings.BatteryFullMWh, info);
+        var previousFullMWh = settings.BatteryFullMWh; // Update changes this same object
         Store.Update(s =>
         {
             if (replaced)
@@ -426,7 +427,7 @@ public partial class App : Application
         });
         if (replaced)
         {
-            Log.Info($"New battery detected: {info.Manufacturer} {info.DeviceName}, {info.DesignedCapacityMWh / 1000.0:0.0} Wh design, {info.FullChargedCapacityMWh / 1000.0:0.0} Wh full (was {settings.BatteryFullMWh / 1000.0:0.0} Wh), {info.CycleCount} cycles. Capacity history starts again.");
+            Log.Info($"New battery detected: {info.Manufacturer} {info.DeviceName}, {info.DesignedCapacityMWh / 1000.0:0.0} Wh design, {info.FullChargedCapacityMWh / 1000.0:0.0} Wh full (was {previousFullMWh / 1000.0:0.0} Wh), {info.CycleCount} cycles. Capacity history starts again.");
             Dispatcher.BeginInvoke(() => ShowOsd("New battery detected"));
         }
     }

@@ -55,7 +55,7 @@ public sealed class FanCurveEditor : StackPanel
     public string? Problem(bool unrestricted)
     {
         var value = Value;
-        if (value.Problem(unrestricted) is { } problem)
+        if (value.Problem(unrestricted, _firmware) is { } problem)
         {
             return problem;
         }

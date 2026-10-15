@@ -100,27 +100,28 @@ public sealed class EmbeddedController : IEcSensorSource
     }
 
     /// <summary>
-    /// The battery-limit register must read "limit enabled, 10–100%" (MSI firmware keeps bit7 set on
-    /// WMI v2) and, if the map has one, the performance-mode register must hold one of its known values.
+    /// The battery-limit register must look like one (<see cref="ChargeRegisterLooksRight"/>) and, if the
+    /// map has one, the performance-mode register must hold a known value (<see cref="ShiftRegisterLooksRight"/>).
     /// Fan mode is checked separately so an odd fan value only disables fan control.
     /// </summary>
     private bool Sane(EcModel model, out bool shiftOk, out bool fanOk, out string why)
     {
         shiftOk = fanOk = false;
         why = "";
-        if (model.ChargeAddress is not { } charge || _acpi.ReadEc(charge) is not { } raw || (raw & 0x80) == 0 || (raw & 0x7F) is < MinChargeLimit or > MaxChargeLimit)
+        var raw = model.ChargeAddress is { } charge ? _acpi.ReadEc(charge) : null;
+        if (raw is not { } limit || !ChargeRegisterLooksRight(limit))
         {
-            why = "battery-limit register";
+            why = $"battery-limit register {Hex(raw)}";
             return false;
         }
 
         if (model.ShiftAddress is { } shift)
         {
             var value = _acpi.ReadEc(shift);
-            shiftOk = value is { } v && (v == model.ShiftEco || v == model.ShiftBalanced || v == model.ShiftSport || v == model.ShiftTurbo || v == 0x80);
+            shiftOk = value is { } v && ShiftRegisterLooksRight(model, v);
             if (!shiftOk)
             {
-                why = "performance-mode register";
+                why = $"performance-mode register {Hex(value)}";
                 return false;
             }
         }
@@ -132,6 +133,28 @@ public sealed class EmbeddedController : IEcSensorSource
 
         return true;
     }
+
+    /// <summary>
+    /// The battery-limit register on WMI v2: bit 7 is the firmware's own flag (MSI Center keeps it as it
+    /// finds it and never sets it), bits 0–6 the stop percentage, 10–100. After the controller loses all
+    /// power (battery swapped or run flat) it comes back as 0x80, the flag with no limit set yet (seen on
+    /// the Prestige 16 Studio after a battery swap); Wattkin then sets the user's limit.
+    /// </summary>
+    public static bool ChargeRegisterLooksRight(byte raw) =>
+        (raw & 0x80) != 0 && (raw & 0x7F) is 0 or (>= MinChargeLimit and <= MaxChargeLimit);
+
+    /// <summary>
+    /// One of the map's performance modes, or 0x80 (none chosen yet). On MSI's own layout also 0xC0, MSI's
+    /// "Sport" mode: in MSI Center's code it sits between Comfort (0xC1) and Turbo (0xC4), and the
+    /// Katana GF66 12UG (EC 1583EMS1.111) reports it.
+    /// </summary>
+    public static bool ShiftRegisterLooksRight(EcModel model, byte value) =>
+        value == model.ShiftEco || value == model.ShiftBalanced || value == model.ShiftSport || value == model.ShiftTurbo || value == 0x80
+        || (UsesMsiLayout(model) && value == MsiSport);
+
+    private const byte MsiSport = 0xC0;
+
+    private static string Hex(byte? value) => value is { } v ? $"0x{v:X2}" : "unreadable";
 
     /// <summary>MSI's standard WMI v2 layout (fan 0xD4, keyboard 0xD3): write with MSI Center's exact bit semantics.</summary>
     private static bool UsesMsiLayout(EcModel? model) => model is { FanModeAddress: 0xD4, KeyboardStateAddress: 0xD3 };
@@ -194,9 +217,12 @@ public sealed class EmbeddedController : IEcSensorSource
             return null;
         }
 
+        // MSI's Sport (0xC0) has no Wattkin mode of its own; it counts as Balanced, so adopting the laptop's
+        // state picks the Balanced profile rather than Extreme.
         return value == _model.ShiftEco ? ShiftMode.Eco
             : value == _model.ShiftBalanced ? ShiftMode.Balanced
             : value == _model.ShiftTurbo || value == _model.ShiftSport ? ShiftMode.Turbo
+            : UsesMsiLayout(_model) && value == MsiSport ? ShiftMode.Balanced
             : null;
     }
 
@@ -268,7 +294,7 @@ public sealed class EmbeddedController : IEcSensorSource
             return false;
         }
 
-        if (curve?.Problem(unrestricted) is { } problem)
+        if (curve?.Problem(unrestricted, before) is { } problem)
         {
             Log.Warn($"Not using this fan curve: {problem}");
             return false;

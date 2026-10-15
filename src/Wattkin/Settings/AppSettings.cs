@@ -229,6 +229,33 @@ public sealed class AppSettings
         var name => FindFanProfile(name) is { } fan ? (fan.Speeds, UnrestrictedFanCurves) : (FactoryFanCurve, false),
     };
 
+    /// <summary>
+    /// Quiet and Cool as shipped suit the Prestige 16 Studio's fan table. On a laptop whose table can't
+    /// take them (the Katana GF66 12UG's tops out at 75%), copies nobody has edited are rebuilt from the
+    /// laptop's own curve. Returns the names rebuilt.
+    /// </summary>
+    public List<string> FitDefaultFanProfiles(FanCurves laptop)
+    {
+        var rebuilt = new List<string>();
+        FanProfiles = [.. FanProfiles.Select(f =>
+        {
+            (FanSpeeds? shipped, FanSpeeds? fitted) = f.Name switch
+            {
+                "Quiet" => (FanSpeeds.Quiet(), FanSpeeds.Quiet(laptop)),
+                "Cool" => (FanSpeeds.Cool(), FanSpeeds.Cool(laptop)),
+                _ => (null, null),
+            };
+            if (shipped is null || fitted is null || !f.Speeds.Cpu.SequenceEqual(shipped.Cpu) || !f.Speeds.Gpu.SequenceEqual(shipped.Gpu) || shipped.Fits(laptop))
+            {
+                return f;
+            }
+
+            rebuilt.Add(f.Name);
+            return new FanProfile { Name = f.Name, Speeds = fitted };
+        })];
+        return rebuilt;
+    }
+
     /// <summary>A fan profile was renamed (or deleted, <paramref name="newName"/> null): profiles that used it follow.</summary>
     public void RenameFanProfile(string oldName, string? newName)
     {

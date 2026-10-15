@@ -28,11 +28,19 @@ public class FanCurveTests
         Assert.Equal("off below 45°C · 60% from 45°C · 80% from 60°C · 130% from 75°C", gpu.Describe());
     }
 
+    // The same calls on a Katana GF66 12UG (EC 1583EMS1.111), from a tester's diagnostics report: a table
+    // that tops out at 75% (CPU) and 60% (GPU).
+    private static FanCurves Katana() => new(
+        FanCurve.Parse(Bytes("00-57-64-37-3E-45-4C-52"), Bytes("1E-1E-1E-23-25-2D-3C-4B"))!,
+        FanCurve.Parse(Bytes("00-52-63-37-3D-43-48-4D"), Bytes("00-00-00-14-19-21-32-3C"))!);
+
+    private static FanCurves Prestige() => new(FanCurve.Parse(CpuTemps, CpuSpeeds)!, FanCurve.Parse(GpuTemps, GpuSpeeds)!);
+
     [Fact]
     public void TablesThatCouldOverheatAreRejected()
     {
-        // Top step below 100%: the fan would never run flat out.
-        Assert.False(new FanCurve([60, 70, 80, 85, 90, 95], [0, 20, 30, 40, 50, 60, 70]).Sane);
+        // Top step too slow to be a real fan table's.
+        Assert.False(new FanCurve([60, 70, 80, 85, 90, 95], [0, 10, 20, 25, 30, 35, 40]).Sane);
 
         // Speeds dropping as it gets hotter.
         Assert.False(new FanCurve([60, 70, 80, 85, 90, 95], [0, 50, 55, 30, 80, 130, 130]).Sane);
@@ -71,6 +79,78 @@ public class FanCurveTests
     {
         Assert.Null(FanSpeeds.Quiet().Problem(unrestricted: false));
         Assert.Null(FanSpeeds.Cool().Problem(unrestricted: false));
+        Assert.True(FanSpeeds.Quiet().Fits(Prestige()));
+        Assert.True(FanSpeeds.Cool().Fits(Prestige()));
+    }
+
+    [Fact]
+    public void ALaptopWithASlowerTableKeepsItsOwnCurveAndGetsFittedPresets()
+    {
+        var katana = Katana();
+        Assert.Equal([55, 62, 69, 76, 82, 87], katana.Cpu.Temps);
+        Assert.Equal([30, 30, 35, 37, 45, 60, 75], katana.Cpu.Speeds);
+        Assert.Equal([0, 0, 20, 25, 33, 50, 60], katana.Gpu.Speeds);
+        Assert.True(katana.Sane);
+
+        // The floor at the hottest editable step follows the laptop's top speed: unchanged on the Prestige.
+        Assert.Equal(100, FanSpeeds.Floor(130));
+        Assert.Equal(60, FanSpeeds.Floor(75));
+        Assert.Equal(48, FanSpeeds.Floor(60));
+
+        // Its own curve passes against its own table, but not against the strict default.
+        var own = FanSpeeds.From(katana);
+        Assert.Null(own.Problem(unrestricted: false, katana));
+        Assert.NotNull(own.Problem(unrestricted: false));
+        Assert.NotNull(new FanSpeeds { Cpu = [0, 0, 20, 30, 40, 55], Gpu = own.Gpu }.Problem(unrestricted: false, katana));
+
+        // The Prestige presets are faster than its fixed top step; the fitted ones aren't.
+        Assert.False(FanSpeeds.Quiet().Fits(katana));
+        Assert.False(FanSpeeds.Cool().Fits(katana));
+        var quiet = FanSpeeds.Quiet(katana);
+        var cool = FanSpeeds.Cool(katana);
+        Assert.Equal([0, 0, 25, 25, 30, 60], quiet.Cpu);
+        Assert.Equal([0, 0, 15, 15, 20, 50], quiet.Gpu);
+        Assert.Equal([45, 45, 50, 55, 60, 75], cool.Cpu);
+        Assert.Equal([15, 15, 35, 40, 50, 60], cool.Gpu);
+        Assert.True(quiet.Fits(katana));
+        Assert.True(cool.Fits(katana));
+    }
+
+    [Fact]
+    public void OnlyUneditedShippedFanProfilesAreRefitted()
+    {
+        var prestige = new Wattkin.Settings.AppSettings();
+        Assert.Empty(prestige.FitDefaultFanProfiles(Prestige()));
+        Assert.Equal(FanSpeeds.Quiet().Cpu, prestige.FindFanProfile("Quiet")!.Speeds.Cpu);
+
+        var katana = new Wattkin.Settings.AppSettings();
+        katana.FanProfiles = [new() { Name = "Quiet", Speeds = new FanSpeeds { Cpu = [0, 0, 30, 30, 40, 60], Gpu = [0, 0, 20, 25, 33, 50] } }, .. katana.FanProfiles.Where(f => f.Name != "Quiet")];
+        Assert.Equal(["Cool"], katana.FitDefaultFanProfiles(Katana()));
+        Assert.Equal([0, 0, 30, 30, 40, 60], katana.FindFanProfile("Quiet")!.Speeds.Cpu); // edited: kept
+        Assert.Equal(FanSpeeds.Cool(Katana()).Gpu, katana.FindFanProfile("Cool")!.Speeds.Gpu);
+    }
+
+    [Fact]
+    public void TheControllerChecksAcceptTheStatesRealLaptopsReport()
+    {
+        // Battery limit: on, 10–100%; or 0x80 (on, nothing set), how the controller comes back after a battery swap.
+        Assert.True(EmbeddedController.ChargeRegisterLooksRight(0x80));
+        Assert.True(EmbeddedController.ChargeRegisterLooksRight(0xBC)); // 60%
+        Assert.True(EmbeddedController.ChargeRegisterLooksRight(0xE4)); // 100%
+        Assert.False(EmbeddedController.ChargeRegisterLooksRight(0x50)); // flag missing
+        Assert.False(EmbeddedController.ChargeRegisterLooksRight(0x85)); // 5%
+        Assert.False(EmbeddedController.ChargeRegisterLooksRight(0xFF));
+
+        // Performance mode: MSI's Sport (0xC0), as the Katana GF66 12UG reports, on MSI's own layout only.
+        var msiLayout = EcModels.Find("1583EMS1.111")!;
+        Assert.Equal("msi-ec CONF_G2_1", msiLayout.Source);
+        Assert.True(EmbeddedController.ShiftRegisterLooksRight(msiLayout, 0xC0));
+        Assert.True(EmbeddedController.ShiftRegisterLooksRight(msiLayout, 0xC1));
+        Assert.True(EmbeddedController.ShiftRegisterLooksRight(msiLayout, 0x80));
+        Assert.False(EmbeddedController.ShiftRegisterLooksRight(msiLayout, 0x00));
+        Assert.False(EmbeddedController.ShiftRegisterLooksRight(msiLayout, 0xC3));
+        var olderLayout = EcModels.Find("158LEMS1.105")!; // CONF_G1_2: no sport mode
+        Assert.False(EmbeddedController.ShiftRegisterLooksRight(olderLayout, 0xC0));
     }
 
     [Fact]

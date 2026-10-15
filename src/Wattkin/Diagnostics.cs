@@ -72,7 +72,8 @@ public static class Diagnostics
         Try("dGPU", () => Line($"dGPU: {DiscreteGpu.Query()}"));
         Try("Display", () => Line($"Display: current {DisplayModes.CurrentRefreshRate()} Hz, available {string.Join(", ", DisplayModes.SupportedRefreshRates())}"));
         Try("Power", () => Line($"Windows power mode: AC {WindowsPower.GetMode(true)}, DC {WindowsPower.GetMode(false)} · CPU boost AC {WindowsPower.GetCpuBoost(true)}, DC {WindowsPower.GetCpuBoost(false)} · critical battery {WindowsPower.CriticalBatteryPercent()}%"));
-        Try("MSI processes", () => Line("MSI processes running: " + string.Join(", ", Process.GetProcesses().Where(p => p.ProcessName.Contains("MSI", StringComparison.OrdinalIgnoreCase) || p.ProcessName.StartsWith("OmAp", StringComparison.OrdinalIgnoreCase)).Select(p => p.ProcessName).Distinct())));
+        // msiexec is Windows Installer, not MSI's.
+        Try("MSI processes", () => Line("MSI processes running: " + string.Join(", ", Process.GetProcesses().Where(p => (p.ProcessName.Contains("MSI", StringComparison.OrdinalIgnoreCase) && !p.ProcessName.Equals("msiexec", StringComparison.OrdinalIgnoreCase)) || p.ProcessName.StartsWith("OmAp", StringComparison.OrdinalIgnoreCase)).Select(p => p.ProcessName).Distinct())));
 
         if (Elevation.IsElevated)
         {
@@ -109,6 +110,11 @@ public static class Diagnostics
 
                 var ec = new EmbeddedController(acpi);
                 Line($"  Register map: {ec.Support} ({ec.MapSource ?? "none"}) · writes {(ec.CanWrite ? "enabled" : "disabled")}");
+                if (ec.Reason is { } reason)
+                {
+                    Line($"  Why: {reason}");
+                }
+
                 Line($"  Decoded: limit {ec.GetChargeLimit()}% · shift {ec.GetShiftMode()} · fan {ec.GetFanMode()} · cooler boost {ec.GetCoolerBoost()} · keyboard {ec.GetKeyboardLevel()} auto-off {ec.GetKeyboardAutoOff()} · webcam {ec.GetWebcam()} · fn-lock {ec.GetFnLock()} · simulate-unplug {ec.GetSimulatedUnplug()}");
                 var samples = new List<string>();
                 for (var i = 0; i < 10; i++)
