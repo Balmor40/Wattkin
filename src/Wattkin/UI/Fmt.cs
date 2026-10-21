@@ -149,7 +149,11 @@ internal static class Fmt
     public static string ProfileDetails(Settings.Profile p)
     {
         var parts = new List<string>();
-        if (p.Performance is { } shift)
+        if (p.PowerLimits is { } limits)
+        {
+            parts.Add($"CPU {limits.Pl1Watts} W, bursts {limits.Pl2Watts} W");
+        }
+        else if (p.Performance is { } shift)
         {
             parts.Add("CPU " + Shift(shift));
         }
@@ -167,6 +171,16 @@ internal static class Fmt
         if (p.MaxCpuPercent is { } max)
         {
             parts.Add($"CPU up to {max}%");
+        }
+
+        if (p.MaxFrequencyMHz is { } mhz)
+        {
+            parts.Add(mhz == 0 ? "no clock cap" : $"up to {mhz / 1000.0:0.0#} GHz");
+        }
+
+        if (p.EnergyPreference is { } epp)
+        {
+            parts.Add($"EPP {epp}");
         }
 
         if (p.RefreshRate is { } hz)
@@ -197,7 +211,11 @@ internal static class Fmt
     public static string ProfileSummary(Settings.Profile p)
     {
         var parts = new List<string>();
-        if (p.Performance is { } shift)
+        if (p.PowerLimits is { } limits)
+        {
+            parts.Add($"processor held to {limits.Pl1Watts} W");
+        }
+        else if (p.Performance is { } shift)
         {
             parts.Add(shift switch
             {
@@ -224,6 +242,16 @@ internal static class Fmt
         if (p.MaxCpuPercent is { } max and < 100)
         {
             parts.Add($"CPU capped at {max}%");
+        }
+
+        if (p.MaxFrequencyMHz is { } mhz and > 0)
+        {
+            parts.Add($"clock capped at {mhz / 1000.0:0.0#} GHz");
+        }
+
+        if (p.EnergyPreference is { } epp and >= 60)
+        {
+            parts.Add("favours efficiency");
         }
 
         if (p.RefreshRate is { } hz)

@@ -30,13 +30,30 @@
                     <StackPanel>
                         <TextBlock Text="Processor" Style="{StaticResource Lc.Section}" />
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Power limits (MSI)" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="ShiftBox" Grid.Column="1" /></Grid>
-                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,6" TextWrapping="Wrap" Text="MSI's firmware mode: how many watts the processor may draw, sustained (PL1) and in bursts (PL2). The self-test measures them. Leave as is if the BIOS or ThrottleStop sets the limits; then leave turbo and the maximum state as they are too." />
+                            <TextBlock Text="Power limits" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="ShiftBox" Grid.Column="1" SelectionChanged="OnShiftChanged" /></Grid>
+                        <TextBlock x:Name="ShiftHint" Style="{StaticResource Lc.Hint}" Margin="190,0,0,6" TextWrapping="Wrap" Text="MSI's firmware modes set how many watts the processor may draw, sustained (PL1) and in bursts (PL2); the self-test measures them. Manual sets PL1, PL2 and the turbo time yourself (needs PawnIO)." />
+                        <StackPanel x:Name="ManualPanel" Margin="190,0,0,8" Visibility="Collapsed">
+                            <Grid Style="{StaticResource Row}">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="24" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="24" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="PL1 (sustained) W" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ContentControl x:Name="Pl1Host" Grid.Column="1" />
+                                <TextBlock Grid.Column="3" Text="PL2 (bursts) W" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ContentControl x:Name="Pl2Host" Grid.Column="4" />
+                                <TextBlock Grid.Column="6" Text="Turbo time" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <ComboBox x:Name="TurboTimeBox" Grid.Column="7" MinWidth="90" HorizontalAlignment="Left" />
+                            </Grid>
+                            <TextBlock x:Name="ManualWarning" Foreground="{DynamicResource Lc.Bad}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
+                            <TextBlock x:Name="ManualStatus" Style="{StaticResource Lc.Hint}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Turbo boost" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TurboBox" Grid.Column="1" /></Grid>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Maximum processor state" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="MaxCpuBox" Grid.Column="1" /></Grid>
-                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,0" TextWrapping="Wrap" Text="Both are Windows settings of the active power plan, on the charger and on battery. Below 100%, the processor never turbos either." />
+                        <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Maximum frequency" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="MaxFreqBox" Grid.Column="1" /></Grid>
+                        <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Performance or efficiency (EPP)" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="EppBox" Grid.Column="1" /></Grid>
+                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,0" TextWrapping="Wrap" Text="These four are Windows settings of the active power plan, on the charger and on battery. A maximum state below 100% also stops the turbo; a maximum frequency caps the clock but can keep some turbo. EPP decides how eagerly the processor speeds up for everyday work (Windows' &quot;Best power efficiency&quot; mode may override it on battery)." />
                     </StackPanel>
                 </Border>
 

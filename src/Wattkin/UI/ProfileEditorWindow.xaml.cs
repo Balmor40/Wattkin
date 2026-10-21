@@ -28,6 +28,12 @@ public partial class ProfileEditorWindow : Window
     private bool _curveEdited;
     private bool _useLaptopCurve;
 
+    // "Manual" in the power-limits list: PL1, PL2 and the turbo time, written through PawnIO.
+    private const string ManualTag = "manual";
+    private readonly NumberStepper _pl1 = new(PowerLimitSetting.MinWatts, PowerLimitSetting.MaxWatts, 25);
+    private readonly NumberStepper _pl2 = new(PowerLimitSetting.MinWatts, PowerLimitSetting.MaxWatts, 35);
+    private CpuPowerStatus? _cpuPower;
+
     public ProfileEditorWindow()
     {
         InitializeComponent();
@@ -35,8 +41,13 @@ public partial class ProfileEditorWindow : Window
         TableEditor.Changed += OnCurveChanged;
         SpeedsEditor.Changed += OnCurveChanged;
         CoolerBoostBox.Click += (_, _) => ShowFanHint();
+        Pl1Host.Content = _pl1;
+        Pl2Host.Content = _pl2;
+        _pl1.ValueChanged += ShowManualStatus;
+        _pl2.ValueChanged += ShowManualStatus;
         BuildChoices();
         _ = ReadFirmwareAsync();
+        _ = ReadCpuPowerAsync();
     }
 
     public int Slot => _slot;
@@ -56,6 +67,9 @@ public partial class ProfileEditorWindow : Window
         ShowCurve(App.Current.Store.Current.Profiles[_slot]);
     }
 
+    /// <summary>Screenshots (--render): "Manual" chosen, to show its panel.</summary>
+    internal void PreviewManual() => Select(ShiftBox, ManualTag);
+
     private bool FullTables => _firmwareTable is not null;
 
     private FanTable? LaptopTable => App.Current.Store.Current.FactoryFanTable?.Clone() ?? _firmwareTable?.Clone();
@@ -68,6 +82,84 @@ public partial class ProfileEditorWindow : Window
         _firmwareRead = true;
         ShowCurve(App.Current.Store.Current.Profiles[_slot]);
     }
+
+    /// <summary>The power-limit registers now: the turbo times the register can hold, and what's in force.</summary>
+    private async Task ReadCpuPowerAsync()
+    {
+        _cpuPower = await Task.Run(App.Current.Hardware.ReadCpuPower);
+        var turbo = TagOf<int>(TurboTimeBox);
+        FillTurboTimes(_cpuPower.Units);
+        Select(TurboTimeBox, turbo);
+        ShowManualStatus();
+    }
+
+    private void FillTurboTimes(RaplUnits units)
+    {
+        TurboTimeBox.Items.Clear();
+        foreach (var seconds in PackagePowerLimit.TurboTimeChoices(units))
+        {
+            TurboTimeBox.Items.Add(Item($"{seconds} s", seconds));
+        }
+    }
+
+    /// <summary>The turbo time the list offers that's closest to <paramref name="seconds"/>.</summary>
+    private int NearestTurboTime(double seconds) =>
+        TurboTimeBox.Items.Cast<ComboBoxItem>().Select(i => (int)i.Tag).MinBy(t => Math.Abs(t - seconds));
+
+    private void OnShiftChanged(object sender, SelectionChangedEventArgs e)
+    {
+        ManualPanel.Visibility = TagOf<string>(ShiftBox) == ManualTag ? Visibility.Visible : Visibility.Collapsed;
+        ShowManualStatus();
+    }
+
+    /// <summary>
+    /// The firmware's own copy of the limits under MSI's Balanced, which Manual uses: the processor keeps
+    /// to the lower of it and Manual's. Noted by the app a few seconds after a profile change in Balanced.
+    /// </summary>
+    private PackageLimits? ManualCeiling =>
+        _cpuPower?.FirmwareByMode?.TryGetValue(nameof(ShiftMode.Balanced), out var ceiling) == true ? ceiling : null;
+
+    private void ShowManualStatus()
+    {
+        // Above the firmware's copy the processor stays at the firmware's limits; saved anyway.
+        var warning = TagOf<string>(ShiftBox) == ManualTag ? ManualLimits().AboveFirmware(ManualCeiling) : null;
+        ManualWarning.Text = warning ?? "";
+        ManualWarning.Visibility = warning is null ? Visibility.Collapsed : Visibility.Visible;
+
+        if (_cpuPower is not { } power)
+        {
+            ManualStatus.Text = "Reading the processor's power limits…";
+            return;
+        }
+
+        if (!power.Available)
+        {
+            ManualStatus.Text = $"{power.Problem} Manual limits are kept with the profile and apply once Wattkin can reach them.";
+            return;
+        }
+
+        var lines = new List<string>();
+        if (power.Msr is { } now)
+        {
+            lines.Add($"Now: {now.Describe()}.");
+        }
+
+        if (power.Bios is { } bios)
+        {
+            lines.Add($"BIOS: {bios.Describe()}.");
+        }
+
+        lines.Add(ManualCeiling is { } ceiling
+            ? $"Manual also sets MSI's mode to Balanced, under which the firmware allows {ceiling.Describe()}: Manual can go below that, not above."
+            : "Manual also sets MSI's mode to Balanced, which sets a ceiling of its own: Wattkin shows it here once a profile has run in Balanced.");
+        ManualStatus.Text = string.Join(" ", lines);
+    }
+
+    /// <summary>What's wrong with the manual limits as set, or null (also when Manual isn't chosen).</summary>
+    private string? ManualProblem() =>
+        TagOf<string>(ShiftBox) == ManualTag ? ManualLimits().Problem(_cpuPower?.MaxWatts) : null;
+
+    private PowerLimitSetting ManualLimits() => new() { Pl1Watts = _pl1.Value, Pl2Watts = _pl2.Value, TurboSeconds = TagOf<int>(TurboTimeBox) };
 
     // ---- choices ----------------------------------------------------------------------------------
 
@@ -83,6 +175,21 @@ public partial class ProfileEditorWindow : Window
         }
 
         ShiftBox.Items.Add(Item("Extreme: highest limits (MSI Extreme Performance)", ShiftMode.Turbo));
+        ShiftBox.Items.Add(Item("Manual: set PL1, PL2 and the turbo time", ManualTag));
+        FillTurboTimes(RaplUnits.Typical);
+
+        MaxFreqBox.Items.Add(Item("Leave as is", null));
+        MaxFreqBox.Items.Add(Item("No cap", (int?)0));
+        foreach (var mhz in new[] { 1500, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3300, 3600, 4000, 4400 })
+        {
+            MaxFreqBox.Items.Add(Item($"{mhz / 1000.0:0.0#} GHz", (int?)mhz));
+        }
+
+        EppBox.Items.Add(Item("Leave as is", null));
+        foreach (var (value, text) in new[] { (0, "0: performance first"), (20, "20"), (33, "33"), (50, "50: balanced"), (70, "70"), (85, "85"), (100, "100: efficiency first") })
+        {
+            EppBox.Items.Add(Item(text, (int?)value));
+        }
 
         TurboBox.Items.Add(Item("Leave as is", null));
         TurboBox.Items.Add(Item("On", true));
@@ -135,9 +242,24 @@ public partial class ProfileEditorWindow : Window
             Title = $"Edit profile: {profile.Name}";
             SlotTitle.Text = $"Profile {_slot + 1} of {AppSettings.ProfileSlots}";
             NameBox.Text = profile.Name;
-            Select(ShiftBox, profile.Performance, t => $"{t} (not offered by this laptop)");
+            if (profile.PowerLimits is { } limits)
+            {
+                Select(ShiftBox, ManualTag);
+                _pl1.Value = limits.Pl1Watts;
+                _pl2.Value = limits.Pl2Watts;
+                Select(TurboTimeBox, NearestTurboTime(limits.TurboSeconds));
+            }
+            else
+            {
+                Select(ShiftBox, profile.Performance, t => $"{t} (not offered by this laptop)");
+                Select(TurboTimeBox, NearestTurboTime(28));
+            }
+
+            ManualPanel.Visibility = profile.PowerLimits is null ? Visibility.Collapsed : Visibility.Visible;
             Select(TurboBox, profile.CpuBoost);
             Select(MaxCpuBox, profile.MaxCpuPercent);
+            Select(MaxFreqBox, profile.MaxFrequencyMHz, t => $"{(int)t / 1000.0:0.0#} GHz");
+            Select(EppBox, profile.EnergyPreference, t => $"{t}");
             Select(RefreshBox, profile.RefreshRate, t => $"{t} Hz (built-in screen off right now)");
             Select(KeyboardBox, profile.KeyboardLevel);
             foreach (RadioButton button in FanModePanel.Children)
@@ -297,7 +419,7 @@ public partial class ProfileEditorWindow : Window
         var name = NameBox.Text.Trim();
         var problem = name.Length == 0 ? "Give the profile a name."
             : !string.Equals(settings.UniqueName(name, _slot), name, StringComparison.OrdinalIgnoreCase) ? $"Another profile is already called \"{name}\"."
-            : CurveProblemText();
+            : ManualProblem() ?? CurveProblemText();
         if (problem is not null)
         {
             MessageBox.Show(this, problem, "Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
@@ -306,7 +428,21 @@ public partial class ProfileEditorWindow : Window
 
         var profile = current.Clone();
         profile.Name = name;
-        profile.Performance = (ShiftBox.SelectedItem as ComboBoxItem)?.Tag as ShiftMode?;
+        if (TagOf<string>(ShiftBox) == ManualTag)
+        {
+            // MSI's Balanced: its own ceiling (firmware copy 40/45 W on the Stealth 15M) is above the ~32 W
+            // the cooling holds, and only Eco holds the processor lower (10 W).
+            profile.Performance = ShiftMode.Balanced;
+            profile.PowerLimits = ManualLimits();
+        }
+        else
+        {
+            profile.Performance = (ShiftBox.SelectedItem as ComboBoxItem)?.Tag as ShiftMode?;
+            profile.PowerLimits = null;
+        }
+
+        profile.MaxFrequencyMHz = (MaxFreqBox.SelectedItem as ComboBoxItem)?.Tag as int?;
+        profile.EnergyPreference = (EppBox.SelectedItem as ComboBoxItem)?.Tag as int?;
         profile.CpuBoost = (TurboBox.SelectedItem as ComboBoxItem)?.Tag as bool?;
         profile.MaxCpuPercent = (MaxCpuBox.SelectedItem as ComboBoxItem)?.Tag as int?;
         profile.RefreshRate = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag as int?;

@@ -45,7 +45,8 @@ public sealed record EcCapabilities(
     int KeyboardMaxLevel,
     bool HasFanCurves,
     bool HasFullFanTable = false,
-    bool HasSportMode = false);
+    bool HasSportMode = false,
+    bool HasManualPowerLimits = false);
 
 /// <summary>
 /// Owns the EC connection and everything that writes to hardware.
@@ -145,6 +146,11 @@ public sealed partial class HardwareService : IDisposable
         {
             SafeRefreshState();
             return;
+        }
+
+        if (_controls)
+        {
+            InitializeCpuPower(); // the processor's own power limits, independent of MSI's controller
         }
 
         _acpi = MsiAcpi.TryOpen(out var error, readOnly: !_controls);
@@ -279,6 +285,7 @@ public sealed partial class HardwareService : IDisposable
 
             ReconcileCharge(snapshot);
             AutoSwitchProfiles(snapshot);
+            ReassertPowerLimits();
         }
     }
 
@@ -486,6 +493,11 @@ public sealed partial class HardwareService : IDisposable
                     ec.SetKeyboardLevel(level);
                 }
             }
+
+            if (!_disposed)
+            {
+                ApplyPowerLimits(profile); // after MSI's mode, which sets the firmware's copy (Manual's ceiling)
+            }
         }
 
         if (scope == ProfileScope.Full)
@@ -504,6 +516,16 @@ public sealed partial class HardwareService : IDisposable
                     if (profile.MaxCpuPercent is { } max)
                     {
                         WindowsPower.SetMaxCpuPercent(max, s);
+                    }
+
+                    if (profile.EnergyPreference is { } epp)
+                    {
+                        WindowsPower.SetEnergyPreference(epp, s);
+                    }
+
+                    if (profile.MaxFrequencyMHz is { } mhz)
+                    {
+                        WindowsPower.SetMaxFrequency(mhz, s);
                     }
                 });
 
@@ -798,6 +820,11 @@ public sealed partial class HardwareService : IDisposable
         }
 
         _calibration?.Pause();
+        if (restoreRestingLimit)
+        {
+            RestoreBiosPowerLimit();
+        }
+
         if (_ec is not { CanWrite: true } ec)
         {
             return;
@@ -1014,7 +1041,7 @@ public sealed partial class HardwareService : IDisposable
             CalibrationView(),
             settings.ActiveProfile,
             _msiRunning,
-            new EcCapabilities(ec.Support, ec.MapSource, ec.CanSimulateUnplug, ec.CanSwitchGpuMode, ec.HasCoolerBoost, ec.HasKeyboardLight, ec.HasKeyboardTimeout, ec.KeyboardMaxLevel, ec.HasFanCurves, ec.HasFullFanTable, ec.HasSportMode));
+            new EcCapabilities(ec.Support, ec.MapSource, ec.CanSimulateUnplug, ec.CanSwitchGpuMode, ec.HasCoolerBoost, ec.HasKeyboardLight, ec.HasKeyboardTimeout, ec.KeyboardMaxLevel, ec.HasFanCurves, ec.HasFullFanTable, ec.HasSportMode, HasManualPowerLimits));
         StateChanged?.Invoke();
     }
 
@@ -1059,7 +1086,7 @@ public sealed partial class HardwareService : IDisposable
             Log.Error("Releasing hardware failed", ex);
         }
 
-        foreach (var step in new Action[] { () => _stateTimer?.Dispose(), _hotkeys.Dispose, _audio.Dispose, () => _calibration?.Dispose(), () => _acpi?.Dispose() })
+        foreach (var step in new Action[] { () => _stateTimer?.Dispose(), _hotkeys.Dispose, _audio.Dispose, () => _calibration?.Dispose(), () => _acpi?.Dispose(), () => _cpuPower?.Dispose() })
         {
             try
             {

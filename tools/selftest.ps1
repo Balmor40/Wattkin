@@ -1,11 +1,11 @@
 # Hardware self-test for the MSI Stealth 15M A11UEK (EC 1563EMS1.115): first read-only checks, then
 # (after you confirm) write tests that change one setting at a time and put everything back, then
 # (after another prompt) the power each MSI performance mode allows (about PL2 and PL1), under full load.
-#   .\build.ps1                 # builds .\dist\Wattkin.exe
+#   powershell -ExecutionPolicy Bypass -File .\build.ps1          # builds .\dist\Wattkin.exe
 #   powershell -ExecutionPolicy Bypass -File .\tools\selftest.ps1   # all of it, with prompts (-Stage read|write|power|all)
 # (-ExecutionPolicy Bypass because Windows blocks scripts by default; it applies to this run only.)
-# Close any running Wattkin first; the script offers to stop YAMDCC: two programs writing the embedded
-# controller at once would spoil the results. Asks for administrator rights once (UAC).
+# Close any running Wattkin and ThrottleStop first; the script offers to stop YAMDCC: two programs writing
+# the embedded controller or the power limits at once would spoil the results. Asks for administrator rights once (UAC).
 # Reports go to %LOCALAPPDATA%\Wattkin\selftest; every controller write is in %LOCALAPPDATA%\Wattkin\logs\wattkin.log.
 param(
     [ValidateSet('read', 'write', 'power', 'all')][string]$Stage = 'all',
@@ -28,7 +28,7 @@ function Finish([int]$Code) {
 }
 
 if (-not (Test-Path $Exe)) {
-    Write-Host "No build found at $Exe. Run .\build.ps1 first." -ForegroundColor Red
+    Write-Host "No build found at $Exe. Run powershell -ExecutionPolicy Bypass -File .\build.ps1 first." -ForegroundColor Red
     Finish 2
 }
 
@@ -47,6 +47,11 @@ if ($yamdcc -and $yamdcc.Status -ne 'Stopped') {
 
 if (Get-Process Wattkin -ErrorAction SilentlyContinue) {
     Write-Host 'Wattkin is running. Close it first (tray icon > Exit, or "Wattkin.exe --exit").' -ForegroundColor Red
+    Finish 2
+}
+
+if (Get-Process ThrottleStop -ErrorAction SilentlyContinue) {
+    Write-Host 'ThrottleStop is running: it writes the same power limits. Close it first (and take it out of Windows startup).' -ForegroundColor Red
     Finish 2
 }
 
@@ -91,9 +96,10 @@ if ($Stage -in 'write', 'all' -and (Confirm-Stage 'Run the write tests?' @(
 }
 
 if ($Stage -in 'power', 'all' -and (Confirm-Stage 'Measure the power limits?' @(
-        'The power test loads the processor fully, about 80 seconds per MSI performance mode, with a pause',
-        'in between: up to 8 minutes. The laptop gets hot and the fans loud. Keep the charger connected and',
-        'close heavy apps. Turbo and the maximum processor state are lifted while it runs, then put back.'))) {
+        'The power test loads the processor fully, about 80 seconds per MSI performance mode and then for',
+        'Manual limits (PawnIO), with a pause in between: up to 12 minutes. The laptop gets hot and the fans',
+        'loud. Keep the charger connected and close heavy apps. Turbo, the maximum processor state and',
+        'frequency and EPP are lifted while it runs, then put back, and so are the power limits.'))) {
     $code = [Math]::Max($code, (Run-Stage 'power'))
 }
 

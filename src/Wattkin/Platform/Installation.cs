@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Win32;
+using Wattkin.Features;
 using Wattkin.Settings;
 
 namespace Wattkin.Platform;
@@ -87,6 +88,7 @@ internal static class Installation
             global::Wattkin.Hardware.DiscreteGpu.Enable();
         });
         Step("laptop controller", ResetHardware);
+        Step("power limits", RestorePowerLimits);
         Step("WMI classes", global::Wattkin.Hardware.WmiSchema.Remove); // after the controller, which needs them
         Step("logon task", () => StartupTask.Disable());
         Step("shortcuts", () =>
@@ -121,6 +123,19 @@ internal static class Installation
                 Directory.Delete(Folder, recursive: true);
             }
         });
+    }
+
+    /// <summary>
+    /// The processor's power limits back to the BIOS's (PawnIO), by the app's own rules: only when the
+    /// register still holds what Wattkin wrote in this session; otherwise it already holds the firmware's.
+    /// </summary>
+    private static void RestorePowerLimits()
+    {
+        using var cpu = global::Wattkin.Hardware.CpuPowerControl.Open(out _);
+        if (cpu is not null)
+        {
+            HardwareService.ReadOnlyPowerLimitKeeper(cpu, new SettingsStore(readOnly: true).Current).RestoreBios("the BIOS's, on uninstall");
+        }
     }
 
     /// <summary>

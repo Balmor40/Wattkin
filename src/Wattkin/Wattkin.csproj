@@ -45,6 +45,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- PawnIO's signed modules (see Hardware\PawnIO\NOTICE.md), loaded into the PawnIO driver when installed. -->
+    <EmbeddedResource Include="Hardware\PawnIO\*.bin" LogicalName="Wattkin.PawnIO.%(Filename).bin" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="Wattkin.Tests" />
   </ItemGroup>
 

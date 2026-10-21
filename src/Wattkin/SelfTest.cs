@@ -21,8 +21,8 @@ namespace Wattkin;
 ///
 /// "write" changes one setting at a time, checks the controller took it (and, for the fans, that it
 /// acts on it, hysteresis included), and puts it back. Every register it can touch is saved first and
-/// written back at the end, whatever happened. It refuses to run next to Wattkin, YAMDCC or MSI Center:
-/// two programs writing the controller would spoil the results.
+/// written back at the end, whatever happened. It refuses to run next to Wattkin, YAMDCC, MSI Center or
+/// ThrottleStop: two programs writing the controller or the power limits would spoil the results.
 ///
 /// "power" measures what each of MSI's performance modes lets the processor draw: under full load, the
 /// peak (about PL2) and the level it settles at (about PL1), from Windows' RAPL energy counter, as
@@ -171,6 +171,7 @@ public static class SelfTest
                 : $"the controller's table differs from YAMDCC's ({names}): it looks like the firmware's own.");
         }
 
+        ReadPowerLimits(r);
         return r.Failed > 0 ? 1 : 0;
     }
 
@@ -230,6 +231,8 @@ public static class SelfTest
             Put(acpi, saved, 0xD7);
             Step(r, ec, "Performance modes", () => TestShiftModes(r, ec));
             Put(acpi, saved, 0xD2);
+            Step(r, ec, "Power limits (PawnIO)", () => TestPowerLimits(r, ec));
+            Put(acpi, saved, 0xD2);
             Step(r, ec, "Fan modes", () => TestFanModes(r, ec));
             Put(acpi, saved, 0xD4);
             Step(r, ec, "Keyboard backlight", () => TestKeyboard(r, ec));
@@ -268,6 +271,102 @@ public static class SelfTest
             var ok = ec.SetShiftMode(mode);
             Thread.Sleep(500);
             r.Check(ok && ec.GetShiftMode() == mode, $"Performance mode {mode}", $"read {ec.GetShiftMode()} ({Hex(ec.ReadRegister(0xD2))})");
+        }
+    }
+
+    /// <summary>
+    /// Manual power limits through PawnIO, kept the way the app keeps them (<see cref="PowerLimitKeeper"/>,
+    /// with a memory of its own instead of settings.json): written and read back, put back after something
+    /// else changed them and after an MSI mode change, the BIOS's back for limits that break the rules, for
+    /// a profile without Manual, on exit and after a restart of Wattkin. First, what each MSI mode does
+    /// to the register and to the firmware's copy. The register is written back whatever happens.
+    /// </summary>
+    private static void TestPowerLimits(Report r, EmbeddedController ec)
+    {
+        using var cpu = CpuPowerControl.Open(out var error);
+        if (cpu is null)
+        {
+            r.Skip("Manual power limits", error ?? "PawnIO isn't available");
+            return;
+        }
+
+        if (cpu.Read() is not { } original)
+        {
+            r.Fail("Power limits (MSR 0x610)", "unreadable");
+            return;
+        }
+
+        if (PackagePowerLimit.IsLocked(original))
+        {
+            r.Skip("Manual power limits", "the BIOS locked the register, so Wattkin can't change it");
+            return;
+        }
+
+        string Now() => cpu.Read() is { } raw ? PackagePowerLimit.Decode(raw, cpu.Units).Describe() : "unreadable";
+        string Firmware() => cpu.ReadFirmware() is { } raw ? PackagePowerLimit.Decode(raw, cpu.Units).Describe() : "unreadable";
+        bool Holds(ulong expected) => cpu.Read() is { } raw && PackagePowerLimit.SameLimits(raw, expected);
+
+        r.Info("Before", $"{Now()} · firmware's copy {Firmware()}");
+        try
+        {
+            List<ShiftMode> modes = [ShiftMode.Eco, ShiftMode.Balanced, .. ec.HasSportMode ? [ShiftMode.Sport] : Array.Empty<ShiftMode>(), ShiftMode.Turbo];
+            foreach (var mode in modes)
+            {
+                ec.SetShiftMode(mode);
+                Thread.Sleep(2000);
+                r.Info($"{Fmt.Shift(mode)} mode", $"{Now()} · firmware's copy {Firmware()}");
+            }
+
+            // From here as a profile's Manual runs: MSI's Balanced, then the keeper.
+            ec.SetShiftMode(ShiftMode.Balanced);
+            Thread.Sleep(2000);
+            var start = cpu.Read() ?? original;
+            var memory = new PowerLimitMemory(null, null, null);
+            PowerLimitKeeper NewKeeper() => new(cpu, () => memory, m => memory = m, () => null, () => ec.GetShiftMode()?.ToString(), HardwareService.BootTimeUtc);
+            var keeper = NewKeeper();
+            var test = new PowerLimitSetting { Pl1Watts = 20, Pl2Watts = 30, TurboSeconds = 16 };
+            var expected = PackagePowerLimit.Encode(start, test, cpu.Units);
+
+            keeper.Apply(test, "self-test");
+            r.Check(keeper.Bios is { } bios && PackagePowerLimit.SameLimits(bios, start), "The limits in force were captured before the first write", PackagePowerLimit.Decode(start, cpu.Units).Describe());
+            r.Check(Holds(expected), "Manual limits written and read back", $"set {test.Describe()}, read {Now()}");
+
+            cpu.WriteChecked(start, "self-test: as if something else changed them");
+            Thread.Sleep(PowerLimitKeeper.CheckAfterChange + TimeSpan.FromMilliseconds(500));
+            keeper.Reassert();
+            r.Check(Holds(expected), "Put back after something else changed them", Now());
+
+            // A profile change from Eco to Manual: the mode first, then the limits, as the app does it.
+            ec.SetShiftMode(ShiftMode.Eco);
+            Thread.Sleep(2000);
+            ec.SetShiftMode(ShiftMode.Balanced);
+            keeper.Apply(test, "self-test");
+            Thread.Sleep(PowerLimitKeeper.CheckAfterChange + TimeSpan.FromMilliseconds(500));
+            var leftAlone = Holds(expected);
+            keeper.Reassert();
+            r.Check(Holds(expected), "Manual limits in force 3 s after an MSI mode change",
+                leftAlone ? "the firmware left them alone" : "the firmware rewrote them and they were put back");
+            r.Check(memory.FirmwareByMode?.TryGetValue(nameof(ShiftMode.Balanced), out var noted) == true && cpu.ReadFirmware() == noted,
+                "The firmware's ceiling under Balanced is noted (shown as Manual's ceiling in the editor)", Firmware());
+
+            keeper.Apply(new PowerLimitSetting { Pl1Watts = 30, Pl2Watts = 20, TurboSeconds = 16 }, "self-test");
+            r.Check(Holds(start), "Limits that break the rules aren't written (the BIOS's apply)", Now());
+
+            keeper.Apply(test, "self-test");
+            keeper.Apply(null, "self-test");
+            r.Check(Holds(start), "A profile without Manual puts the BIOS's limits back", Now());
+
+            keeper.Apply(test, "self-test");
+            keeper.RestoreBios("self-test: exit");
+            r.Check(Holds(start) && keeper.Enforcing is null, "Exiting puts the BIOS's limits back", Now());
+
+            keeper.Apply(test, "self-test");
+            NewKeeper().RestoreBios("self-test: exit after a restart of Wattkin");
+            r.Check(Holds(start), "After a restart of Wattkin, the BIOS's limits from before its first write come back", Now());
+        }
+        finally
+        {
+            r.Check(cpu.WriteChecked(original, "self-test: put back") && Holds(original), "Power limits back as they were", PackagePowerLimit.Decode(original, cpu.Units).Describe());
         }
     }
 
@@ -555,14 +654,18 @@ public static class SelfTest
             saved[address] = value;
         }
 
-        r.Info("Power plan", $"turbo {(plan.BoostAc == 0 ? "off" : "on")} and maximum state {plan.MaxAc}% on the charger: set to on and 100% while measuring, then put back");
+        r.Info("Power plan", $"turbo {(plan.BoostAc == 0 ? "off" : "on")}, maximum state {plan.MaxAc}%, maximum frequency {(plan.Freq is { Ac: var mhz } ? mhz == 0 ? "no cap" : $"{mhz} MHz" : "not in the plan")}, EPP {(plan.Epp is { Ac: var epp } ? epp.ToString(CultureInfo.InvariantCulture) : "not in the plan")} on the charger: set to on, 100%, no cap and EPP 0 while measuring, then put back");
         r.Info("Windows power mode", $"{WindowsPower.GetMode(onAc: true)} on the charger (left as it is)");
         r.Info("Fans", "Auto while measuring (the firmware's own behaviour for each mode)");
 
         var results = new List<string>();
+
+        // Manual limits (PawnIO), measured last: the register is saved now and put back at the end.
+        var cpu = CpuPowerControl.Open(out var cpuError);
+        var originalLimit = cpu?.Read();
         try
         {
-            WindowsPower.WriteProcessorPlan(WindowsPower.Unlimited(plan.Scheme));
+            WindowsPower.WriteProcessorPlan(WindowsPower.Unlimited(plan));
             ec.SetCoolerBoost(false);
             ec.SetFanMode(FanMode.Auto);
             List<ShiftMode> modes = [ShiftMode.Eco, ShiftMode.Balanced, .. ec.HasSportMode ? [ShiftMode.Sport] : Array.Empty<ShiftMode>(), ShiftMode.Turbo];
@@ -575,34 +678,57 @@ public static class SelfTest
                     continue;
                 }
 
-                var idle = CoolDown(ec, query, energy!);
-                var samples = Load(ec, query, energy!, TimeSpan.FromSeconds(80));
-                if (samples.Count < 20)
+                if (MeasureUnderLoad(ec, query, energy!) is not { } m)
                 {
                     r.Fail($"{Fmt.Shift(mode)} mode", "too few readings from the energy counter");
                     continue;
                 }
 
-                var watts = samples.Select(s => s.Watts).ToList();
-                var peak = watts.Max();
-                var sustained = watts.TakeLast(15).Average();
-                var peakAt = watts.IndexOf(peak);
-                var boostSeconds = watts.Skip(peakAt).TakeWhile(w => w > (peak + sustained) / 2).Count();
-                var temps = samples.Where(s => s.TempC is not null).Select(s => s.TempC!.Value).ToList();
-                var hottestLate = samples.TakeLast(15).Where(s => s.TempC is not null).Select(s => s.TempC!.Value).DefaultIfEmpty(0).Max();
-                var line = $"peak {peak:0} W (about PL2) · settles at {sustained:0} W (about PL1) · boost about {boostSeconds} s · CPU up to {(temps.Count == 0 ? "?" : temps.Max().ToString(CultureInfo.InvariantCulture))}°C · {idle:0.0} W idle before";
-                r.Pass($"{Fmt.Shift(mode)} (0x{ec.ReadRegister(0xD2):X2})", line);
-                if (hottestLate >= ThermalLimitC)
+                r.Pass($"{Fmt.Shift(mode)} (0x{ec.ReadRegister(0xD2):X2})", m.Describe());
+                if (m.HottestLate >= ThermalLimitC)
                 {
-                    r.Warn($"{Fmt.Shift(mode)}: limited by temperature", $"the CPU was at {hottestLate}°C while settling, so the cooling set this level: the mode's PL1 may be higher");
+                    r.Warn($"{Fmt.Shift(mode)}: limited by temperature", $"the CPU was at {m.HottestLate}°C while settling, so the cooling set this level: the mode's PL1 may be higher");
                 }
 
-                results.Add($"{Fmt.Shift(mode),-9} PL2 ≈ {peak,3:0} W   PL1 ≈ {sustained,3:0} W   boost ≈ {boostSeconds,2} s");
+                results.Add($"{Fmt.Shift(mode),-9} PL2 ≈ {m.Peak,3:0} W   PL1 ≈ {m.Sustained,3:0} W   boost ≈ {m.BoostSeconds,2} s");
+            }
+
+            r.Section("Power limits: Manual (PawnIO)");
+            if (cpu is null)
+            {
+                r.Skip("Manual power limits", cpuError ?? "PawnIO isn't available");
+            }
+            else if (originalLimit is not { } original || PackagePowerLimit.IsLocked(original))
+            {
+                r.Skip("Manual power limits", "the power-limit register can't be read, or the BIOS locked it");
+            }
+            else
+            {
+                // What a profile's Manual does: MSI's Balanced, then the processor's own limits.
+                var test = new PowerLimitSetting { Pl1Watts = 15, Pl2Watts = 25, TurboSeconds = 8 };
+                ec.SetShiftMode(ShiftMode.Balanced);
+                var written = cpu.WriteChecked(PackagePowerLimit.Encode(original, test, cpu.Units), "self-test");
+                r.Check(written, "Manual limits written and read back", test.Describe());
+                if (written && MeasureUnderLoad(ec, query, energy!) is { } m)
+                {
+                    r.Check(m.Sustained <= test.Pl1Watts + 2, "The processor settles at PL1", m.Describe());
+                    r.Check(m.Peak <= test.Pl2Watts + 3, "Bursts stay under PL2", $"peak {m.Peak:0.0} W for PL2 {test.Pl2Watts} W");
+                    var after = cpu.Read();
+                    r.Check(after is { } a && PackagePowerLimit.SameLimits(a, PackagePowerLimit.Encode(original, test, cpu.Units)), "Nothing changed the limits during the load",
+                        after is { } now ? PackagePowerLimit.Decode(now, cpu.Units).Describe() : "unreadable");
+                    results.Add($"{"Manual",-9} PL2 ≈ {m.Peak,3:0} W   PL1 ≈ {m.Sustained,3:0} W   boost ≈ {m.BoostSeconds,2} s   (set: {test.Describe()})");
+                }
             }
         }
         finally
         {
             r.Section("Putting everything back");
+            if (cpu is not null && originalLimit is { } o)
+            {
+                r.Check(cpu.WriteChecked(o, "self-test: put back"), "Power limits back as they were", PackagePowerLimit.Decode(o, cpu.Units).Describe());
+            }
+
+            cpu?.Dispose();
             WindowsPower.WriteProcessorPlan(plan);
             foreach (var (address, value) in saved)
             {
@@ -627,6 +753,57 @@ public static class SelfTest
         }
 
         return r.Failed > 0 ? 1 : 0;
+    }
+
+    /// <summary>One run under full load: the peak (about PL2), the level it settles at (about PL1), how long the boost lasted.</summary>
+    private sealed record LoadResult(double Peak, double Sustained, int BoostSeconds, int? MaxTempC, int HottestLate, double IdleBefore)
+    {
+        public string Describe() =>
+            $"peak {Peak:0} W (about PL2) · settles at {Sustained:0} W (about PL1) · boost about {BoostSeconds} s · CPU up to {(MaxTempC is { } t ? t.ToString(CultureInfo.InvariantCulture) : "?")}°C · {IdleBefore:0.0} W idle before";
+    }
+
+    /// <summary>A cool-down, then 80 s of full load; null when the energy counter gave too few readings.</summary>
+    private static LoadResult? MeasureUnderLoad(EmbeddedController ec, PdhQuery query, PdhCounter energy)
+    {
+        var idle = CoolDown(ec, query, energy);
+        var samples = Load(ec, query, energy, TimeSpan.FromSeconds(80));
+        if (samples.Count < 20)
+        {
+            return null;
+        }
+
+        var watts = samples.Select(s => s.Watts).ToList();
+        var peak = watts.Max();
+        var sustained = watts.TakeLast(15).Average();
+        var boost = watts.Skip(watts.IndexOf(peak)).TakeWhile(w => w > (peak + sustained) / 2).Count();
+        var temps = samples.Where(s => s.TempC is not null).Select(s => s.TempC!.Value).ToList();
+        var hottestLate = samples.TakeLast(15).Where(s => s.TempC is not null).Select(s => s.TempC!.Value).DefaultIfEmpty(0).Max();
+        return new LoadResult(peak, sustained, boost, temps.Count == 0 ? null : temps.Max(), hottestLate, idle);
+    }
+
+    /// <summary>Read only: PawnIO, the power-limit register, its lock and the firmware's copy.</summary>
+    private static void ReadPowerLimits(Report r)
+    {
+        r.Section("Power limits (PawnIO, read only)");
+        if (PawnIo.InstalledVersion is not { } version)
+        {
+            r.Skip("PawnIO", "not installed (winget install namazso.PawnIO): manual power limits unavailable");
+            return;
+        }
+
+        r.Info("PawnIO", $"version {version}");
+        using var cpu = CpuPowerControl.Open(out var error);
+        if (!r.Check(cpu is not null, "PawnIO driver and its IntelMSR module", error ?? ""))
+        {
+            return;
+        }
+
+        r.Info("Units", string.Create(CultureInfo.InvariantCulture, $"{cpu!.Units.WattsPerStep} W and {cpu.Units.SecondsPerStep} s per step"));
+        var raw = cpu.Read();
+        r.Check(raw is not null, "Power limits (MSR 0x610)", raw is { } m ? $"{PackagePowerLimit.Decode(m, cpu.Units).Describe()} (0x{m:X16})" : "unreadable");
+        r.Check(raw is { } v && !PackagePowerLimit.IsLocked(v), "Not locked by the BIOS (Wattkin can change them)");
+        r.Info("Firmware's copy (MCHBAR 0x59A0)", cpu.ReadFirmware() is { } f ? $"{PackagePowerLimit.Decode(f, cpu.Units).Describe()} (0x{f:X16}); the processor follows the lower of the two" : "unreadable");
+        r.Info("Most the package may be given (MSR 0x614)", cpu.ReadMaxWatts() is { } max ? $"{max:0.#} W" : "not reported");
     }
 
     /// <summary>Waits (up to a minute) for the processor to calm down between modes. Returns the package watts at the end.</summary>
@@ -714,8 +891,8 @@ public static class SelfTest
         var ok = r.Check(Elevation.IsElevated, "Administrator rights", Elevation.IsElevated ? "" : "run tools\\selftest.ps1, which asks for them");
         var others = Process.GetProcessesByName("Wattkin").Where(p => p.Id != Environment.ProcessId).ToList();
         ok &= r.Check(others.Count == 0, "No other Wattkin running", others.Count == 0 ? "" : "close it first (Wattkin.exe --exit, or its tray menu)");
-        var tools = OtherFanTools.Concat(HardwareService.MsiProcesses).Where(n => Process.GetProcessesByName(n).Length > 0).ToList();
-        ok &= r.Check(tools.Count == 0, "YAMDCC and MSI Center stopped", tools.Count == 0 ? "" : $"still running: {string.Join(", ", tools)}. Stop the YAMDCC service (Stop-Service yamdccsvc) first.");
+        var tools = OtherFanTools.Concat(HardwareService.MsiProcesses).Concat(HardwareService.PowerLimitTools).Where(n => Process.GetProcessesByName(n).Length > 0).ToList();
+        ok &= r.Check(tools.Count == 0, "YAMDCC, MSI Center and ThrottleStop stopped", tools.Count == 0 ? "" : $"still running: {string.Join(", ", tools)}. Stop the YAMDCC service (Stop-Service yamdccsvc) and close ThrottleStop first.");
         return ok;
     }
 

@@ -55,8 +55,23 @@ public sealed class Profile
     /// <summary>Fans at full speed (MSI's Cooler Boost), whatever <see cref="Fan"/> says.</summary>
     public bool CoolerBoost { get; set; }
 
+    /// <summary>
+    /// "Manual": the package power limits written to the processor (needs PawnIO). Null = the BIOS's.
+    /// The editor pairs it with MSI's Balanced mode. Balanced sets the firmware's own copy of the limits
+    /// (40/45 W on the Stealth 15M, self-test 2026-10-21), and the processor keeps to the lower of the
+    /// two: Manual can go below that, not above. The cooling holds the laptop near 32 W anyway.
+    /// </summary>
+    public PowerLimitSetting? PowerLimits { get; set; }
+
     public bool? CpuBoost { get; set; }
     public int? MaxCpuPercent { get; set; }
+
+    /// <summary>The power plan's energy performance preference, 0 (performance) to 100 (efficiency).</summary>
+    public int? EnergyPreference { get; set; }
+
+    /// <summary>The power plan's maximum processor frequency in MHz; 0 = no cap.</summary>
+    public int? MaxFrequencyMHz { get; set; }
+
     public int? RefreshRate { get; set; }
     public int? KeyboardLevel { get; set; }
 
@@ -72,6 +87,7 @@ public sealed class Profile
         var copy = (Profile)MemberwiseClone();
         copy.CurveTable = CurveTable?.Clone();
         copy.CurveSpeeds = CurveSpeeds?.Clone();
+        copy.PowerLimits = PowerLimits?.Clone();
         return copy;
     }
 
@@ -195,6 +211,25 @@ public sealed class AppSettings
     /// written its own table before, that's the one kept.
     /// </summary>
     public FanTable? FactoryFanTable { get; set; }
+
+    /// <summary>
+    /// The power-limit register (MSR 0x610) as the BIOS set it, captured before Wattkin first wrote it in
+    /// this Windows session (<see cref="BiosPowerLimitBootUtc"/>): what profiles without manual limits,
+    /// exiting and uninstalling put back. <see cref="LastWrittenPowerLimitRaw"/> is what Wattkin last
+    /// wrote: the capture is kept only while the register still holds it (see Features.PowerLimitKeeper).
+    /// This file is user-writable: the keeper validates both before using them.
+    /// </summary>
+    public ulong? BiosPowerLimitRaw { get; set; }
+    public DateTime? BiosPowerLimitBootUtc { get; set; }
+    public ulong? LastWrittenPowerLimitRaw { get; set; }
+
+    /// <summary>
+    /// The firmware's own copy of the power limits (MCHBAR) as last seen under each MSI mode, by mode
+    /// name. MSI's modes set it (on the Stealth 15M: Balanced and Sport 40/45 W, Extreme 50/64 W), and
+    /// the processor keeps to the lower of the two copies, so it's the ceiling for Manual, which runs
+    /// under Balanced. Only shown in the editor, never written to the hardware.
+    /// </summary>
+    public Dictionary<string, ulong>? FirmwarePowerLimits { get; set; }
 
     // The battery in the laptop (Windows' unique ID for it, and what it last held when full) and when a
     // different one was first seen: capacity history and calibration advice start again from then.
@@ -363,6 +398,15 @@ public sealed class AppSettings
             }
 
             p.MaxCpuPercent = p.MaxCpuPercent is { } m ? Math.Clamp(m, 5, 100) : null;
+            p.EnergyPreference = p.EnergyPreference is { } epp ? Math.Clamp(epp, 0, 100) : null;
+            p.MaxFrequencyMHz = p.MaxFrequencyMHz is { } mhz ? (mhz <= 0 ? 0 : Math.Clamp(mhz, 400, 8000)) : null;
+
+            // Manual power limits that break the rules never reach the processor: the BIOS's apply instead.
+            if (p.PowerLimits?.Problem() is not null)
+            {
+                p.PowerLimits = null;
+            }
+
             p.KeyboardLevel = p.KeyboardLevel is { } k ? Math.Clamp(k, 0, 3) : null;
             p.RefreshRate = p.RefreshRate is > 0 and < 1000 ? p.RefreshRate : null;
 
@@ -404,6 +448,7 @@ public sealed class AppSettings
         CalibrationHistory ??= [];
         OriginalPowerSettings ??= [];
         OriginalPowerModes ??= [];
+        FirmwarePowerLimits = FirmwarePowerLimits?.Where(kv => Enum.GetNames<ShiftMode>().Contains(kv.Key)).ToDictionary() is { Count: > 0 } byMode ? byMode : null;
         ActiveProfile = FindProfile(ActiveProfile)?.Name ?? Profiles[0].Name;
 
         // A rule naming a profile that's gone leaves the profile alone.

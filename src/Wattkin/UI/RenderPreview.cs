@@ -171,6 +171,9 @@ internal static class RenderPreview
         editor.Height = 1500;
         Pump();
         Save(editor, Path.Combine(folder, $"profile-editor-{theme}.png"));
+        editor.PreviewManual();
+        Pump();
+        Save(editor, Path.Combine(folder, $"profile-editor-manual-{theme}.png"));
         editor.Close();
     }
 
