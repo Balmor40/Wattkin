@@ -346,6 +346,24 @@ public sealed class SettingsAndModelsTests : IDisposable
         Assert.False(store.Current.DrainToLimit);
     }
 
+    [Fact]
+    public void TheOldWattsSwitchBecomesTheTrayChoice()
+    {
+        Directory.CreateDirectory(_dir);
+        var path = Path.Combine(_dir, "settings.json");
+        File.WriteAllText(path, """{ "TrayShowsWatts": false }""");
+        Assert.Equal(TrayDisplay.Logo, new SettingsStore(_dir).Current.TrayDisplay);
+
+        File.WriteAllText(path, """{ "TrayShowsWatts": true }""");
+        var store = new SettingsStore(_dir);
+        Assert.Equal(TrayDisplay.Watts, store.Current.TrayDisplay);
+
+        // Saved again, only the new choice is in the file, and it survives a restart.
+        store.Update(s => s.TrayDisplay = TrayDisplay.CpuTemperature);
+        Assert.DoesNotContain("TrayShowsWatts", File.ReadAllText(path));
+        Assert.Equal(TrayDisplay.CpuTemperature, new SettingsStore(_dir).Current.TrayDisplay);
+    }
+
     private static Snapshot Full(double percent)
     {
         var power = new PowerState(PowerSource.AcCpuOnly, 5, 5, 5, 5, 0, OnAc: true, Charging: false, percent, percent * 0.6, 60, null, null, null, null);

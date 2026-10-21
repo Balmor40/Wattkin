@@ -158,6 +158,8 @@ public partial class SettingsWindow : Window
             LowThreshold.Items.Add(Item($"≤ {value}%", value));
         }
 
+        FillTrayDisplay(TrayDisplayChoice);
+
         for (var i = 0; i < levels.Length; i++)
         {
             var level = i;
@@ -273,7 +275,7 @@ public partial class SettingsWindow : Window
             Osd.IsChecked = s.ShowOsd;
             MuteLeds.IsChecked = s.SyncMuteLeds;
 
-            TrayWatts.IsChecked = s.TrayShowsWatts;
+            Select(TrayDisplayChoice, s.TrayDisplay);
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
             BatteryLogToggle.IsChecked = s.BatteryLogging;
             CalibrationFast.IsChecked = s.Calibration?.FastDischarge ?? false;
@@ -891,11 +893,15 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        App.Current.Store.Update(s =>
+        App.Current.Store.Update(s => s.BatteryLogging = BatteryLogToggle.IsChecked == true);
+    }
+
+    private void OnTrayDisplay(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && TrayDisplayChoice.SelectedItem is ComboBoxItem { Tag: TrayDisplay display })
         {
-            s.TrayShowsWatts = TrayWatts.IsChecked == true;
-            s.BatteryLogging = BatteryLogToggle.IsChecked == true;
-        });
+            App.Current.Store.Update(s => s.TrayDisplay = display);
+        }
     }
 
     private void OnWidgetToggle(object sender, RoutedEventArgs e) => App.Current.SetWidgetVisible(WidgetToggle.IsChecked == true);

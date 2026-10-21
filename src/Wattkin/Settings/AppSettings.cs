@@ -19,6 +19,15 @@ public enum WindowsPowerMode
     BestPerformance,
 }
 
+/// <summary>What the tray icon shows: Wattkin's logo, or a reading drawn as the icon itself.</summary>
+public enum TrayDisplay
+{
+    Logo,
+    Watts,
+    CpuTemperature,
+    CpuLoad,
+}
+
 /// <summary>
 /// One of the four profile slots: a bundle of independent knobs, applied together. Null means "leave
 /// this alone". The slots keep their place (see <see cref="AppSettings.ProfileSlots"/>); their names
@@ -192,7 +201,11 @@ public sealed class AppSettings
     public bool ExpertView { get; set; }
 
     // Tray / widget
-    public bool TrayShowsWatts { get; set; } = true;
+    public TrayDisplay TrayDisplay { get; set; } = TrayDisplay.Watts;
+
+    /// <summary>Settings files up to 1.3.2 only chose between the watts and the logo; <see cref="Normalize"/> turns it into <see cref="TrayDisplay"/>.</summary>
+    public bool? TrayShowsWatts { get; set; }
+
     public bool WidgetEnabled { get; set; }
     public double? WidgetLeft { get; set; }
     public double? WidgetTop { get; set; }
@@ -455,6 +468,17 @@ public sealed class AppSettings
         if (!Enum.IsDefined(KeyboardTimeout))
         {
             KeyboardTimeout = KeyboardTimeout.AlwaysOn;
+        }
+
+        if (TrayShowsWatts is false)
+        {
+            TrayDisplay = TrayDisplay.Logo;
+        }
+
+        TrayShowsWatts = null;
+        if (!Enum.IsDefined(TrayDisplay))
+        {
+            TrayDisplay = TrayDisplay.Watts;
         }
 
         WidgetOpacity = double.IsFinite(WidgetOpacity) ? Math.Clamp(WidgetOpacity, 0.3, 1) : 0.92;

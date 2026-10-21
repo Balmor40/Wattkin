@@ -61,6 +61,7 @@ public partial class SimpleSettings : UserControl
 
         _keyboardColors = new ColorSwatches(KeyboardColorPanel, "simpleKbColor");
         AutoOffDelayHost.Child = _autoOffDelay.Control;
+        Choices.FillTrayDisplay(TrayChoice);
 
         foreach (var (text, mode) in new[] { ("Integrated", FirmwareGpuMode.Integrated), ("Hybrid", FirmwareGpuMode.Hybrid) })
         {
@@ -125,7 +126,8 @@ public partial class SimpleSettings : UserControl
             AutoOffToggle.IsChecked = s.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
             _keyboardColors.Show(s.KeyboardColor);
             _autoOffDelay.Show(s.KeyboardAutoOffSeconds);
-            TrayToggle.IsChecked = s.TrayShowsWatts;
+            Choices.Select(TrayChoice, s.TrayDisplay);
+            TrayText.Text = TrayDescription(s.TrayDisplay, Elevation.IsElevated);
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
         }
         finally
@@ -135,6 +137,16 @@ public partial class SimpleSettings : UserControl
     }
 
     private static string Describe(Profile? p) => p is null ? "Keeps whichever profile is on." : char.ToUpperInvariant(Fmt.ProfileSummary(p)[0]) + Fmt.ProfileSummary(p)[1..] + ".";
+
+    /// <param name="elevated">The CPU temperature comes from the EC, which only an administrator can read.</param>
+    private static string TrayDescription(TrayDisplay display, bool elevated) => display switch
+    {
+        TrayDisplay.Logo => "Wattkin's logo. Point at it for the watts and the battery.",
+        TrayDisplay.CpuTemperature when !elevated =>"The processor's temperature needs Wattkin running as administrator; the logo shows until then.",
+        TrayDisplay.CpuTemperature => "The processor's temperature, in °C.",
+        TrayDisplay.CpuLoad => "How busy the processor is, as Task Manager counts it.",
+        _ => "What the laptop is drawing, in watts.",
+    };
 
     private static string LimitDescription(AppSettings s)
     {
@@ -326,7 +338,13 @@ public partial class SimpleSettings : UserControl
     private async void OnAutoOff(object sender, RoutedEventArgs e) =>
         await App.Current.Hardware.SetKeyboardTimeoutAsync(AutoOffToggle.IsChecked == true ? KeyboardTimeout.AutoOff : KeyboardTimeout.AlwaysOn);
 
-    private void OnTray(object sender, RoutedEventArgs e) => App.Current.Store.Update(s => s.TrayShowsWatts = TrayToggle.IsChecked == true);
+    private void OnTray(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && TrayChoice.SelectedItem is ComboBoxItem { Tag: TrayDisplay display })
+        {
+            App.Current.Store.Update(s => s.TrayDisplay = display);
+        }
+    }
 
     private void OnWidget(object sender, RoutedEventArgs e) => App.Current.SetWidgetVisible(WidgetToggle.IsChecked == true);
 

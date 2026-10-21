@@ -86,7 +86,10 @@ public partial class App : Application
         // Settings and hardware belong to the copy that owns the single instance.
         var owner = _single is not null;
         Store = new SettingsStore(readOnly: !owner);
-        Monitor = new SystemMonitor(Store.Current.LearnedRestOfSystemWatts, Store.Current.LearnedRestOfSystemSamples);
+        Monitor = new SystemMonitor(Store.Current.LearnedRestOfSystemWatts, Store.Current.LearnedRestOfSystemSamples)
+        {
+            SensorsInTray = () => Store.Current.TrayDisplay == TrayDisplay.CpuTemperature,
+        };
         Hardware = new HardwareService(Store, Monitor, controlsHardware: owner);
         Hardware.Osd += message => Dispatcher.BeginInvoke(() => ShowOsd(message));
         Hardware.OpenRequested += () => Dispatcher.BeginInvoke(ToggleFlyout);

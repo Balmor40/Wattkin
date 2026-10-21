@@ -37,6 +37,7 @@ This is a fork of [CoppingEthan/Wattkin](https://github.com/CoppingEthan/Wattkin
 - **Full fan tables on the MSI Stealth 15M A11UEK** (EC firmware `1563EMS1.115`): each step's speed, the temperature that moves the fan up to it and the temperature that moves it back down (hysteresis), like [YAMDCC](https://codeberg.org/Sparronator9999/YAMDCC). The register map comes from YAMDCC's configuration for this laptop.
 - **Four profile buttons with a gear.** Click a profile to use it; the gear inside the button edits it: name, MSI power limits (Eco, Balanced, Sport, Extreme), turbo, maximum processor state, fans with a curve of its own, screen refresh rate and keyboard light. Optional rules switch profiles on the charger, on battery, and at a low-battery threshold.
 - **The keyboard light on the Stealth 15M A11UEK**, whose keys are lit by MSI's Mystic Light USB controller rather than the embedded controller: brightness and a colour of your choice, sent the way MSI Center does (protocol from [OpenRGB](https://gitlab.com/CalcProgrammer1/OpenRGB)), and an auto-off of its own (5 seconds to 5 minutes without typing on the built-in keyboard), as the controller's doesn't reach these keys. All of it is in the tray window too.
+- **A choice of reading in the tray icon**: the watts, the CPU temperature (`72°`) or the CPU load (`45%`), or the logo.
 - **A hardware self-test** (`tools\selftest.ps1`) that checks every control on the laptop and puts everything back, and measures what each MSI power mode lets the processor draw (about PL2 and PL1).
 
 ## Install
@@ -53,7 +54,7 @@ You don't need MSI Center, and you never need to install it. If it's already on 
 
 ## Features
 
-- **Watts at a glance** - What the whole laptop is drawing right now, in the tray icon, a flyout and an optional desktop widget, with the battery time left.
+- **Watts at a glance** - What the whole laptop is drawing right now, in the tray icon, a flyout and an optional desktop widget, with the battery time left. The tray icon can show the CPU temperature or the CPU load instead, or just the logo.
 - **Charge limits** - Stop charging anywhere from 10% to 100%, charge to 100% once for a long day away, or bring the battery down to the limit while plugged in.
 - **Battery health** - Capacity, health and history, plus MSI's calibration for when the battery gauge drifts.
 - **Profiles** - Four of them, each with its own CPU power limits, turbo and maximum processor state, fans, refresh rate and keyboard light; the gear on a profile button edits it. Profiles switch by themselves when you plug in or unplug, or when the battery runs low. On the Prestige 16 Studio, Quiet keeps the fans off until the CPU reaches 60°C.

@@ -162,10 +162,10 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Watts in the taskbar" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock Text="The tray icon shows what the laptop is drawing." Style="{StaticResource Lc.RowText}" />
+                            <TextBlock Text="In the taskbar" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="TrayText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
-                        <CheckBox x:Name="TrayToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnTray" />
+                        <ComboBox x:Name="TrayChoice" Grid.Column="1" Width="190" VerticalAlignment="Center" SelectionChanged="OnTray" />
                     </Grid>
                     <Border Style="{StaticResource Lc.Divider}" />
                     <Grid Style="{StaticResource Lc.Row}">

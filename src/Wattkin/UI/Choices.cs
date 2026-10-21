@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using Wattkin.Settings;
 
 namespace Wattkin.UI;
 
@@ -48,4 +49,14 @@ internal static class Choices
 
     /// <summary>The profile a rule's list names, or null for "Leave as is".</summary>
     public static string? ProfileOf(ComboBox box) => TagOf<string>(box) is { Length: > 0 } name ? name : null;
+
+    /// <summary>What the tray icon can show.</summary>
+    public static void FillTrayDisplay(ComboBox box)
+    {
+        box.Items.Clear();
+        box.Items.Add(Item("Logo", TrayDisplay.Logo));
+        box.Items.Add(Item("Watts", TrayDisplay.Watts));
+        box.Items.Add(Item("CPU temperature", TrayDisplay.CpuTemperature));
+        box.Items.Add(Item("CPU load", TrayDisplay.CpuLoad));
+    }
 }

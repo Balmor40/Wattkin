@@ -246,7 +246,8 @@
                         <StackPanel>
                             <TextBlock Text="Wattkin" Style="{StaticResource Lc.Section}" />
                             <CheckBox x:Name="StartWithWindows" Content="Start with Windows (as administrator, without a UAC prompt)" Click="OnStartWithWindows" />
-                            <CheckBox x:Name="TrayWatts" Content="Show current watts as the tray icon" Click="OnGeneralChanged" />
+                            <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="200" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="The tray icon shows" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TrayDisplayChoice" Grid.Column="1" SelectionChanged="OnTrayDisplay" /></Grid>
                             <CheckBox x:Name="WidgetToggle" Content="Show the desktop widget" Click="OnWidgetToggle" />
                             <CheckBox x:Name="BatteryLogToggle" Content="Keep a battery log (on battery a line a minute; on the charger only changes)" Click="OnGeneralChanged" />
                             <TextBlock x:Name="ElevationText" Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" />

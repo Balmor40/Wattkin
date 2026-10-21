@@ -5,13 +5,15 @@ using System.Windows;
 using System.Windows.Controls;
 using Wattkin.Monitoring;
 using Wattkin.Native;
+using Wattkin.Settings;
 using Forms = System.Windows.Forms;
 
 namespace Wattkin.UI;
 
 /// <summary>
-/// Tray icon that shows the laptop's current watts as the icon itself, so the number is visible at
-/// a glance without opening anything. Left click: flyout. Right click: quick menu.
+/// Tray icon that shows a reading as the icon itself (the laptop's current watts, the CPU temperature
+/// or the CPU load; see <see cref="AppSettings.TrayDisplay"/>), so the number is visible at a glance
+/// without opening anything. Left click: flyout. Right click: quick menu.
 /// </summary>
 internal sealed class TrayIcon : IDisposable
 {
@@ -22,7 +24,7 @@ internal sealed class TrayIcon : IDisposable
     private string _currentTooltip = "";
     private bool _currentLight;
     private bool _taskbarLight = TaskbarIsLight();
-    private double? _shownWatts;
+    private TrayReading? _shown;
     private ContextMenu? _menu;
 
     public TrayIcon()
@@ -37,25 +39,26 @@ internal sealed class TrayIcon : IDisposable
     public void Update(Snapshot snapshot)
     {
         var settings = App.Current.Store.Current;
-        var watts = snapshot.Power.WattsNow;
         var hardware = App.Current.Hardware.State;
+        var reading = TrayReading.From(settings.TrayDisplay, snapshot)?.Settle(_shown);
+        _shown = reading;
 
-        // Every change redraws the taskbar (and wakes the display pipeline), so the number only moves
-        // when the reading really moved: at least 0.3 W or 3%.
-        if (watts is { } w && _shownWatts is { } shown && Math.Abs(w - shown) < Math.Max(0.3, shown * 0.03))
-        {
-            watts = shown;
-        }
-
-        _shownWatts = watts;
-
+        // The tooltip's numbers match the icon's: the settled reading, with its decimal.
+        var watts = reading is { Display: TrayDisplay.Watts } shownWatts ? shownWatts.Value : snapshot.Power.WattsNow;
         var tooltip = $"Wattkin · {Fmt.Watts(watts)}";
         if (snapshot.Power.Percent is { } percent)
         {
             tooltip += $" · {percent:0}%";
         }
 
-        tooltip += $"\n{Fmt.BatteryLine(snapshot.Power, hardware.ChargeStatus, coarse: true)}\nProfile: {settings.ActiveProfile}";
+        tooltip += $"\n{Fmt.BatteryLine(snapshot.Power, hardware.ChargeStatus, coarse: true)}";
+        tooltip += reading switch
+        {
+            { Display: TrayDisplay.CpuTemperature } t => $"\nCPU {Fmt.Temp(t.Value)}",
+            { Display: TrayDisplay.CpuLoad } l => $"\nCPU load {l.Value:0}%",
+            _ => "",
+        };
+        tooltip += $"\nProfile: {settings.ActiveProfile}";
         tooltip = tooltip.Length > 127 ? tooltip[..127] : tooltip;
         if (tooltip != _currentTooltip)
         {
@@ -63,34 +66,28 @@ internal sealed class TrayIcon : IDisposable
             _icon.Text = tooltip;
         }
 
-        if (!settings.TrayShowsWatts || watts is null)
-        {
-            SetIcon(null);
-            return;
-        }
-
-        // Whole watts in the tray ("17W"); the flyout and tooltip keep the decimal.
-        SetIcon(Math.Round(watts.Value, MidpointRounding.AwayFromZero).ToString("0", System.Globalization.CultureInfo.CurrentCulture));
+        SetIcon(reading);
     }
 
-    private void SetIcon(string? text)
+    private void SetIcon(TrayReading? reading)
     {
         var light = _taskbarLight;
+        var text = reading is { } r ? r.Number + r.Unit : "";
         if (text == _currentText && light == _currentLight)
         {
             return;
         }
 
-        _currentText = text ?? "";
+        _currentText = text;
         _currentLight = light;
-        if (text is null)
+        if (reading is null)
         {
             _icon.Icon = _staticIcon;
             ReleaseHandle();
             return;
         }
 
-        using var bitmap = Render(text, SmallIconSize(), light);
+        using var bitmap = Render(reading.Value.Number, reading.Value.Unit, SmallIconSize(), light);
         var handle = bitmap.GetHicon();
         _icon.Icon = Icon.FromHandle(handle);
         ReleaseHandle();
@@ -98,10 +95,11 @@ internal sealed class TrayIcon : IDisposable
     }
 
     /// <summary>
-    /// The tray number: whole watts with a small "W" sharing its baseline (e.g. "17W"), as large as
-    /// fits the icon. Built from glyph outlines so both parts line up exactly at 16–32 px.
+    /// The tray number with its unit, as large as fits the icon: a small "W" or "%" sharing the digits'
+    /// baseline ("17W", "45%"), or a degree sign level with their top ("72°"). Built from glyph outlines
+    /// so the parts line up exactly at 16–32 px.
     /// </summary>
-    internal static Bitmap Render(string number, System.Drawing.Size size, bool light)
+    internal static Bitmap Render(string number, string unit, System.Drawing.Size size, bool light)
     {
         var bitmap = new Bitmap(size.Width, size.Height);
         using var g = Graphics.FromImage(bitmap);
@@ -112,7 +110,8 @@ internal sealed class TrayIcon : IDisposable
         using var family = new FontFamily("Segoe UI");
         using var format = (StringFormat)StringFormat.GenericTypographic.Clone();
         var ascent = family.GetCellAscent(System.Drawing.FontStyle.Bold) / (float)family.GetEmHeight(System.Drawing.FontStyle.Bold);
-        var unit = number.Length >= 3 ? 0.5f : 0.58f; // relative size of the "W"
+        var raised = unit == "°";
+        var scale = raised ? 0.8f : number.Length >= 3 ? 0.5f : 0.58f; // relative size of the unit
         var gap = size.Width / 32f;
 
         for (var em = size.Height * 1.25f; em > 5; em -= 0.25f)
@@ -121,19 +120,19 @@ internal sealed class TrayIcon : IDisposable
             digits.AddString(number, family, (int)System.Drawing.FontStyle.Bold, em, new PointF(0, 0), format);
             var d = digits.GetBounds();
 
-            using var w = new GraphicsPath();
-            var wEm = em * unit;
-            // Same baseline: the W's em box starts lower by the difference in ascent.
-            w.AddString("W", family, (int)System.Drawing.FontStyle.Bold, wEm, new PointF(0, (ascent * em) - (ascent * wEm)), format);
-            var wb = w.GetBounds();
+            using var u = new GraphicsPath();
+            var uEm = em * scale;
+            // Same baseline: the unit's em box starts lower by the difference in ascent.
+            u.AddString(unit, family, (int)System.Drawing.FontStyle.Bold, uEm, new PointF(0, (ascent * em) - (ascent * uEm)), format);
+            var ub = u.GetBounds();
 
-            var width = d.Width + gap + wb.Width;
+            var width = d.Width + gap + ub.Width;
             if (width > size.Width + 0.5f || d.Height > size.Height)
             {
                 continue;
             }
 
-            // Centre the pair; vertically centre the digits (they're taller than the W).
+            // Centre the pair; vertically centre the digits (they're taller than the unit).
             var dx = ((size.Width - width) / 2f) - d.Left;
             var dy = ((size.Height - d.Height) / 2f) - d.Top;
             using (var move = new Matrix())
@@ -144,12 +143,12 @@ internal sealed class TrayIcon : IDisposable
 
             using (var move = new Matrix())
             {
-                move.Translate(dx + d.Right + gap - wb.Left, dy);
-                w.Transform(move);
+                move.Translate(dx + d.Right + gap - ub.Left, raised ? dy + d.Top - ub.Top : dy);
+                u.Transform(move);
             }
 
             g.FillPath(brush, digits);
-            g.FillPath(brush, w);
+            g.FillPath(brush, u);
             break;
         }
 

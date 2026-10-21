@@ -34,11 +34,11 @@ internal static class RenderPreview
         timer.Start();
     }
 
-    /// <summary>Tray icons at the sizes Windows uses (100–200% scaling), actual size and 6× zoom, on light and dark taskbars.</summary>
+    /// <summary>Tray icons (watts, CPU temperature, CPU load) at the sizes Windows uses (100–200% scaling), actual size and 6× zoom, on light and dark taskbars.</summary>
     private static void RenderTray(string folder)
     {
         int[] sizes = [16, 20, 24, 32];
-        string[] numbers = ["2", "9", "17", "54", "105"];
+        (string Number, string Unit)[] numbers = [("2", "W"), ("17", "W"), ("105", "W"), ("38", "°"), ("72", "°"), ("3", "%"), ("45", "%"), ("100", "%")];
         const int zoom = 6;
         const int cell = 32 * zoom + 16;
         using var sheet = new System.Drawing.Bitmap((numbers.Length * cell) + 16, (sizes.Length * 2 * (cell + 40)) + 16);
@@ -54,7 +54,7 @@ internal static class RenderPreview
                 g.FillRectangle(bg, 0, y - 8, sheet.Width, cell + 40);
                 for (var i = 0; i < numbers.Length; i++)
                 {
-                    using var icon = TrayIcon.Render(numbers[i], new System.Drawing.Size(size, size), light);
+                    using var icon = TrayIcon.Render(numbers[i].Number, numbers[i].Unit, new System.Drawing.Size(size, size), light);
                     var x = 8 + (i * cell);
                     g.DrawImage(icon, x, y, size * zoom, size * zoom);
                     g.DrawImage(icon, x, y + (size * zoom) + 8, size, size); // actual size
@@ -77,7 +77,7 @@ internal static class RenderPreview
             sg.Clear(light ? System.Drawing.Color.FromArgb(238, 238, 238) : System.Drawing.Color.FromArgb(28, 28, 28));
             for (var i = 0; i < readings.Length; i++)
             {
-                using var bitmap = TrayIcon.Render(readings[i], new System.Drawing.Size(icon, icon), light);
+                using var bitmap = TrayIcon.Render(readings[i], "W", new System.Drawing.Size(icon, icon), light);
                 sg.DrawImage(bitmap, (pad + (i * (icon + pad))) * scale, pad * scale, icon * scale, icon * scale);
             }
 

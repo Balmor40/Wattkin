@@ -12,8 +12,8 @@ public interface IEcSensorSource
 /// Samples on one background thread and publishes immutable snapshots.
 ///
 /// Two tiers, to keep an always-on tray app cheap:
-///  - tray only (no window open): every 5 s, just the battery and the CPU energy meter, which is all
-///    the tray number needs;
+///  - tray only (no window open): every 5 s, just the battery, the CPU energy meter and the CPU load,
+///    plus the EC sensors when the tray shows the CPU temperature (<see cref="SensorsInTray"/>);
 ///  - a window is open: every 1–2 s, plus per-core clocks, RAM, disks, thermal zone, EC sensors and
 ///    (for the flyout) per-process CPU.
 /// </summary>
@@ -90,6 +90,9 @@ public sealed class SystemMonitor : IDisposable
     public Func<int> ChargeTarget { get; set; } = () => 100;
 
     public IEcSensorSource? Sensors { get; set; }
+
+    /// <summary>True when the tray icon needs the EC sensors (the CPU temperature) with no window open.</summary>
+    public Func<bool> SensorsInTray { get; set; } = () => false;
 
     public void Start()
     {
@@ -319,7 +322,7 @@ public sealed class SystemMonitor : IDisposable
         var memory = ReadMemory(); // one cheap syscall: always, so a window never opens on an empty RAM row
         IReadOnlyList<DiskStat> disks = [];
         IReadOnlyList<GpuLoad> gpus = [];
-        if (fast)
+        if (fast || SensorsInTray())
         {
             try
             {
@@ -329,7 +332,10 @@ public sealed class SystemMonitor : IDisposable
             {
                 Log.Error("EC sensor read failed", ex);
             }
+        }
 
+        if (fast)
+        {
             if (detail)
             {
                 disks = ReadDisks();
