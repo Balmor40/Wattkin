@@ -109,7 +109,7 @@ cd Wattkin
 
 ### Hardware self-test
 
-`.\tools\selftest.ps1` checks the build against the laptop. Stop YAMDCC first (`Stop-Service yamdccsvc`) and close any running Wattkin: two programs writing the embedded controller would spoil the results.
+`powershell -ExecutionPolicy Bypass -File .\tools\selftest.ps1` checks the build against the laptop (`-ExecutionPolicy Bypass` because Windows blocks scripts by default; it applies to that run only). Close any running Wattkin first; the script offers to stop YAMDCC: two programs writing the embedded controller would spoil the results.
 
 1. **Read**: the firmware interface, the register map, the sensors, and the fan table read two ways (registers and MSI's own calls), which must agree. Nothing is written to the controller.
 2. **Write** (after a prompt, about 4 minutes, charger connected, laptop idle): each control is changed, checked and put back, including fan tables and their hysteresis. Every register it touches is saved first and restored at the end.

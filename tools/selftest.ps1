@@ -1,9 +1,10 @@
 # Hardware self-test for the MSI Stealth 15M A11UEK (EC 1563EMS1.115): first read-only checks, then
 # (after you confirm) write tests that change one setting at a time and put everything back.
 #   .\build.ps1                 # builds .\dist\Wattkin.exe
-#   .\tools\selftest.ps1        # read, then write after a prompt (-Stage read|write|all)
-# Stop YAMDCC first (Stop-Service yamdccsvc) and close any running Wattkin: two programs writing the
-# embedded controller at once would spoil the results. Asks for administrator rights once (UAC).
+#   powershell -ExecutionPolicy Bypass -File .\tools\selftest.ps1   # read, then write after a prompt (-Stage read|write|all)
+# (-ExecutionPolicy Bypass because Windows blocks scripts by default; it applies to this run only.)
+# Close any running Wattkin first; the script offers to stop YAMDCC: two programs writing the embedded
+# controller at once would spoil the results. Asks for administrator rights once (UAC).
 # Reports go to %LOCALAPPDATA%\Wattkin\selftest; every controller write is in %LOCALAPPDATA%\Wattkin\logs\wattkin.log.
 param(
     [ValidateSet('read', 'write', 'all')][string]$Stage = 'all',
@@ -32,9 +33,15 @@ if (-not (Test-Path $Exe)) {
 
 $yamdcc = Get-Service yamdccsvc -ErrorAction SilentlyContinue
 if ($yamdcc -and $yamdcc.Status -ne 'Stopped') {
-    Write-Host 'The YAMDCC service is running. Stop it first (and keep it from starting with Windows):' -ForegroundColor Red
-    Write-Host '  Stop-Service yamdccsvc; Set-Service yamdccsvc -StartupType Manual'
-    Finish 2
+    Write-Host 'The YAMDCC service is running: it would fight Wattkin over the embedded controller.' -ForegroundColor Yellow
+    if ((Read-Host 'Stop it now, and keep it from starting with Windows (startup type Manual)? [y/N]') -notmatch '^(y|yes|o|oui)$') {
+        Write-Host 'Nothing was run. To stop it yourself (as administrator): Stop-Service yamdccsvc; Set-Service yamdccsvc -StartupType Manual'
+        Finish 2
+    }
+
+    Stop-Service yamdccsvc
+    Set-Service yamdccsvc -StartupType Manual
+    Write-Host 'YAMDCC stopped. To bring it back later: Set-Service yamdccsvc -StartupType Automatic; Start-Service yamdccsvc' -ForegroundColor Green
 }
 
 if (Get-Process Wattkin -ErrorAction SilentlyContinue) {
