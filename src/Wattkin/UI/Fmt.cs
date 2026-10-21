@@ -148,7 +148,12 @@ internal static class Fmt
     /// <summary>Everything a profile sets, one item each: what the flyout shows under the profile buttons.</summary>
     public static string ProfileDetails(Settings.Profile p)
     {
-        var parts = new List<string> { "CPU " + Shift(p.Performance) };
+        var parts = new List<string>();
+        if (p.Performance is { } shift)
+        {
+            parts.Add("CPU " + Shift(shift));
+        }
+
         if (FanWords(p) is { } fans)
         {
             parts.Add(fans);
@@ -174,7 +179,7 @@ internal static class Fmt
             parts.Add("keyboard " + (level switch { 0 => "off", 1 => "low", 2 => "mid", _ => "high" }));
         }
 
-        return string.Join("  ·  ", parts);
+        return parts.Count == 0 ? "leaves everything as it is" : string.Join("  ·  ", parts);
     }
 
     /// <summary>A profile's fan setting in a few words; null when it leaves the fans alone.</summary>
@@ -191,16 +196,18 @@ internal static class Fmt
     /// <summary>What a profile changes, in plain words, built from its settings so it stays true after editing.</summary>
     public static string ProfileSummary(Settings.Profile p)
     {
-        var parts = new List<string>
+        var parts = new List<string>();
+        if (p.Performance is { } shift)
         {
-            p.Performance switch
+            parts.Add(shift switch
             {
                 ShiftMode.Eco => "lowest power",
                 ShiftMode.Sport => "higher power limits",
                 ShiftMode.Turbo => "highest power limits",
                 _ => "normal power",
-            },
-        };
+            });
+        }
+
         if (p.Fan != FanMode.Auto || p.CoolerBoost)
         {
             if (FanWords(p) is { } fans)
@@ -229,7 +236,7 @@ internal static class Fmt
             parts.Add($"keyboard light {(level == 0 ? "off" : "on")}");
         }
 
-        return string.Join(", ", parts);
+        return parts.Count == 0 ? "leaves everything as it is" : string.Join(", ", parts);
     }
 
     public static string Shift(ShiftMode? mode) => mode switch

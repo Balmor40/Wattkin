@@ -74,6 +74,7 @@ public partial class ProfileEditorWindow : Window
     private void BuildChoices()
     {
         var caps = App.Current.Hardware.State.Caps;
+        ShiftBox.Items.Add(Item("Leave as is (for limits set in the BIOS or ThrottleStop)", null));
         ShiftBox.Items.Add(Item("Eco: lowest limits (MSI Super Battery)", ShiftMode.Eco));
         ShiftBox.Items.Add(Item("Balanced (MSI Balanced / Silent)", ShiftMode.Balanced));
         if (caps?.HasSportMode != false)
@@ -305,7 +306,7 @@ public partial class ProfileEditorWindow : Window
 
         var profile = current.Clone();
         profile.Name = name;
-        profile.Performance = TagOf<ShiftMode>(ShiftBox);
+        profile.Performance = (ShiftBox.SelectedItem as ComboBoxItem)?.Tag as ShiftMode?;
         profile.CpuBoost = (TurboBox.SelectedItem as ComboBoxItem)?.Tag as bool?;
         profile.MaxCpuPercent = (MaxCpuBox.SelectedItem as ComboBoxItem)?.Tag as int?;
         profile.RefreshRate = (RefreshBox.SelectedItem as ComboBoxItem)?.Tag as int?;

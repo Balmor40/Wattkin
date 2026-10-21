@@ -122,11 +122,19 @@ public sealed class SettingsAndModelsTests : IDisposable
         {
             s.AcProfile = null;
             s.Profiles[3].Fan = null;
+            s.Profiles[3].Performance = null; // power limits left to the BIOS or ThrottleStop
+            s.Profiles[3].CpuBoost = null;
         });
         var reloaded = new SettingsStore(_dir).Current;
         Assert.Null(reloaded.AcProfile);
         Assert.Null(reloaded.Profiles[3].Fan);
+        Assert.Null(reloaded.Profiles[3].Performance);
+        Assert.Null(reloaded.Profiles[3].CpuBoost);
+        Assert.Equal(ShiftMode.Eco, reloaded.Profiles[0].Performance);
         Assert.Equal("Balanced", reloaded.BatteryProfile);
+
+        // A profile that leaves everything alone says so.
+        Assert.Equal("leaves everything as it is", Wattkin.UI.Fmt.ProfileDetails(new Profile { Performance = null, Fan = null }));
     }
 
     [Fact]

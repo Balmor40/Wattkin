@@ -28,8 +28,12 @@ public sealed class Profile
 {
     public string Name { get; set; } = "Profile";
 
-    /// <summary>The firmware's CPU power limits (MSI's shift mode).</summary>
-    public ShiftMode Performance { get; set; } = ShiftMode.Balanced;
+    /// <summary>
+    /// The firmware's CPU power limits (MSI's shift mode). Null = leave the register alone, for power
+    /// limits set elsewhere (BIOS, ThrottleStop). Written even when null, so that survives a restart.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public ShiftMode? Performance { get; set; } = ShiftMode.Balanced;
 
     /// <summary>Null = leave the fan mode alone (e.g. keep a custom curve set by MSI Center). Written even when null, so that survives a restart.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
@@ -348,7 +352,7 @@ public sealed class AppSettings
         foreach (var p in Profiles)
         {
             p.FanProfileName = null;
-            if (!Enum.IsDefined(p.Performance))
+            if (p.Performance is { } shift && !Enum.IsDefined(shift))
             {
                 p.Performance = ShiftMode.Balanced;
             }

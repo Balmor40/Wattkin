@@ -31,7 +31,7 @@
                         <TextBlock Text="Processor" Style="{StaticResource Lc.Section}" />
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Power limits (MSI)" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="ShiftBox" Grid.Column="1" /></Grid>
-                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,6" TextWrapping="Wrap" Text="MSI's firmware mode: how many watts the processor may draw, sustained (PL1) and in bursts (PL2). The self-test measures them." />
+                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,6" TextWrapping="Wrap" Text="MSI's firmware mode: how many watts the processor may draw, sustained (PL1) and in bursts (PL2). The self-test measures them. Leave as is if the BIOS or ThrottleStop sets the limits; then leave turbo and the maximum state as they are too." />
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Turbo boost" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TurboBox" Grid.Column="1" /></Grid>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>

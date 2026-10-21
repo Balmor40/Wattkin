@@ -476,7 +476,10 @@ public sealed partial class HardwareService : IDisposable
         {
             if (_ec is { } ec && !_disposed)
             {
-                ec.SetShiftMode(profile.Performance);
+                if (profile.Performance is { } shift)
+                {
+                    ec.SetShiftMode(shift);
+                }
                 ApplyFans(ec, profile);
                 if (profile.KeyboardLevel is { } level)
                 {
