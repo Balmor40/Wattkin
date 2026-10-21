@@ -9,7 +9,7 @@ namespace Wattkin.UI;
 /// A whole fan table, for laptops where Wattkin writes the temperatures too (<see cref="FanTable"/>):
 /// for each fan a vertical slider per step for its speed, and under each step above the first the
 /// temperature that starts it and the one under which the fan drops back, as in YAMDCC's editor.
-/// Temperatures are steppers (− 45 +, the mouse wheel or the arrow keys), never free text.
+/// Temperatures are steppers (− 45 +, or the arrow keys), never free text.
 /// </summary>
 public sealed class FanTableEditor : StackPanel
 {
@@ -25,7 +25,7 @@ public sealed class FanTableEditor : StackPanel
         Children.Add(_gpu.Grid);
         var hint = new TextBlock
         {
-            Text = "A step starts when the temperature reaches \"Up at\" and ends when it falls below \"Down under\": the gap keeps the fan from hunting between two speeds. Change a temperature with − and +, the mouse wheel or the arrow keys. Speeds are MSI's percentages; Cooler Boost is full speed.",
+            Text = "A step starts when the temperature reaches \"Up at\" and ends when it falls below \"Down under\": the gap keeps the fan from hunting between two speeds. Change a temperature with − and +, or click it and use the arrow keys. Speeds are MSI's percentages; Cooler Boost is full speed.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 10, 0, 0),
             FontSize = 11.5,

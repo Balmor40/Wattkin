@@ -7,8 +7,9 @@ using System.Windows.Input;
 namespace Wattkin.UI;
 
 /// <summary>
-/// A whole number between − and + buttons; the mouse wheel and the arrow keys change it too. No text
-/// box, so nothing (like Windows 11's clear button) covers the value while it's edited.
+/// A whole number between − and + buttons; the arrow keys change it too once it has the focus. No text
+/// box, so nothing (like Windows 11's clear button) covers the value while it's edited. The mouse wheel
+/// is left to the page, so scrolling past a stepper never changes it.
 /// </summary>
 public sealed class NumberStepper : Border
 {
@@ -43,11 +44,6 @@ public sealed class NumberStepper : Border
         Child = grid;
         Show();
 
-        MouseWheel += (_, e) =>
-        {
-            Value += Math.Sign(e.Delta);
-            e.Handled = true;
-        };
         PreviewKeyDown += (_, e) =>
         {
             var delta = e.Key switch { Key.Up or Key.Right => 1, Key.Down or Key.Left => -1, Key.PageUp => 5, Key.PageDown => -5, _ => 0 };

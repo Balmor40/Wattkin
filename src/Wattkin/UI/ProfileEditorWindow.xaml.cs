@@ -335,7 +335,11 @@ public partial class ProfileEditorWindow : Window
         return profile;
     }
 
-    private async Task<bool> SaveAsync(bool apply)
+    /// <summary>
+    /// Saves the slot. The profile in use gets its new settings straight away; another one only when
+    /// it's next picked (by a click or a rule), so editing never switches profiles.
+    /// </summary>
+    private async Task<bool> SaveAsync()
     {
         if (Collect() is not { } profile)
         {
@@ -345,9 +349,7 @@ public partial class ProfileEditorWindow : Window
         var name = "";
         App.Current.Store.Update(s => name = s.ReplaceProfile(_slot, profile));
         Log.Info($"Profile {_slot + 1} saved: {name} · {Fmt.ProfileDetails(profile)}");
-
-        // The profile in use gets its new settings straight away.
-        if (apply || string.Equals(App.Current.Store.Current.ActiveProfile, name, StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(App.Current.Store.Current.ActiveProfile, name, StringComparison.OrdinalIgnoreCase))
         {
             await App.Current.Hardware.ApplyProfileAsync(name);
         }
@@ -355,17 +357,18 @@ public partial class ProfileEditorWindow : Window
         return true;
     }
 
-    private async void OnSave(object sender, RoutedEventArgs e)
+    /// <summary>Saves and stays open, showing the profile as saved (its curve is now its own).</summary>
+    private async void OnApply(object sender, RoutedEventArgs e)
     {
-        if (await SaveAsync(apply: false))
+        if (await SaveAsync())
         {
-            Close();
+            Load(App.Current.Store.Current.Profiles[_slot]);
         }
     }
 
-    private async void OnSaveAndApply(object sender, RoutedEventArgs e)
+    private async void OnApplyAndClose(object sender, RoutedEventArgs e)
     {
-        if (await SaveAsync(apply: true))
+        if (await SaveAsync())
         {
             Close();
         }

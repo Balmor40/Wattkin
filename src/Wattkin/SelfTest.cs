@@ -38,6 +38,10 @@ public static class SelfTest
     private const byte CpuFanTarget = 0x71;
     private const byte AbortTempC = 90;
     private const int PowerAbortTempC = 98; // under full load the CPU gets hot by design; it throttles itself at 100°C
+
+    // Settling at 90°C or more means the cooling, not the power limit, set the level: on the Stealth 15M
+    // Balanced, Sport and Extreme all settled at 31–33 W with the CPU at 90–94°C (2026-10-21).
+    private const int ThermalLimitC = 90;
     private static readonly string[] OtherFanTools = ["yamdccsvc"];
 
     public static int Run(string? stage, string? path)
@@ -588,9 +592,9 @@ public static class SelfTest
                 var hottestLate = samples.TakeLast(15).Where(s => s.TempC is not null).Select(s => s.TempC!.Value).DefaultIfEmpty(0).Max();
                 var line = $"peak {peak:0} W (about PL2) · settles at {sustained:0} W (about PL1) · boost about {boostSeconds} s · CPU up to {(temps.Count == 0 ? "?" : temps.Max().ToString(CultureInfo.InvariantCulture))}°C · {idle:0.0} W idle before";
                 r.Pass($"{Fmt.Shift(mode)} (0x{ec.ReadRegister(0xD2):X2})", line);
-                if (hottestLate >= 95)
+                if (hottestLate >= ThermalLimitC)
                 {
-                    r.Warn($"{Fmt.Shift(mode)}: temperature-limited", $"the CPU reached {hottestLate}°C while settling, so it may have throttled below its PL1");
+                    r.Warn($"{Fmt.Shift(mode)}: limited by temperature", $"the CPU was at {hottestLate}°C while settling, so the cooling set this level: the mode's PL1 may be higher");
                 }
 
                 results.Add($"{Fmt.Shift(mode),-9} PL2 ≈ {peak,3:0} W   PL1 ≈ {sustained,3:0} W   boost ≈ {boostSeconds,2} s");

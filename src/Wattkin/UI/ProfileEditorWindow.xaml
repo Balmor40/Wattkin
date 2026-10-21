@@ -74,8 +74,8 @@
         <DockPanel Grid.Row="1" Margin="16,8,16,14" LastChildFill="False">
             <Button DockPanel.Dock="Left" Content="Reset to default…" Click="OnReset" />
             <Button DockPanel.Dock="Right" Content="Cancel" IsCancel="True" MinWidth="90" Click="OnCancel" />
-            <Button DockPanel.Dock="Right" Content="Save and apply" Click="OnSaveAndApply" Margin="0,0,8,0" />
-            <Button DockPanel.Dock="Right" Content="Save" IsDefault="True" MinWidth="90" Click="OnSave" Margin="0,0,8,0" />
+            <Button DockPanel.Dock="Right" Content="Apply and close" IsDefault="True" Click="OnApplyAndClose" Margin="0,0,8,0" />
+            <Button DockPanel.Dock="Right" Content="Apply" MinWidth="90" Click="OnApply" Margin="0,0,8,0" />
         </DockPanel>
     </Grid>
 </Window>
