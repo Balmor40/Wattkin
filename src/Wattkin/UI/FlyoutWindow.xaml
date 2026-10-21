@@ -107,6 +107,16 @@
 
                 <TextBlock Text="Keyboard light" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                 <UniformGrid x:Name="KeyboardPanel" Rows="1" Margin="-2,0,-2,0" />
+                <!-- Colour and the auto-off delay: only where the keys are lit over USB (Mystic Light). -->
+                <WrapPanel x:Name="KeyboardColorPanel" Margin="-4,8,0,0" />
+                <StackPanel x:Name="KeyboardTimeoutSection">
+                    <TextBlock Text="Turn off when not typing" Style="{StaticResource Lc.Label}" Margin="0,10,0,6" />
+                    <Grid Margin="-2,0,-2,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <UniformGrid x:Name="KeyboardTimeoutPanel" Rows="1" />
+                        <Border x:Name="AutoOffDelayHost" Grid.Column="1" Margin="6,0,2,0" VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
 
                 <StackPanel x:Name="GraphicsSection" Margin="0,12,0,0">
                     <TextBlock Text="Graphics" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />

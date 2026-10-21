@@ -5,12 +5,15 @@ using Wattkin.Features;
 using Wattkin.Hardware;
 using Wattkin.Monitoring;
 using Wattkin.Platform;
+using Wattkin.Settings;
 
 namespace Wattkin.UI;
 
 public partial class FlyoutWindow : Window
 {
     private static readonly int[] LimitChoices = [60, 70, 80, 90, 100];
+    private readonly AutoOffDelayStepper _autoOffDelay = new();
+    private ColorSwatches? _keyboardColors;
     private bool _updating;
 
     private DateTime _hiddenAtUtc;
@@ -295,6 +298,22 @@ public partial class FlyoutWindow : Window
             KeyboardPanel.Children.Add(button);
         }
 
+        _keyboardColors = new ColorSwatches(KeyboardColorPanel, "flyoutKbColor");
+        foreach (var (text, timeout) in new[] { ("Never", KeyboardTimeout.AlwaysOn), ("Always", KeyboardTimeout.AutoOff), ("On battery", KeyboardTimeout.AutoOffOnBattery) })
+        {
+            var button = Segment(text, "kbTimeout", timeout);
+            button.Checked += async (_, _) =>
+            {
+                if (!_updating)
+                {
+                    await App.Current.Hardware.SetKeyboardTimeoutAsync(timeout);
+                }
+            };
+            KeyboardTimeoutPanel.Children.Add(button);
+        }
+
+        AutoOffDelayHost.Child = _autoOffDelay.Control;
+
         foreach (var (text, mode) in new[] { ("Integrated only", FirmwareGpuMode.Integrated), ("Hybrid (RTX)", FirmwareGpuMode.Hybrid) })
         {
             var button = Segment(text, "gpu", mode);
@@ -359,6 +378,21 @@ public partial class FlyoutWindow : Window
                 button.IsChecked = state.KeyboardLevel == (int)button.Tag;
                 button.IsEnabled = state.CanWrite;
             }
+
+            // Colour and the delay only where the light is over USB (auto-off is Wattkin's own there).
+            var usbLight = state.Caps?.HasKeyboardColor != false;
+            KeyboardColorPanel.Visibility = AutoOffDelayHost.Visibility = usbLight ? Visibility.Visible : Visibility.Collapsed;
+            KeyboardColorPanel.IsEnabled = state.CanWrite;
+            _keyboardColors?.Show(settings.KeyboardColor);
+            KeyboardTimeoutSection.Visibility = state.Caps?.HasKeyboardTimeout != false ? Visibility.Visible : Visibility.Collapsed;
+            foreach (RadioButton button in KeyboardTimeoutPanel.Children)
+            {
+                button.IsChecked = known && (KeyboardTimeout)button.Tag == settings.KeyboardTimeout;
+                button.IsEnabled = state.CanWrite;
+            }
+
+            _autoOffDelay.Show(settings.KeyboardAutoOffSeconds);
+            AutoOffDelayHost.IsEnabled = state.CanWrite && settings.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
 
             RefreshGraphics(state);
 

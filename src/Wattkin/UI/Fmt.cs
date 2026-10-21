@@ -61,6 +61,14 @@ internal static class Fmt
         return t.Minutes == 0 ? $"{(int)t.TotalHours}h" : $"{(int)t.TotalHours}h {t.Minutes:00}m";
     }
 
+    /// <summary>A short wait in seconds: "45 s", "1 min", "1 min 30 s".</summary>
+    public static string Delay(int seconds) => (seconds / 60, seconds % 60) switch
+    {
+        (0, var s) => $"{s} s",
+        (var m, 0) => $"{m} min",
+        (var m, var s) => $"{m} min {s} s",
+    };
+
     public static string Percent(double? value, string format = "0") => value is { } v ? v.ToString(format, C) + "%" : "—";
 
     public static string GHz(double mhz) => mhz <= 0 ? "—" : (mhz / 1000).ToString("0.00", C) + " GHz";

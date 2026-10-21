@@ -203,6 +203,68 @@ internal static partial class SetupApi
 
     [LibraryImport("cfgmgr32.dll")]
     public static partial uint CM_Get_DevNode_Status(out uint status, out uint problem, uint devInst, uint flags);
+
+    public const uint CR_SUCCESS = 0;
+    public const uint DEVPROP_TYPE_BOOLEAN = 0x11;
+    public static readonly DEVPROPKEY DEVPKEY_Device_InstanceId = new() { FormatId = new("78c34fc8-104a-4aca-9ea4-524d52996e57"), PropertyId = 256 };
+
+    /// <summary>True for devices Windows counts as part of the computer itself (its "local machine" container).</summary>
+    public static readonly DEVPROPKEY DEVPKEY_Device_InLocalMachineContainer = new() { FormatId = new("8c7ed206-3f8a-4827-b3ab-ae9e1faefc6c"), PropertyId = 4 };
+
+    [LibraryImport("cfgmgr32.dll", EntryPoint = "CM_Get_Device_Interface_PropertyW", StringMarshalling = StringMarshalling.Utf16)]
+    public static unsafe partial uint CM_Get_Device_Interface_Property(string deviceInterface, in DEVPROPKEY key, out uint type, void* buffer, ref uint size, uint flags);
+
+    [LibraryImport("cfgmgr32.dll", EntryPoint = "CM_Locate_DevNodeW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint CM_Locate_DevNode(out uint devInst, string deviceId, uint flags);
+
+    [LibraryImport("cfgmgr32.dll", EntryPoint = "CM_Get_DevNode_PropertyW")]
+    public static unsafe partial uint CM_Get_DevNode_Property(uint devInst, in DEVPROPKEY key, out uint type, void* buffer, ref uint size, uint flags);
+}
+
+internal static partial class Hid
+{
+    public static readonly Guid GUID_DEVINTERFACE_HID = new("4d1e55b2-f16f-11cf-88cb-001111000030");
+    public const int HIDP_STATUS_SUCCESS = 0x00110000;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public unsafe struct HIDP_CAPS
+    {
+        public ushort Usage;
+        public ushort UsagePage;
+        public ushort InputReportByteLength;
+        public ushort OutputReportByteLength;
+        public ushort FeatureReportByteLength;
+        public fixed ushort Reserved[17];
+        public ushort NumberLinkCollectionNodes;
+        public ushort NumberInputButtonCaps;
+        public ushort NumberInputValueCaps;
+        public ushort NumberInputDataIndices;
+        public ushort NumberOutputButtonCaps;
+        public ushort NumberOutputValueCaps;
+        public ushort NumberOutputDataIndices;
+        public ushort NumberFeatureButtonCaps;
+        public ushort NumberFeatureValueCaps;
+        public ushort NumberFeatureDataIndices;
+    }
+
+    [LibraryImport("hid.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool HidD_SetFeature(SafeFileHandle device, byte[] buffer, int length);
+
+    [LibraryImport("hid.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool HidD_GetPreparsedData(SafeFileHandle device, out IntPtr data);
+
+    [LibraryImport("hid.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool HidD_FreePreparsedData(IntPtr data);
+
+    [LibraryImport("hid.dll")]
+    public static partial int HidP_GetCaps(IntPtr data, out HIDP_CAPS caps);
+
+    [LibraryImport("hid.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static unsafe partial bool HidD_GetProductString(SafeFileHandle device, char* buffer, int bufferBytes);
 }
 
 internal static partial class PowrProf
@@ -325,6 +387,42 @@ internal static partial class User32
 
     [LibraryImport("user32.dll")]
     public static partial uint GetDpiForSystem();
+
+    public const int WM_INPUT_DEVICE_CHANGE = 0x00FE;
+    public const int WM_INPUT = 0x00FF;
+    public const uint RIDEV_REMOVE = 0x00000001;
+    public const uint RIDEV_INPUTSINK = 0x00000100;
+    public const uint RIDEV_DEVNOTIFY = 0x00002000;
+    public const uint RID_HEADER = 0x10000005;
+    public const uint RIDI_DEVICENAME = 0x20000007;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWINPUTDEVICE
+    {
+        public ushort UsagePage;
+        public ushort Usage;
+        public uint Flags;
+        public IntPtr Target;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RAWINPUTHEADER
+    {
+        public uint Type;
+        public uint Size;
+        public IntPtr Device;
+        public IntPtr WParam;
+    }
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool RegisterRawInputDevices([In] RAWINPUTDEVICE[] devices, uint count, uint size);
+
+    [LibraryImport("user32.dll")]
+    public static partial uint GetRawInputData(IntPtr rawInput, uint command, out RAWINPUTHEADER data, ref uint size, uint headerSize);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetRawInputDeviceInfoW")]
+    public static unsafe partial uint GetRawInputDeviceInfo(IntPtr device, uint command, char* data, ref uint size);
 
     [LibraryImport("user32.dll")]
     public static partial int GetSystemMetricsForDpi(int index, uint dpi);

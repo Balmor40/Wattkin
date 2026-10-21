@@ -46,7 +46,8 @@ public sealed record EcCapabilities(
     bool HasFanCurves,
     bool HasFullFanTable = false,
     bool HasSportMode = false,
-    bool HasManualPowerLimits = false);
+    bool HasManualPowerLimits = false,
+    bool HasKeyboardColor = false);
 
 /// <summary>
 /// Owns the EC connection and everything that writes to hardware.
@@ -153,6 +154,7 @@ public sealed partial class HardwareService : IDisposable
             InitializeCpuPower(); // the processor's own power limits, independent of MSI's controller
         }
 
+        InitializeKeyboardLight(); // a USB light, where the keys aren't lit by the EC
         _acpi = MsiAcpi.TryOpen(out var error, readOnly: !_controls);
         if (_acpi is null)
         {
@@ -199,6 +201,7 @@ public sealed partial class HardwareService : IDisposable
     private void StartControlling()
     {
         ApplyKeyboardSettings(_monitor.Latest?.Power.OnAc ?? true);
+        RestoreKeyboardLight();
 
         if (_store.Current.HandleHotkeys)
         {
@@ -488,14 +491,15 @@ public sealed partial class HardwareService : IDisposable
                     ec.SetShiftMode(shift);
                 }
                 ApplyFans(ec, profile);
-                if (profile.KeyboardLevel is { } level)
-                {
-                    ec.SetKeyboardLevel(level);
-                }
             }
 
             if (!_disposed)
             {
+                if (profile.KeyboardLevel is { } level)
+                {
+                    WriteKeyboardLevel(level);
+                }
+
                 ApplyPowerLimits(profile); // after MSI's mode, which sets the firmware's copy (Manual's ceiling)
             }
         }
@@ -679,13 +683,6 @@ public sealed partial class HardwareService : IDisposable
 
     // ---- Keyboard, devices ----------------------------------------------------------------------
 
-    public Task SetKeyboardLevelAsync(int level) => Task.Run(() =>
-    {
-        Writer?.SetKeyboardLevel(level);
-        _store.Update(s => s.KeyboardLevel = level);
-        SafeRefreshState();
-    });
-
     public Task SetKeyboardTimeoutAsync(KeyboardTimeout timeout) => Task.Run(() =>
     {
         _store.Update(s => s.KeyboardTimeout = timeout);
@@ -702,6 +699,7 @@ public sealed partial class HardwareService : IDisposable
             _ => false,
         };
         Writer?.SetKeyboardAutoOff(autoOff);
+        SetSoftwareAutoOff(autoOff); // where the EC's auto-off doesn't reach the keys (USB light)
     }
 
     public Task SetWebcamAsync(bool enabled) => Task.Run(() =>
@@ -802,6 +800,7 @@ public sealed partial class HardwareService : IDisposable
             }
 
             ApplyKeyboardSettings(_monitor.Latest?.Power.OnAc ?? true);
+            RestoreKeyboardLight();
             ApplyProfile(_store.Current.ActiveProfile, ProfileScope.Hardware, announce: false);
             SyncMuteLeds();
             _monitor.Poke();
@@ -1031,7 +1030,7 @@ public sealed partial class HardwareService : IDisposable
             ec.GetShiftMode(),
             ec.GetFanMode(),
             ec.GetCoolerBoost(),
-            ec.GetKeyboardLevel(),
+            KeyboardLevelNow(ec),
             ec.GetKeyboardAutoOff(),
             ec.GetWebcam(),
             _simulatingSeen,
@@ -1041,7 +1040,8 @@ public sealed partial class HardwareService : IDisposable
             CalibrationView(),
             settings.ActiveProfile,
             _msiRunning,
-            new EcCapabilities(ec.Support, ec.MapSource, ec.CanSimulateUnplug, ec.CanSwitchGpuMode, ec.HasCoolerBoost, ec.HasKeyboardLight, ec.HasKeyboardTimeout, ec.KeyboardMaxLevel, ec.HasFanCurves, ec.HasFullFanTable, ec.HasSportMode, HasManualPowerLimits));
+            new EcCapabilities(ec.Support, ec.MapSource, ec.CanSimulateUnplug, ec.CanSwitchGpuMode, ec.HasCoolerBoost, ec.HasKeyboardLight || HasUsbKeyboardLight, ec.HasKeyboardTimeout,
+                HasUsbKeyboardLight ? MysticLight.MaxLevel : ec.KeyboardMaxLevel, ec.HasFanCurves, ec.HasFullFanTable, ec.HasSportMode, HasManualPowerLimits, HasKeyboardColor: HasUsbKeyboardLight));
         StateChanged?.Invoke();
     }
 
@@ -1086,7 +1086,7 @@ public sealed partial class HardwareService : IDisposable
             Log.Error("Releasing hardware failed", ex);
         }
 
-        foreach (var step in new Action[] { () => _stateTimer?.Dispose(), _hotkeys.Dispose, _audio.Dispose, () => _calibration?.Dispose(), () => _acpi?.Dispose(), () => _cpuPower?.Dispose() })
+        foreach (var step in new Action[] { () => _stateTimer?.Dispose(), _hotkeys.Dispose, _audio.Dispose, () => _calibration?.Dispose(), () => _acpi?.Dispose(), () => _cpuPower?.Dispose(), DisposeKeyboardLight })
         {
             try
             {

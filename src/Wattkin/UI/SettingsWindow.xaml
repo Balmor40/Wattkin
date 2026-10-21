@@ -141,9 +141,20 @@
                         <StackPanel>
                             <TextBlock Text="Keyboard backlight" Style="{StaticResource Lc.Section}" />
                             <WrapPanel x:Name="KbLevelPanel" Margin="0,0,0,10" />
+                            <!-- Only where the keys are lit by an RGB controller over USB (Mystic Light). -->
+                            <StackPanel x:Name="KbColorSection">
+                                <TextBlock Text="Colour" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                                <WrapPanel x:Name="KbColorPanel" Margin="-4,0,0,4" />
+                                <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,10" Text="The keys are lit by MSI's Mystic Light controller, which can't tell Wattkin what it shows: Wattkin sets your level and colour again at startup and after sleep. Take OpenRGB and MSI Center out of Windows startup, or they may change it back." />
+                            </StackPanel>
                             <TextBlock Text="Turn off when not typing" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                             <WrapPanel x:Name="KbTimeoutPanel" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,8,0,0" Text="Auto-off is built into the keyboard controller: the light goes off after about 10 seconds without typing and comes back on with a key press. The controller turns auto-off back on every boot, so Wattkin re-applies your choice at startup and after sleep." />
+                            <!-- Only where auto-off is Wattkin's own (USB light); the controller's is fixed at about 10 s. -->
+                            <StackPanel x:Name="KbDelaySection" Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock Text="How long without typing" Style="{StaticResource Lc.Label}" Margin="0,0,10,0" />
+                                <Border x:Name="KbDelayHost" />
+                            </StackPanel>
+                            <TextBlock x:Name="KbTimeoutHint" Style="{StaticResource Lc.Hint}" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">

@@ -59,6 +59,19 @@ public sealed class NumberStepper : Border
     public int Minimum { get; }
     public int Maximum { get; }
 
+    /// <summary>How the value reads (e.g. an index into a list of durations); the number itself by default.</summary>
+    public Func<int, string>? Format
+    {
+        get => _format;
+        set
+        {
+            _format = value;
+            Show();
+        }
+    }
+
+    private Func<int, string>? _format;
+
     public event Action? ValueChanged;
 
     public int Value
@@ -78,7 +91,7 @@ public sealed class NumberStepper : Border
         }
     }
 
-    private void Show() => _text.Text = _value.ToString(CultureInfo.CurrentCulture);
+    private void Show() => _text.Text = _format?.Invoke(_value) ?? _value.ToString(CultureInfo.CurrentCulture);
 
     private RepeatButton Step(string glyph, int delta)
     {

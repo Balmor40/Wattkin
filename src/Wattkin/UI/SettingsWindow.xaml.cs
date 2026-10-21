@@ -18,6 +18,8 @@ public partial class SettingsWindow : Window
     private bool _loading;
     private bool _expert;
     private IReadOnlyList<CapacityPoint> _history = [];
+    private ColorSwatches? _kbColors;
+    private readonly AutoOffDelayStepper _kbDelay = new();
 
     public SettingsWindow()
     {
@@ -170,6 +172,8 @@ public partial class SettingsWindow : Window
             KbLevelPanel.Children.Add(button);
         }
 
+        _kbColors = new ColorSwatches(KbColorPanel, "kbc");
+
         foreach (var (text, force) in new[] { ("Profile", FanForce.None), ("Auto", FanForce.Auto), ("Silent", FanForce.Silent), ("Curve", FanForce.Curve), ("Full speed", FanForce.Full) })
         {
             var button = new RadioButton { Content = text, Style = (Style)FindResource("Lc.Segment"), GroupName = "fanforce", Tag = force };
@@ -183,7 +187,8 @@ public partial class SettingsWindow : Window
             FanForcePanel.Children.Add(button);
         }
 
-        (string Text, KeyboardTimeout Value)[] timeouts = [("Always on", KeyboardTimeout.AlwaysOn), ("Auto-off after 10 s", KeyboardTimeout.AutoOff), ("Auto-off on battery only", KeyboardTimeout.AutoOffOnBattery)];
+        KbDelayHost.Child = _kbDelay.Control;
+        (string Text, KeyboardTimeout Value)[] timeouts = [("Always on", KeyboardTimeout.AlwaysOn), ("Auto-off", KeyboardTimeout.AutoOff), ("Auto-off on battery only", KeyboardTimeout.AutoOffOnBattery)];
         foreach (var (text, value) in timeouts)
         {
             var button = new RadioButton { Content = text, Style = (Style)FindResource("Lc.Segment"), GroupName = "kbt", Tag = value };
@@ -261,6 +266,9 @@ public partial class SettingsWindow : Window
                 b.IsChecked = (KeyboardTimeout)b.Tag == s.KeyboardTimeout;
             }
 
+            _kbColors?.Show(s.KeyboardColor);
+            _kbDelay.Show(s.KeyboardAutoOffSeconds);
+            KbDelayHost.IsEnabled = s.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
             Hotkeys.IsChecked = s.HandleHotkeys;
             Osd.IsChecked = s.ShowOsd;
             MuteLeds.IsChecked = s.SyncMuteLeds;
@@ -519,6 +527,11 @@ public partial class SettingsWindow : Window
             DevicesCard.Visibility = state.Webcam is null ? Visibility.Collapsed : Visibility.Visible;
             var caps = state.Caps;
             KbTimeoutPanel.IsEnabled = caps?.HasKeyboardTimeout != false;
+            KbColorSection.Visibility = KbDelaySection.Visibility = caps?.HasKeyboardColor != false ? Visibility.Visible : Visibility.Collapsed;
+            KbColorPanel.IsEnabled = KbDelaySection.IsEnabled = state.CanWrite;
+            KbTimeoutHint.Text = caps?.HasKeyboardColor == true
+                ? "The keyboard controller's own auto-off doesn't reach these keys, so Wattkin does it: the light goes off when the laptop's keyboard hasn't been used for the time above, and comes back on with its next key press. Another keyboard doesn't wake it. Wattkin only notices that a key was pressed, never which one. While Windows is locked the light stays on, so you can see the keys for your password."
+                : "Auto-off is built into the keyboard controller: the light goes off after about 10 seconds without typing and comes back on with a key press. The controller turns auto-off back on every boot, so Wattkin re-applies your choice at startup and after sleep.";
 
             // Calibration owns charging until it finishes or is cancelled.
             var chargeEditable = state.CanWrite && !App.Current.Hardware.IsCalibrating;

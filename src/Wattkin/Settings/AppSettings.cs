@@ -170,9 +170,20 @@ public sealed class AppSettings
     [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public string? LowBatteryProfile { get; set; } = "Battery saver";
 
-    // Keyboard, LEDs, hotkeys
+    // Keyboard, LEDs, hotkeys. Where the keys are lit by a USB controller that can't be read back (the
+    // Stealth 15M's Mystic Light), KeyboardLevel is also what Wattkin last set, sent again at startup.
     public int? KeyboardLevel { get; set; }
+    /// <summary>"#RRGGBB": the keyboard's colour where the light is RGB (see Hardware.MysticLight).</summary>
+    public string KeyboardColor { get; set; } = LightColor.White.Hex;
     public KeyboardTimeout KeyboardTimeout { get; set; } = KeyboardTimeout.AlwaysOn;
+
+    /// <summary>
+    /// Seconds without a key press before auto-off, where Wattkin does it itself (the USB light); the
+    /// EC's own auto-off is fixed at about 10 s.
+    /// </summary>
+    public int KeyboardAutoOffSeconds { get; set; } = 10;
+    public const int KeyboardAutoOffMinSeconds = 5;
+    public const int KeyboardAutoOffMaxSeconds = 300;
     public bool SyncMuteLeds { get; set; } = true;
     public bool HandleHotkeys { get; set; } = true;
     public bool ShowOsd { get; set; } = true;
@@ -439,6 +450,8 @@ public sealed class AppSettings
         ChargeResumeBelow = ChargeResumeBelow is { } r ? Math.Clamp(r, 0, 99) : null;
         LowBatteryThreshold = Math.Clamp(LowBatteryThreshold, 0, 90);
         KeyboardLevel = KeyboardLevel is { } kb ? Math.Clamp(kb, 0, 3) : null;
+        KeyboardColor = (LightColor.Parse(KeyboardColor) ?? LightColor.White).Hex;
+        KeyboardAutoOffSeconds = Math.Clamp(KeyboardAutoOffSeconds, KeyboardAutoOffMinSeconds, KeyboardAutoOffMaxSeconds);
         if (!Enum.IsDefined(KeyboardTimeout))
         {
             KeyboardTimeout = KeyboardTimeout.AlwaysOn;

@@ -6,6 +6,7 @@ using Wattkin.Features;
 using Wattkin.Hardware;
 using Wattkin.Monitoring;
 using Wattkin.Platform;
+using Wattkin.Settings;
 using Wattkin.UI;
 
 namespace Wattkin;
@@ -110,7 +111,7 @@ public static class SelfTest
         foreach (var (address, meaning) in new (byte, string)[]
         {
             (0xD7, "battery limit"), (0xD2, "performance mode"), (0xD4, "fan mode"), (0x98, "Cooler Boost (bit 7)"),
-            (0xD3, "keyboard backlight"), (0x2C, "keyboard auto-off (bit 3), mic-mute light (bit 1)"), (0x2D, "mute light (bit 1)"),
+            (0xD3, "keyboard backlight (not wired to the keys when a Mystic Light controller lights them)"), (0x2C, "keyboard auto-off (bit 3), mic-mute light (bit 1)"), (0x2D, "mute light (bit 1)"),
             (0x2E, "webcam (bit 1)"), (0x2F, "capabilities"), (0xBF, "run from battery (bit 0)"), (0xD9, "host flags, Fn lock (bit 1)"),
             (0x68, "CPU temperature"), (0x71, "CPU fan target"), (0x80, "GPU temperature"), (0x89, "GPU fan target"),
         })
@@ -172,7 +173,19 @@ public static class SelfTest
         }
 
         ReadPowerLimits(r);
+        ReadKeyboardLight(r);
         return r.Failed > 0 ? 1 : 0;
+    }
+
+    /// <summary>Read only: the USB controller that lights the keys, and whether it declares the reports Wattkin sends.</summary>
+    private static void ReadKeyboardLight(Report r)
+    {
+        r.Section("Keyboard light (USB, read only)");
+        var info = MysticLight.Find();
+        if (r.Check(info is not null, "Mystic Light controller", info is null ? "no MysticLight MS-156x USB device: Wattkin falls back to the controller's register 0xD3, which doesn't light these keys" : $"{info.Product} · {info.Path}"))
+        {
+            r.Check(info!.Usable, "Declares the reports Wattkin sends", $"usage page 0x{info.UsagePage:X4}, feature report {info.FeatureReportLength} bytes (expected 0x{MysticLight.UsagePage:X4}, {MysticLight.ReportLength})");
+        }
     }
 
     /// <summary>The table read from the registers must be what MSI's own calls report (see <see cref="FanCurve.Parse"/>).</summary>
@@ -382,22 +395,65 @@ public static class SelfTest
 
     private static void TestKeyboard(Report r, EmbeddedController ec)
     {
-        var levels = new List<string>();
-        var ok = true;
-        for (var level = 0; level <= ec.KeyboardMaxLevel; level++)
+        if (MysticLight.Find() is not null)
         {
-            ok &= ec.SetKeyboardLevel(level);
-            Thread.Sleep(700);
-            var read = ec.GetKeyboardLevel();
-            ok &= read == level;
-            levels.Add($"{level}→{read}");
+            TestUsbKeyboardLight(r); // register 0xD3 isn't wired to these keys: Wattkin doesn't write it here
         }
+        else
+        {
+            var levels = new List<string>();
+            var ok = true;
+            for (var level = 0; level <= ec.KeyboardMaxLevel; level++)
+            {
+                ok &= ec.SetKeyboardLevel(level);
+                Thread.Sleep(700);
+                var read = ec.GetKeyboardLevel();
+                ok &= read == level;
+                levels.Add($"{level}→{read}");
+            }
 
-        r.Check(ok, "Keyboard backlight levels (the keyboard went dark, then up to full)", string.Join(" ", levels));
+            r.Check(ok, "Keyboard backlight levels (the keyboard went dark, then up to full)", string.Join(" ", levels));
+        }
 
         var autoOff = ec.GetKeyboardAutoOff();
         var toggled = autoOff is { } a && ec.SetKeyboardAutoOff(!a) && ec.GetKeyboardAutoOff() == !a;
         r.Check(toggled, "Keyboard auto-off switched", $"{autoOff} → {ec.GetKeyboardAutoOff()} ({Hex(ec.ReadRegister(0x2C))})");
+    }
+
+    /// <summary>
+    /// The Mystic Light controller takes each packet (it can't be read back, so the eye is the check),
+    /// then goes back to Wattkin's own setting, or to full white when Wattkin hasn't set one yet.
+    /// </summary>
+    private static void TestUsbKeyboardLight(Report r)
+    {
+        using var light = MysticLight.Open(out var error);
+        if (light is null)
+        {
+            r.Fail("Keyboard light opened for writing", error ?? "the controller went away");
+            return;
+        }
+
+        var white = LightColor.White;
+        var steps = new List<string>();
+        var ok = true;
+        foreach (var (name, level, color) in new (string, int, LightColor)[]
+        {
+            ("off", 0, white), ("low", 1, white), ("mid", 2, white), ("high", 3, white),
+            ("red", 3, new(0xFF, 0, 0)), ("green", 3, new(0, 0xFF, 0)), ("blue", 3, new(0, 0, 0xFF)),
+        })
+        {
+            var sent = light.Set(level, color);
+            ok &= sent;
+            steps.Add(sent ? name : $"{name} refused");
+            Thread.Sleep(1000);
+        }
+
+        r.Check(ok, "Keyboard light: off, white low, mid and high, then red, green, blue (watch the keys)", string.Join(" · ", steps));
+
+        var settings = new SettingsStore(readOnly: true).Current;
+        var (backLevel, backColor) = settings.KeyboardLevel is { } saved ? (saved, LightColor.Parse(settings.KeyboardColor) ?? white) : (MysticLight.MaxLevel, white);
+        r.Check(light.Set(backLevel, backColor), "Keyboard light back",
+            settings.KeyboardLevel is null ? "the controller can't say what it showed before: left on, full white" : $"Wattkin's setting: level {backLevel}, {backColor.Hex}");
     }
 
     private static void TestLeds(Report r, EmbeddedController ec)

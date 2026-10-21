@@ -70,6 +70,9 @@ public static class Diagnostics
         });
 
         Try("dGPU", () => Line($"dGPU: {DiscreteGpu.Query()}"));
+        Try("Keyboard light", () => Line(MysticLight.Find() is { } light
+            ? $"Keyboard light (USB): {light.Product} · usage page 0x{light.UsagePage:X4} · feature report {light.FeatureReportLength} bytes · {(light.Usable ? "used by Wattkin" : "unknown layout, not used")} · {light.Path}"
+            : "Keyboard light (USB): no Mystic Light controller (the keys are lit by the EC, if at all)"));
         Try("Display", () => Line($"Display: current {DisplayModes.CurrentRefreshRate()} Hz, available {string.Join(", ", DisplayModes.SupportedRefreshRates())}"));
         Try("Power", () => Line($"Windows power mode: AC {WindowsPower.GetMode(true)}, DC {WindowsPower.GetMode(false)} · CPU boost AC {WindowsPower.GetCpuBoost(true)}, DC {WindowsPower.GetCpuBoost(false)} · critical battery {WindowsPower.CriticalBatteryPercent()}%"));
         // msiexec is Windows Installer, not MSI's.

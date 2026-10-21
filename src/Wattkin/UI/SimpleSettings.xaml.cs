@@ -18,6 +18,8 @@ public partial class SimpleSettings : UserControl
     private bool _loading;
     private string _profileNames = "";
     private CalibrationSuggestion? _suggestion;
+    private readonly ColorSwatches _keyboardColors;
+    private readonly AutoOffDelayStepper _autoOffDelay = new();
 
     public SimpleSettings()
     {
@@ -56,6 +58,9 @@ public partial class SimpleSettings : UserControl
             };
             KeyboardPanel.Children.Add(button);
         }
+
+        _keyboardColors = new ColorSwatches(KeyboardColorPanel, "simpleKbColor");
+        AutoOffDelayHost.Child = _autoOffDelay.Control;
 
         foreach (var (text, mode) in new[] { ("Integrated", FirmwareGpuMode.Integrated), ("Hybrid", FirmwareGpuMode.Hybrid) })
         {
@@ -118,6 +123,8 @@ public partial class SimpleSettings : UserControl
                 + (s.AutoSwitchProfiles && s.LowBatteryThreshold > 0 && s.LowBatteryProfile is { } low ? $" At {s.LowBatteryThreshold}% or less it switches to {low} by itself." : "");
 
             AutoOffToggle.IsChecked = s.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
+            _keyboardColors.Show(s.KeyboardColor);
+            _autoOffDelay.Show(s.KeyboardAutoOffSeconds);
             TrayToggle.IsChecked = s.TrayShowsWatts;
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
         }
@@ -179,6 +186,13 @@ public partial class SimpleSettings : UserControl
             }
 
             KeyboardPanel.IsEnabled = state.CanWrite && state.Caps?.HasKeyboardLight != false;
+            var usbLight = state.Caps?.HasKeyboardColor != false;
+            KeyboardColorRow.Visibility = AutoOffDelayHost.Visibility = usbLight ? Visibility.Visible : Visibility.Collapsed;
+            KeyboardColorPanel.IsEnabled = state.CanWrite;
+            AutoOffDelayHost.IsEnabled = state.CanWrite && app.Store.Current.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
+            AutoOffText.Text = usbLight
+                ? "When the laptop's keyboard isn't used for that long; its next key press brings the light back."
+                : "After about 10 seconds; any key brings it back.";
             AutoOffToggle.IsEnabled = state.CanWrite && state.Caps?.HasKeyboardTimeout != false;
             AcProfile.IsEnabled = DcProfile.IsEnabled = state.CanWrite;
 

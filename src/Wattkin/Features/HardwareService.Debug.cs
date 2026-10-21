@@ -358,14 +358,29 @@ public sealed partial class HardwareService
             return;
         }
 
-        var level = ec.HasKeyboardLight ? ec.GetKeyboardLevel() : null;
+        // The USB light can't be read back: only flashed when Wattkin knows the level to put back.
+        var usb = HasUsbKeyboardLight;
+        var level = usb ? _store.Current.KeyboardLevel : ec.HasKeyboardLight ? ec.GetKeyboardLevel() : null;
+        var color = KeyboardColorOf(_store.Current);
+        void Keyboard(int value)
+        {
+            if (usb)
+            {
+                ShowKeyboardLight(value, color);
+            }
+            else
+            {
+                ec.SetKeyboardLevel(value);
+            }
+        }
+
         for (var i = 0; i < 3 && !_disposed; i++)
         {
             ec.SetMuteLed(true);
             ec.SetMicMuteLed(true);
             if (level is not null)
             {
-                ec.SetKeyboardLevel(ec.KeyboardMaxLevel);
+                Keyboard(usb ? MysticLight.MaxLevel : ec.KeyboardMaxLevel);
             }
 
             Thread.Sleep(400);
@@ -373,7 +388,7 @@ public sealed partial class HardwareService
             ec.SetMicMuteLed(false);
             if (level is not null)
             {
-                ec.SetKeyboardLevel(0);
+                Keyboard(0);
             }
 
             Thread.Sleep(400);
@@ -381,7 +396,7 @@ public sealed partial class HardwareService
 
         if (level is { } original)
         {
-            ec.SetKeyboardLevel(original);
+            Keyboard(original);
         }
 
         _lastMicLed = _lastSpeakerLed = null;
@@ -411,10 +426,15 @@ public sealed partial class HardwareService
         Row(0x98, $"Cooler Boost: {OnOff(ec.GetCoolerBoost())}");
         Row(0xD7, $"charge limit: {ec.GetChargeLimit()?.ToString(CultureInfo.InvariantCulture) ?? "?"}%");
         Row(0xBF, $"run from battery while plugged in: {OnOff(ec.GetSimulatedUnplug())}");
-        Row(0xD3, $"keyboard backlight: level {ec.GetKeyboardLevel()?.ToString(CultureInfo.InvariantCulture) ?? "?"}");
+        Row(0xD3, $"keyboard backlight: level {ec.GetKeyboardLevel()?.ToString(CultureInfo.InvariantCulture) ?? "?"}{(HasUsbKeyboardLight ? " (not used: the keys are lit over USB)" : "")}");
         Row(0x2C, $"keyboard auto-off: {OnOff(ec.GetKeyboardAutoOff())} (also the mic-mute light)");
         Row(0x2D, "mute light");
         Row(0xD9, $"Fn lock: {OnOff(ec.GetFnLock())}");
+        if (KeyboardLightLine() is { } light)
+        {
+            sb.AppendLine(light);
+        }
+
         if (ec.HasFullFanTable && ec.ReadFullFanTable() is { } table)
         {
             sb.AppendLine();
