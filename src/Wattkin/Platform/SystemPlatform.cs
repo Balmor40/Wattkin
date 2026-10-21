@@ -69,7 +69,7 @@ public static class StartupTask
         exe ??= Environment.ProcessPath!;
         if (!Elevation.IsUnderProgramFiles(exe))
         {
-            return "Start with Windows only works for the installed copy (in Program Files). Install Wattkin first, then turn this on there.";
+            return Strings.Startup_NotInstalled;
         }
 
         var user = WindowsIdentity.GetCurrent().Name;
@@ -99,7 +99,7 @@ public static class StartupTask
         {
             if (Folder() is not { } folder)
             {
-                return "Task Scheduler isn't available.";
+                return Strings.Startup_NoScheduler;
             }
 
             folder.RegisterTask(TaskName, xml, TASK_CREATE_OR_UPDATE, null, null, TASK_LOGON_INTERACTIVE_TOKEN, null);
@@ -107,7 +107,7 @@ public static class StartupTask
         }
         catch (Exception ex) when (ex is COMException or UnauthorizedAccessException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
         {
-            return $"Couldn't create the logon task: {ex.Message}";
+            return string.Format(Strings.Startup_CreateFailed, ex.Message);
         }
     }
 
@@ -142,7 +142,7 @@ public static class StartupTask
         }
         catch (Exception ex) when (ex is COMException or UnauthorizedAccessException or Microsoft.CSharp.RuntimeBinder.RuntimeBinderException)
         {
-            return $"Couldn't remove the logon task: {ex.Message}";
+            return string.Format(Strings.Startup_RemoveFailed, ex.Message);
         }
     }
 

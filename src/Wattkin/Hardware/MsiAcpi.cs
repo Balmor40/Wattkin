@@ -56,7 +56,7 @@ public sealed class MsiAcpi : IDisposable
     {
         if (!readOnly && WmiSchema.EnsureRegistered() is { } schemaError)
         {
-            error = $"Couldn't set up access to the firmware interface ({schemaError}).";
+            error = string.Format(Strings.Ec_SchemaFailed, schemaError);
             return null;
         }
 
@@ -64,7 +64,7 @@ public sealed class MsiAcpi : IDisposable
         {
             if (Bind() is not var (scope, instance, packageClass))
             {
-                error = "This laptop's firmware doesn't offer MSI's interface, so hardware controls aren't available. Monitoring still works.";
+                error = Strings.Ec_NoMsiInterface;
                 return null;
             }
 
@@ -72,7 +72,7 @@ public sealed class MsiAcpi : IDisposable
             var wmi = acpi.Call("Get_WMI", null);
             if (wmi is not { Length: PackageSize } || wmi[0] != 1)
             {
-                error = "The firmware interface didn't answer.";
+                error = Strings.Ec_NoAnswer;
                 acpi.Dispose();
                 return null;
             }
@@ -91,23 +91,23 @@ public sealed class MsiAcpi : IDisposable
         }
         catch (ManagementException ex) when (ex.ErrorCode == ManagementStatus.AccessDenied)
         {
-            error = "Administrator rights are needed to talk to the embedded controller.";
+            error = Strings.Ec_NeedsAdmin;
         }
         catch (ManagementException ex) when (ex.ErrorCode == ManagementStatus.InvalidClass)
         {
-            error = "Wattkin's access to the firmware interface isn't set up yet. Restart Wattkin as administrator.";
+            error = Strings.Ec_NotSetUp;
         }
         catch (ManagementException ex)
         {
-            error = $"The firmware interface didn't answer ({ex.ErrorCode}).";
+            error = string.Format(Strings.Ec_NoAnswerCode, ex.ErrorCode);
         }
         catch (UnauthorizedAccessException)
         {
-            error = "Administrator rights are needed to talk to the embedded controller.";
+            error = Strings.Ec_NeedsAdmin;
         }
         catch (System.Runtime.InteropServices.COMException ex)
         {
-            error = $"WMI error 0x{ex.HResult:X8}.";
+            error = string.Format(Strings.Ec_WmiError, ex.HResult);
         }
 
         return null;

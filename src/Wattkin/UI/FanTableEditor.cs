@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using Wattkin.Hardware;
@@ -19,13 +18,13 @@ public sealed class FanTableEditor : StackPanel
 
     public FanTableEditor()
     {
-        Children.Add(Header("CPU fan"));
+        Children.Add(Header(Strings.Fans_Cpu));
         Children.Add(_cpu.Grid);
-        Children.Add(Header("GPU fan", top: 12));
+        Children.Add(Header(Strings.Fans_Gpu, top: 12));
         Children.Add(_gpu.Grid);
         var hint = new TextBlock
         {
-            Text = "A step starts when the temperature reaches \"Up at\" and ends when it falls below \"Down under\": the gap keeps the fan from hunting between two speeds. Change a temperature with − and +, or click it and use the arrow keys. Speeds are MSI's percentages; Cooler Boost is full speed.",
+            Text = Strings.Fans_TableHint,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 10, 0, 0),
             FontSize = 11.5,
@@ -73,9 +72,9 @@ public sealed class FanTableEditor : StackPanel
             grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         }
 
-        Place(grid, RowLabel("Speed"), 1, 0);
-        Place(grid, RowLabel("Up at °C"), 3, 0);
-        Place(grid, RowLabel("Down under °C"), 4, 0);
+        Place(grid, RowLabel(Strings.Fans_Speed), 1, 0);
+        Place(grid, RowLabel(Strings.Fans_UpAt), 3, 0);
+        Place(grid, RowLabel(Strings.Fans_DownUnder), 4, 0);
 
         for (var i = 0; i < FanSteps.Count; i++)
         {
@@ -102,7 +101,7 @@ public sealed class FanTableEditor : StackPanel
             };
             columns.Speeds[i] = slider;
 
-            var caption = new TextBlock { Text = i == 0 ? "base" : $"step {i}", HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 4), FontSize = 11.5 };
+            var caption = new TextBlock { Text = i == 0 ? Strings.Fans_Base : string.Format(Strings.Fans_Step, i), HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 4), FontSize = 11.5 };
             caption.SetResourceReference(TextBlock.ForegroundProperty, "Lc.SubText");
 
             Place(grid, label, 0, i + 1);
@@ -159,7 +158,7 @@ public sealed class FanTableEditor : StackPanel
         return block;
     }
 
-    private static string Percent(int value) => value == 0 ? "off" : value.ToString(CultureInfo.CurrentCulture) + "%";
+    private static string Percent(int value) => value == 0 ? Strings.Fmt_FanOff : Fmt.Percent(value);
 
     private static TextBlock Header(string text, double top = 0)
     {

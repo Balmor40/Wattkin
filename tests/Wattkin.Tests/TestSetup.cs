@@ -5,8 +5,14 @@ namespace Wattkin.Tests;
 
 internal static class TestSetup
 {
-    /// <summary>Tests deliberately feed broken files; keep their log lines out of the real log.</summary>
+    /// <summary>
+    /// Tests deliberately feed broken files; keep their log lines out of the real log. Texts are checked
+    /// in English, whatever the language of the Windows running the tests.
+    /// </summary>
     [ModuleInitializer]
-    internal static void Init() =>
+    internal static void Init()
+    {
         Environment.SetEnvironmentVariable("WATTKIN_LOG_DIR", Path.Combine(Path.GetTempPath(), "wattkin-test-logs"));
+        UiLanguage.Apply(UiLanguage.English);
+    }
 }

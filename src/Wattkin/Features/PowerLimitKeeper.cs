@@ -212,7 +212,7 @@ public sealed class PowerLimitKeeper
             Usable = msr is not null && !locked;
             return new CpuPowerStatus(
                 Usable,
-                locked ? "The BIOS locked the power limits, so they can't be changed until it's unlocked." : msr is null ? "The power limits couldn't be read." : null,
+                locked ? Strings.Power_Locked : msr is null ? Strings.Power_Unreadable : null,
                 units,
                 msr is { } raw ? PackagePowerLimit.Decode(raw, units) : null,
                 _register.ReadFirmware() is { } fw ? PackagePowerLimit.Decode(fw, units) : null,

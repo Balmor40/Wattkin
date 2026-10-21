@@ -70,7 +70,7 @@ public static class FirmwareGpuSwitch
         // One request at a time: two overlapping requests would verify and restore each other's writes.
         if (!RequestGate.Wait(0))
         {
-            return "A GPU mode change is already in progress.";
+            return Strings.Gpu_InProgress;
         }
 
         try
@@ -102,24 +102,25 @@ public static class FirmwareGpuSwitch
         }
         if ((b & 0x10) == 0)
         {
-            return "This laptop's firmware does not offer the GPU switch.";
+            return Strings.Gpu_NoSwitch;
         }
 
         if (mode == FirmwareGpuMode.Integrated && (b & 0x20) == 0)
         {
-            return "Integrated-only mode is not supported on this laptop.";
+            return Strings.Gpu_NoIntegrated;
         }
 
         if (mode == FirmwareGpuMode.Discrete && (b & 0x40) != 0)
         {
-            return "Discrete-only mode is not supported on this laptop.";
+            return Strings.Gpu_NoDiscrete;
         }
 
         var updated = (byte[])data.Clone();
         updated[ModeByte] = (byte)((b & 0xFC) | (int)mode);
         if (!SetFirmwareEnvironmentVariableExW(VariableName, VariableGuid, updated, (uint)updated.Length, attributes))
         {
-            return $"Writing the firmware setting failed (error {Marshal.GetLastWin32Error()}).";
+            var code = Marshal.GetLastWin32Error(); // before anything else can overwrite it
+            return string.Format(Strings.Gpu_WriteFailed, code);
         }
 
         var verify = ReadVariable(out _, out _);
@@ -127,8 +128,8 @@ public static class FirmwareGpuSwitch
         {
             var restored = Restore(data, attributes);
             return restored
-                ? "The firmware setting didn't read back as written, so it was put back as it was. Nothing changed."
-                : "The firmware setting didn't read back as written, and restoring it failed. Don't restart yet; save a diagnostics report.";
+                ? Strings.Gpu_VerifyRestored
+                : Strings.Gpu_VerifyRestoreFailed;
         }
 
         Log.Info($"MsiDCVarData[5]: 0x{b:X2} -> 0x{updated[ModeByte]:X2} (request {mode})");
@@ -138,8 +139,8 @@ public static class FirmwareGpuSwitch
         {
             var restored = Restore(data, attributes);
             return restored
-                ? "The embedded controller didn't accept the switch request, so the firmware setting was put back. Nothing changed."
-                : "The embedded controller didn't accept the switch request, and restoring the firmware setting failed. The switch may still happen at the next cold boot.";
+                ? Strings.Gpu_EcRefusedRestored
+                : Strings.Gpu_EcRefusedRestoreFailed;
         }
 
         Thread.Sleep(2000);
@@ -173,7 +174,7 @@ public static class FirmwareGpuSwitch
         attributes = 0;
         if (!Privileges.Enable("SeSystemEnvironmentPrivilege"))
         {
-            error = "Administrator rights are needed to read firmware settings.";
+            error = Strings.Gpu_ReadNeedsAdmin;
             return null;
         }
 
@@ -190,7 +191,7 @@ public static class FirmwareGpuSwitch
 
             if (size <= ModeByte)
             {
-                error = size == 0 ? $"MSI firmware setting not found (error {lastError})." : "MSI firmware setting is shorter than expected.";
+                error = size == 0 ? string.Format(Strings.Gpu_VariableMissing, lastError) : Strings.Gpu_VariableShort;
                 return null;
             }
 
@@ -198,7 +199,7 @@ public static class FirmwareGpuSwitch
             return buffer[..(int)size];
         }
 
-        error = "MSI firmware setting is unexpectedly large.";
+        error = Strings.Gpu_VariableLarge;
         return null;
     }
 }

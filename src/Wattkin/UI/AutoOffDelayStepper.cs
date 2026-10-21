@@ -15,7 +15,7 @@ internal sealed class AutoOffDelayStepper
 
     public AutoOffDelayStepper()
     {
-        Control = new NumberStepper(0, Choices.Length - 1, Nearest(10)) { Format = i => Fmt.Delay(Choices[i]), ToolTip = "How long without typing before the light goes off" };
+        Control = new NumberStepper(0, Choices.Length - 1, Nearest(10)) { Format = i => Fmt.Delay(Choices[i]), ToolTip = Strings.Keyboard_DelayTip };
         Control.ValueChanged += async () =>
         {
             if (!_loading)

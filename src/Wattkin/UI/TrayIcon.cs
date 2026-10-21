@@ -48,17 +48,17 @@ internal sealed class TrayIcon : IDisposable
         var tooltip = $"Wattkin · {Fmt.Watts(watts)}";
         if (snapshot.Power.Percent is { } percent)
         {
-            tooltip += $" · {percent:0}%";
+            tooltip += $" · {Fmt.Percent(percent)}";
         }
 
         tooltip += $"\n{Fmt.BatteryLine(snapshot.Power, hardware.ChargeStatus, coarse: true)}";
         tooltip += reading switch
         {
-            { Display: TrayDisplay.CpuTemperature } t => $"\nCPU {Fmt.Temp(t.Value)}",
-            { Display: TrayDisplay.CpuLoad } l => $"\nCPU load {l.Value:0}%",
+            { Display: TrayDisplay.CpuTemperature } t => "\n" + string.Format(Strings.Tray_TipCpuTemperature, Fmt.Temp(t.Value)),
+            { Display: TrayDisplay.CpuLoad } l => "\n" + string.Format(Strings.Tray_TipCpuLoad, Fmt.Percent(l.Value)),
             _ => "",
         };
-        tooltip += $"\nProfile: {settings.ActiveProfile}";
+        tooltip += "\n" + string.Format(Strings.Tray_TipProfile, settings.ActiveProfile);
         tooltip = tooltip.Length > 127 ? tooltip[..127] : tooltip;
         if (tooltip != _currentTooltip)
         {
@@ -188,7 +188,7 @@ internal sealed class TrayIcon : IDisposable
         var app = App.Current;
         _menu = new ContextMenu();
 
-        var profiles = new MenuItem { Header = "Profile" };
+        var profiles = new MenuItem { Header = Strings.Common_Profile };
         foreach (var profile in app.Store.Current.Profiles)
         {
             var item = new MenuItem { Header = profile.Name, IsCheckable = true, IsChecked = profile.Name == app.Store.Current.ActiveProfile };
@@ -197,26 +197,26 @@ internal sealed class TrayIcon : IDisposable
             profiles.Items.Add(item);
         }
 
-        var limits = new MenuItem { Header = "Charge limit", IsEnabled = !app.Hardware.IsCalibrating };
+        var limits = new MenuItem { Header = Strings.Common_ChargeLimit, IsEnabled = !app.Hardware.IsCalibrating };
         foreach (var limit in new[] { 50, 60, 70, 80, 90, 100 })
         {
-            var item = new MenuItem { Header = $"{limit}%", IsCheckable = true, IsChecked = app.Store.Current.ChargeLimit == limit && app.Store.Current.ChargeResumeBelow is null };
+            var item = new MenuItem { Header = Fmt.Percent(limit), IsCheckable = true, IsChecked = app.Store.Current.ChargeLimit == limit && app.Store.Current.ChargeResumeBelow is null };
             item.Click += async (_, _) => await app.Hardware.SetChargeLimitAsync(limit, null);
             limits.Items.Add(item);
         }
 
-        var full = new MenuItem { Header = "Charge to 100% once", IsCheckable = true, IsChecked = app.Store.Current.FullChargeOnce };
+        var full = new MenuItem { Header = Strings.Common_ChargeToFullOnce, IsCheckable = true, IsChecked = app.Store.Current.FullChargeOnce };
         full.Click += async (_, _) => await app.Hardware.SetFullChargeOnceAsync(full.IsChecked);
         limits.Items.Add(new Separator());
         limits.Items.Add(full);
 
-        var widget = new MenuItem { Header = "Desktop widget", IsCheckable = true, IsChecked = app.IsWidgetVisible };
+        var widget = new MenuItem { Header = Strings.Common_DesktopWidget, IsCheckable = true, IsChecked = app.IsWidgetVisible };
         widget.Click += (_, _) => app.SetWidgetVisible(widget.IsChecked);
 
-        var settings = new MenuItem { Header = "Settings…" };
+        var settings = new MenuItem { Header = Strings.Tray_Settings };
         settings.Click += (_, _) => app.OpenSettings();
 
-        var exit = new MenuItem { Header = "Exit Wattkin" };
+        var exit = new MenuItem { Header = Strings.Tray_Exit };
         exit.Click += (_, _) => app.ExitApp();
 
         _menu.Items.Add(profiles);
@@ -226,7 +226,7 @@ internal sealed class TrayIcon : IDisposable
         _menu.Items.Add(settings);
         if (!Platform.Elevation.IsElevated)
         {
-            var elevate = new MenuItem { Header = "Restart as administrator" };
+            var elevate = new MenuItem { Header = Strings.Common_RestartAsAdmin };
             elevate.Click += (_, _) => app.RestartElevated();
             _menu.Items.Add(elevate);
         }

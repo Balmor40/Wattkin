@@ -2,7 +2,8 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:Wattkin.UI"
-        Title="Edit profile" Width="780" Height="860" MinWidth="700" MinHeight="480"
+        xmlns:l="clr-namespace:Wattkin"
+        Title="{x:Static l:Strings.Editor_Title}" Width="780" Height="860" MinWidth="700" MinHeight="480"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Lc.Window}" Foreground="{DynamicResource Lc.Text}"
         FontFamily="{DynamicResource Lc.Font}" UseLayoutRounding="True">
@@ -21,56 +22,56 @@
                     <StackPanel>
                         <TextBlock x:Name="SlotTitle" Style="{StaticResource Lc.Section}" />
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Name" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><TextBox x:Name="NameBox" Grid.Column="1" MaxLength="24" /></Grid>
-                        <TextBlock Style="{StaticResource Lc.Hint}" Text="Shown on the profile buttons, in the flyout and in Settings. Each setting below can be left as it is." Margin="0,4,0,0" />
+                            <TextBlock Text="{x:Static l:Strings.Editor_Name}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><TextBox x:Name="NameBox" Grid.Column="1" MaxLength="24" /></Grid>
+                        <TextBlock Style="{StaticResource Lc.Hint}" Text="{x:Static l:Strings.Editor_NameHint}" Margin="0,4,0,0" />
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Lc.Card}">
                     <StackPanel>
-                        <TextBlock Text="Processor" Style="{StaticResource Lc.Section}" />
+                        <TextBlock Text="{x:Static l:Strings.Editor_Processor}" Style="{StaticResource Lc.Section}" />
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Power limits" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="ShiftBox" Grid.Column="1" SelectionChanged="OnShiftChanged" /></Grid>
-                        <TextBlock x:Name="ShiftHint" Style="{StaticResource Lc.Hint}" Margin="190,0,0,6" TextWrapping="Wrap" Text="MSI's firmware modes set how many watts the processor may draw, sustained (PL1) and in bursts (PL2); the self-test measures them. Manual sets PL1, PL2 and the turbo time yourself (needs PawnIO)." />
+                            <TextBlock Text="{x:Static l:Strings.Editor_PowerLimits}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="ShiftBox" Grid.Column="1" SelectionChanged="OnShiftChanged" /></Grid>
+                        <TextBlock x:Name="ShiftHint" Style="{StaticResource Lc.Hint}" Margin="190,0,0,6" TextWrapping="Wrap" Text="{x:Static l:Strings.Editor_ShiftHint}" />
                         <StackPanel x:Name="ManualPanel" Margin="190,0,0,8" Visibility="Collapsed">
                             <Grid Style="{StaticResource Row}">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="24" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="24" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <TextBlock Text="PL1 (sustained) W" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="16" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="16" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Static l:Strings.Editor_Pl1}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <ContentControl x:Name="Pl1Host" Grid.Column="1" />
-                                <TextBlock Grid.Column="3" Text="PL2 (bursts) W" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="3" Text="{x:Static l:Strings.Editor_Pl2}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <ContentControl x:Name="Pl2Host" Grid.Column="4" />
-                                <TextBlock Grid.Column="6" Text="Turbo time" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="6" Text="{x:Static l:Strings.Editor_TurboTime}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
                                 <ComboBox x:Name="TurboTimeBox" Grid.Column="7" MinWidth="90" HorizontalAlignment="Left" />
                             </Grid>
                             <TextBlock x:Name="ManualWarning" Foreground="{DynamicResource Lc.Bad}" TextWrapping="Wrap" Margin="0,4,0,0" Visibility="Collapsed" />
                             <TextBlock x:Name="ManualStatus" Style="{StaticResource Lc.Hint}" TextWrapping="Wrap" Margin="0,4,0,0" />
                         </StackPanel>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Turbo boost" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TurboBox" Grid.Column="1" /></Grid>
+                            <TextBlock Text="{x:Static l:Strings.Editor_TurboBoost}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TurboBox" Grid.Column="1" /></Grid>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Maximum processor state" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="MaxCpuBox" Grid.Column="1" /></Grid>
+                            <TextBlock Text="{x:Static l:Strings.Editor_MaxState}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="MaxCpuBox" Grid.Column="1" /></Grid>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Maximum frequency" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="MaxFreqBox" Grid.Column="1" /></Grid>
+                            <TextBlock Text="{x:Static l:Strings.Editor_MaxFrequency}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="MaxFreqBox" Grid.Column="1" /></Grid>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Performance or efficiency (EPP)" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="EppBox" Grid.Column="1" /></Grid>
-                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,0" TextWrapping="Wrap" Text="These four are Windows settings of the active power plan, on the charger and on battery. A maximum state below 100% also stops the turbo; a maximum frequency caps the clock but can keep some turbo. EPP decides how eagerly the processor speeds up for everyday work (Windows' &quot;Best power efficiency&quot; mode may override it on battery)." />
+                            <TextBlock Text="{x:Static l:Strings.Editor_Epp}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="EppBox" Grid.Column="1" /></Grid>
+                        <TextBlock Style="{StaticResource Lc.Hint}" Margin="190,0,0,0" TextWrapping="Wrap" Text="{x:Static l:Strings.Editor_WindowsHint}" />
                     </StackPanel>
                 </Border>
 
                 <Border Style="{StaticResource Lc.Card}">
                     <StackPanel>
-                        <TextBlock Text="Fans" Style="{StaticResource Lc.Section}" />
+                        <TextBlock Text="{x:Static l:Strings.Common_Fans}" Style="{StaticResource Lc.Section}" />
                         <UniformGrid x:Name="FanModePanel" Rows="1" Margin="-2,0,-2,8" />
                         <TextBlock x:Name="FanHint" Style="{StaticResource Lc.Hint}" TextWrapping="Wrap" Margin="0,0,0,6" />
-                        <CheckBox x:Name="CoolerBoostBox" Content="Full speed (Cooler Boost), whatever the mode says" Margin="0,2,0,6" />
+                        <CheckBox x:Name="CoolerBoostBox" Content="{x:Static l:Strings.Editor_CoolerBoost}" Margin="0,2,0,6" />
                         <StackPanel x:Name="CurvePanel">
                             <TextBlock x:Name="CurveIntro" Style="{StaticResource Lc.Hint}" TextWrapping="Wrap" Margin="0,4,0,10" />
                             <ui:FanTableEditor x:Name="TableEditor" />
                             <ui:FanCurveEditor x:Name="SpeedsEditor" Visibility="Collapsed" />
                             <TextBlock x:Name="CurveProblem" Foreground="{DynamicResource Lc.Bad}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" />
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <Button x:Name="LaptopCurveButton" Content="Use the laptop's curve" Click="OnLaptopCurve" Margin="0,0,12,0" />
-                                <CheckBox x:Name="UnrestrictedBox" Content="Allow curves that let the laptop run hot (experimental)" VerticalAlignment="Center" Click="OnUnrestricted" />
+                                <Button x:Name="LaptopCurveButton" Content="{x:Static l:Strings.Editor_LaptopCurve}" Click="OnLaptopCurve" Margin="0,0,12,0" />
+                                <CheckBox x:Name="UnrestrictedBox" Content="{x:Static l:Strings.Editor_Unrestricted}" VerticalAlignment="Center" Click="OnUnrestricted" />
                             </StackPanel>
                         </StackPanel>
                     </StackPanel>
@@ -78,21 +79,21 @@
 
                 <Border Style="{StaticResource Lc.Card}">
                     <StackPanel>
-                        <TextBlock Text="Screen and keyboard" Style="{StaticResource Lc.Section}" />
+                        <TextBlock Text="{x:Static l:Strings.Editor_ScreenKeyboard}" Style="{StaticResource Lc.Section}" />
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Built-in screen refresh rate" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="RefreshBox" Grid.Column="1" /></Grid>
+                            <TextBlock Text="{x:Static l:Strings.Editor_RefreshRate}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="RefreshBox" Grid.Column="1" /></Grid>
                         <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="190" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Keyboard light" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="KeyboardBox" Grid.Column="1" /></Grid>
+                            <TextBlock Text="{x:Static l:Strings.Common_KeyboardLight}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="KeyboardBox" Grid.Column="1" /></Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>
         </ScrollViewer>
 
         <DockPanel Grid.Row="1" Margin="16,8,16,14" LastChildFill="False">
-            <Button DockPanel.Dock="Left" Content="Reset to default…" Click="OnReset" />
-            <Button DockPanel.Dock="Right" Content="Cancel" IsCancel="True" MinWidth="90" Click="OnCancel" />
-            <Button DockPanel.Dock="Right" Content="Apply and close" IsDefault="True" Click="OnApplyAndClose" Margin="0,0,8,0" />
-            <Button DockPanel.Dock="Right" Content="Apply" MinWidth="90" Click="OnApply" Margin="0,0,8,0" />
+            <Button DockPanel.Dock="Left" Content="{x:Static l:Strings.Editor_Reset}" Click="OnReset" />
+            <Button DockPanel.Dock="Right" Content="{x:Static l:Strings.Common_Cancel}" IsCancel="True" MinWidth="90" Click="OnCancel" />
+            <Button DockPanel.Dock="Right" Content="{x:Static l:Strings.Editor_ApplyAndClose}" IsDefault="True" Click="OnApplyAndClose" Margin="0,0,8,0" />
+            <Button DockPanel.Dock="Right" Content="{x:Static l:Strings.Common_Apply}" MinWidth="90" Click="OnApply" Margin="0,0,8,0" />
         </DockPanel>
     </Grid>
 </Window>

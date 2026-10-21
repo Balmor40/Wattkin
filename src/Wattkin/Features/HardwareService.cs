@@ -117,7 +117,7 @@ public sealed partial class HardwareService : IDisposable
         _store = store;
         _monitor = monitor;
         _controls = controlsHardware;
-        State = HardwareState.Initial(Elevation.IsElevated ? "Connecting to the embedded controller…" : "Hardware controls need administrator rights.");
+        State = HardwareState.Initial(Elevation.IsElevated ? Strings.Hw_Connecting : Strings.Hw_NeedsAdmin);
     }
 
     public HardwareState State { get; private set; }
@@ -128,7 +128,7 @@ public sealed partial class HardwareService : IDisposable
     /// <summary>The EC for changes: null unless this copy owns the hardware.</summary>
     private EmbeddedController? Writer => _controls ? _ec : null;
 
-    private const string NotOwner = "Another copy of Wattkin is in charge of the hardware.";
+    private static string NotOwner => Strings.Hw_NotOwner;
     public bool IsCalibrating => _store.Current.Calibration is not null;
 
     public event Action? StateChanged;
@@ -158,7 +158,7 @@ public sealed partial class HardwareService : IDisposable
         _acpi = MsiAcpi.TryOpen(out var error, readOnly: !_controls);
         if (_acpi is null)
         {
-            State = HardwareState.Initial(error ?? "MSI WMI interface not available.");
+            State = HardwareState.Initial(error ?? Strings.Hw_NoWmi);
             StateChanged?.Invoke();
             return;
         }
@@ -558,7 +558,7 @@ public sealed partial class HardwareService : IDisposable
         Log.Info($"Profile applied ({scope}): {profile.Name}");
         if (announce)
         {
-            Osd?.Invoke($"Profile: {profile.Name}");
+            Osd?.Invoke(string.Format(Strings.Osd_Profile, profile.Name));
         }
 
         SafeRefreshState();
@@ -628,12 +628,12 @@ public sealed partial class HardwareService : IDisposable
     {
         if (_calibration is null || _ec is not { CanWrite: true } || _monitor.Latest is not { } latest)
         {
-            return State.Problem ?? "Hardware controls are not available.";
+            return State.Problem ?? Strings.Hw_ControlsUnavailable;
         }
 
         if (!_ec.CanSimulateUnplug)
         {
-            return "Calibration needs a register that is only verified on supported firmware.";
+            return Strings.Calib_NeedsRegister;
         }
 
         string? error;
@@ -662,7 +662,7 @@ public sealed partial class HardwareService : IDisposable
                 {
                     record.FinishedUtc = DateTime.UtcNow;
                     record.Phase = nameof(CalibrationPhase.Cancelled);
-                    record.Outcome = "Cancelled.";
+                    record.Outcome = Strings.Calib_CancelledShort;
                     s.CalibrationHistory = [record, .. s.CalibrationHistory.Take(19)];
                     s.Calibration = null;
                 });
@@ -733,7 +733,7 @@ public sealed partial class HardwareService : IDisposable
 
         if (_acpi is null || _ec is not { CanSwitchGpuMode: true })
         {
-            return "The firmware GPU switch is only enabled on verified firmware.";
+            return Strings.Gpu_SwitchNotVerified;
         }
 
         var error = FirmwareGpuSwitch.RequestMode(mode, _acpi);
@@ -880,7 +880,7 @@ public sealed partial class HardwareService : IDisposable
                         _lastMicLed = muted;
                     }
 
-                    Osd?.Invoke(muted ? "Microphone off" : "Microphone on");
+                    Osd?.Invoke(muted ? Strings.Osd_MicOff : Strings.Osd_MicOn);
                 }
 
                 break;
@@ -891,7 +891,7 @@ public sealed partial class HardwareService : IDisposable
                 if (ec?.GetCoolerBoost() is { } boost)
                 {
                     ec.SetCoolerBoost(!boost);
-                    Osd?.Invoke(!boost ? "Cooler Boost on" : "Cooler Boost off");
+                    Osd?.Invoke(!boost ? Strings.Osd_CoolerBoostOn : Strings.Osd_CoolerBoostOff);
                 }
 
                 break;
@@ -902,7 +902,7 @@ public sealed partial class HardwareService : IDisposable
                 Thread.Sleep(150);
                 if (ec?.GetWebcam() is { } cam)
                 {
-                    Osd?.Invoke(cam ? "Webcam on" : "Webcam off");
+                    Osd?.Invoke(cam ? Strings.Osd_WebcamOn : Strings.Osd_WebcamOff);
                 }
 
                 break;
@@ -910,15 +910,15 @@ public sealed partial class HardwareService : IDisposable
                 Thread.Sleep(150);
                 if (ec?.GetFnLock() is { } locked)
                 {
-                    Osd?.Invoke(locked ? "Fn lock on" : "Fn lock off");
+                    Osd?.Invoke(locked ? Strings.Osd_FnLockOn : Strings.Osd_FnLockOff);
                 }
 
                 break;
             case MsiHotkey.TouchpadOff:
-                Osd?.Invoke("Touchpad off");
+                Osd?.Invoke(Strings.Osd_TouchpadOff);
                 break;
             case MsiHotkey.TouchpadOn:
-                Osd?.Invoke("Touchpad on");
+                Osd?.Invoke(Strings.Osd_TouchpadOn);
                 break;
             case MsiHotkey.MonitorOff:
                 MonitorPower.TurnOff();
@@ -1022,7 +1022,7 @@ public sealed partial class HardwareService : IDisposable
 
         State = new HardwareState(
             true,
-            ec.CanWrite ? null : ec.Reason ?? "Hardware controls are off for this firmware.",
+            ec.CanWrite ? null : ec.Reason ?? Strings.Hw_ControlsOff,
             ec.FirmwareFull,
             ec.WmiVersion,
             ec.CanWrite,
@@ -1045,7 +1045,7 @@ public sealed partial class HardwareService : IDisposable
         StateChanged?.Invoke();
     }
 
-    private string ChargeStatusText() => _calibration?.IsActive == true ? "Calibrating" : _charge?.Status ?? "";
+    private string ChargeStatusText() => _calibration?.IsActive == true ? Strings.Charge_Calibrating : _charge?.Status ?? "";
 
     /// <summary>Progress while running; the final result stays visible afterwards.</summary>
     private CalibrationProgress? CalibrationView() => _calibration?.Progress;

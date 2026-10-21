@@ -149,7 +149,7 @@ public sealed partial class HardwareService
         if (_fanForce != FanForce.None && DateTime.UtcNow.Ticks > Volatile.Read(ref _fanForceUntilTicks) && !FanTestRunning)
         {
             SetFanForce(FanForce.None, TimeSpan.Zero);
-            Osd?.Invoke("Fans back to normal");
+            Osd?.Invoke(Strings.Osd_FansNormal);
         }
     }
 
@@ -178,12 +178,12 @@ public sealed partial class HardwareService
     {
         if (Writer is not { HasCoolerBoost: true } ec)
         {
-            return _controls ? "Fan control isn't available on this firmware." : NotOwner;
+            return _controls ? Strings.FanTest_Unavailable : NotOwner;
         }
 
         if (Interlocked.Exchange(ref _fanTestBusy, 1) == 1)
         {
-            return "A fan test is already running.";
+            return Strings.FanTest_Running;
         }
 
         string result;
@@ -194,7 +194,7 @@ public sealed partial class HardwareService
         catch (Exception ex)
         {
             Log.Error("Fan test failed", ex);
-            result = "The fan test failed. The log has the details.";
+            result = Strings.FanTest_Failed;
         }
         finally
         {
@@ -218,7 +218,7 @@ public sealed partial class HardwareService
             if (ec.ReadSensors() is { } sensors)
             {
                 readings.Add(new FanReading(FanTest.Plausible(sensors.Fan1Rpm), FanTest.Plausible(sensors.Fan2Rpm)));
-                ReportFanTest($"Fans at full speed: {Rpm(readings[^1].Fan1)} / {Rpm(readings[^1].Fan2)} rpm…");
+                ReportFanTest(string.Format(Strings.FanTest_FullSpeed, Rpm(readings[^1].Fan1), Rpm(readings[^1].Fan2)));
             }
 
             if (clock.Elapsed >= TimeSpan.FromSeconds(8) && FanTest.Settled(readings))
@@ -229,13 +229,13 @@ public sealed partial class HardwareService
 
         if (!StillForced(FanForce.Full))
         {
-            return "Stopped before the fans reached full speed.";
+            return Strings.FanTest_StoppedEarly;
         }
 
         var top = FanTest.Top(readings);
         if (top.Fan1 + top.Fan2 < 1000)
         {
-            return "The fans didn't report a speed.";
+            return Strings.FanTest_NoSpeed;
         }
 
         _store.Update(s =>
@@ -245,7 +245,7 @@ public sealed partial class HardwareService
             s.FanTopSpeedMeasuredUtc = DateTime.UtcNow;
         });
         Log.Info($"Fan top speed measured: {top.Fan1} / {top.Fan2} rpm after {clock.Elapsed.TotalSeconds:0} s.");
-        return $"Top speed: {Rpm(top.Fan1)} / {Rpm(top.Fan2)} rpm.";
+        return string.Format(Strings.FanTest_TopSpeed, Rpm(top.Fan1), Rpm(top.Fan2));
     }
 
     private string CompareModes(EmbeddedController ec)
@@ -255,7 +255,7 @@ public sealed partial class HardwareService
         FanForce[] modes = ec.HasFanCurves && ec.ReadFanCurves() is { Sane: true } ? [FanForce.Auto, FanForce.Silent, FanForce.Curve] : [FanForce.Auto, FanForce.Silent];
         foreach (var force in modes)
         {
-            var name = force.ToString();
+            var name = force == FanForce.Silent ? Strings.Fan_Silent : force == FanForce.Curve ? Strings.Debug_ForceCurve : Strings.Fan_Auto;
             SetFanForce(force, TimeSpan.FromMinutes(2));
             var readings = new List<(FanReading Fans, int? CpuC)>();
             for (var second = 1; second <= CompareStep.TotalSeconds && StillForced(force); second++)
@@ -264,27 +264,29 @@ public sealed partial class HardwareService
                 if (ec.ReadSensors() is { } sensors)
                 {
                     readings.Add((new FanReading(FanTest.Plausible(sensors.Fan1Rpm), FanTest.Plausible(sensors.Fan2Rpm)), sensors.CpuTempC));
-                    ReportFanTest($"{name}: {second} of {CompareStep.TotalSeconds:0} s · {Rpm(readings[^1].Fans.Fan1)} / {Rpm(readings[^1].Fans.Fan2)} rpm");
+                    ReportFanTest(string.Format(Strings.FanTest_Comparing, name, second, CompareStep.TotalSeconds, Rpm(readings[^1].Fans.Fan1), Rpm(readings[^1].Fans.Fan2)));
                 }
             }
 
             if (!StillForced(force))
             {
-                return "Stopped.";
+                return Strings.FanTest_Stopped;
             }
 
             // The last 15 s: by then the fans have adjusted to the mode.
             var settled = readings.TakeLast(15).ToList();
             var fans = FanTest.Average(settled.Select(r => r.Fans).ToList());
             var temps = settled.Where(r => r.CpuC is not null).Select(r => r.CpuC!.Value).ToList();
-            results.Add($"{name}: {Rpm(fans.Fan1)} / {Rpm(fans.Fan2)} rpm" + (temps.Count > 0 ? $" at CPU {temps.Average():0}°C" : ""));
+            results.Add(temps.Count > 0
+                ? string.Format(Strings.FanTest_ModeResultAt, name, Rpm(fans.Fan1), Rpm(fans.Fan2), temps.Average())
+                : string.Format(Strings.FanTest_ModeResult, name, Rpm(fans.Fan1), Rpm(fans.Fan2)));
             stopped.Add(fans.Fan1 + fans.Fan2 == 0);
         }
 
         Log.Info("Fan comparison: " + string.Join("; ", results));
         if (stopped.All(s => s))
         {
-            results.Add("The fans were off in every mode: the laptop is cool enough for all of them. The modes differ once it's warmer, so try again while charging or after some work.");
+            results.Add(Strings.FanTest_AllOff);
         }
 
         return string.Join("\n", results);
@@ -317,7 +319,7 @@ public sealed partial class HardwareService
                 return;
             }
 
-            Osd?.Invoke("Measuring fan speed: full fans for ~20 s");
+            Osd?.Invoke(Strings.Osd_MeasuringFans);
             Osd?.Invoke(await MeasureFanTopSpeedAsync().ConfigureAwait(false));
         });
     }
@@ -334,12 +336,12 @@ public sealed partial class HardwareService
 
         if (_ec is not { CanSimulateUnplug: true })
         {
-            return "This needs a register that is only verified on supported firmware.";
+            return Strings.Debug_NeedsRegister;
         }
 
         if (IsCalibrating)
         {
-            return "Not while a calibration is running.";
+            return Strings.Debug_NotWhileCalibrating;
         }
 
         Volatile.Write(ref _runFromBatteryUntilTicks, duration > TimeSpan.Zero ? (DateTime.UtcNow + duration).Ticks : 0);

@@ -95,7 +95,7 @@ public sealed class ProfileButtons : UniformGrid
         {
             var name = settings.Profiles[slot].Name;
             var index = slot;
-            var gear = new Button { Style = (Style)FindResource("Lc.GearButton"), Margin = new Thickness(4, 0, -2, 0), ToolTip = $"Edit {name}" };
+            var gear = new Button { Style = (Style)FindResource("Lc.GearButton"), Margin = new Thickness(4, 0, -2, 0), ToolTip = string.Format(Strings.Profiles_EditTip, name) };
             gear.Click += (_, e) =>
             {
                 e.Handled = true;

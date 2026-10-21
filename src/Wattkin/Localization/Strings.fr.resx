@@ -1,0 +1,617 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Common_LevelOff" xml:space="preserve"><value>Éteint</value></data>
+  <data name="Common_LevelLow" xml:space="preserve"><value>Faible</value></data>
+  <data name="Common_LevelMid" xml:space="preserve"><value>Moyen</value></data>
+  <data name="Common_LevelHigh" xml:space="preserve"><value>Fort</value></data>
+  <data name="Common_LeaveAsIs" xml:space="preserve"><value>Laisser tel quel</value></data>
+  <data name="Common_Apply" xml:space="preserve"><value>Appliquer</value></data>
+  <data name="Common_Cancel" xml:space="preserve"><value>Annuler</value></data>
+  <data name="Common_Stop" xml:space="preserve"><value>Arrêter</value></data>
+  <data name="Common_Starting" xml:space="preserve"><value>Démarrage…</value></data>
+  <data name="Common_Reading" xml:space="preserve"><value>Lecture…</value></data>
+  <data name="Common_Measuring" xml:space="preserve"><value>Mesure…</value></data>
+  <data name="Common_RestartAsAdmin" xml:space="preserve"><value>Redémarrer en administrateur</value></data>
+  <data name="Common_RestartNow" xml:space="preserve"><value>Redémarrer maintenant</value></data>
+  <data name="Common_ReadingHardware" xml:space="preserve"><value>Lecture du matériel…</value></data>
+  <data name="Common_NeedsAdmin" xml:space="preserve"><value>Nécessite les droits d&apos;administrateur.</value></data>
+  <data name="Common_TurnOffWhenNotTyping" xml:space="preserve"><value>Éteindre en l&apos;absence de frappe</value></data>
+  <data name="Common_ChargeLimit" xml:space="preserve"><value>Limite de charge</value></data>
+  <data name="Common_KeyboardLight" xml:space="preserve"><value>Éclairage du clavier</value></data>
+  <data name="Common_Colour" xml:space="preserve"><value>Couleur</value></data>
+  <data name="Common_Graphics" xml:space="preserve"><value>Graphisme</value></data>
+  <data name="Common_Fans" xml:space="preserve"><value>Ventilateurs</value></data>
+  <data name="Common_Profile" xml:space="preserve"><value>Profil</value></data>
+  <data name="Common_Profiles" xml:space="preserve"><value>Profils</value></data>
+  <data name="Common_Battery" xml:space="preserve"><value>Batterie</value></data>
+  <data name="Common_Health" xml:space="preserve"><value>Santé</value></data>
+  <data name="Common_OnBattery" xml:space="preserve"><value>Sur batterie</value></data>
+  <data name="Common_OnTheCharger" xml:space="preserve"><value>Sur secteur</value></data>
+  <data name="Common_StopChargingAt" xml:space="preserve"><value>Arrêter la charge à</value></data>
+  <data name="Common_ChargeToFullOnce" xml:space="preserve"><value>Charger à 100 % une fois</value></data>
+  <data name="Common_StartWithWindows" xml:space="preserve"><value>Démarrer avec Windows</value></data>
+  <data name="Common_DesktopWidget" xml:space="preserve"><value>Widget de bureau</value></data>
+  <data name="Common_Diagnostics" xml:space="preserve"><value>Diagnostic</value></data>
+  <data name="Common_BatteryCalibration" xml:space="preserve"><value>Calibrage de la batterie</value></data>
+  <data name="Common_GpuMode" xml:space="preserve"><value>Mode GPU</value></data>
+  <data name="Common_NvidiaGpu" xml:space="preserve"><value>GPU NVIDIA</value></data>
+  <data name="Common_Language" xml:space="preserve"><value>Langue</value></data>
+  <data name="Language_SameAsWindows" xml:space="preserve"><value>Comme Windows ({0})</value></data>
+  <data name="Language_Hint" xml:space="preserve"><value>Les fenêtres, menus et messages de Wattkin.</value></data>
+  <data name="Unit_Percent" xml:space="preserve"><value>{0} %</value></data>
+  <data name="Unit_Celsius" xml:space="preserve"><value>{0} °C</value></data>
+  <data name="Unit_FanPair" xml:space="preserve"><value>{0} / {1} tr/min</value></data>
+  <data name="Unit_Rpm" xml:space="preserve"><value>{0} tr/min</value></data>
+  <data name="Unit_UnderAMinute" xml:space="preserve"><value>&lt;1 min</value></data>
+  <data name="Unit_Seconds" xml:space="preserve"><value>{0} s</value></data>
+  <data name="Unit_Minutes" xml:space="preserve"><value>{0} min</value></data>
+  <data name="Unit_MinutesSeconds" xml:space="preserve"><value>{0} min {1} s</value></data>
+  <data name="Unit_Hours" xml:space="preserve"><value>{0} h</value></data>
+  <data name="Unit_HoursMinutes" xml:space="preserve"><value>{0} h {1:00}</value></data>
+  <data name="Unit_ByteUnits" xml:space="preserve"><value>o Ko Mo Go To</value></data>
+  <data name="Fmt_FanOff" xml:space="preserve"><value>arrêt</value></data>
+  <data name="Fmt_HeadlineMeasured" xml:space="preserve"><value>tout le portable, mesuré sur la batterie</value></data>
+  <data name="Fmt_HeadlineEstimated" xml:space="preserve"><value>tout le portable, estimé (sur secteur)</value></data>
+  <data name="Fmt_HeadlineCpuOnly" xml:space="preserve"><value>processeur seul sur secteur. Débranchez quelques minutes une fois pour que Wattkin apprenne le reste</value></data>
+  <data name="Fmt_NoBatteryData" xml:space="preserve"><value>Pas de données de batterie</value></data>
+  <data name="Fmt_TimeLeft" xml:space="preserve"><value>Encore {0}</value></data>
+  <data name="Fmt_Estimating" xml:space="preserve"><value>Estimation…</value></data>
+  <data name="Fmt_ChargingToLimit" xml:space="preserve"><value>En charge · {0} jusqu&apos;à la limite</value></data>
+  <data name="Fmt_Charging" xml:space="preserve"><value>En charge</value></data>
+  <data name="Fmt_PluggedIn" xml:space="preserve"><value>Branché</value></data>
+  <data name="Fmt_DgpuNone" xml:space="preserve"><value>Pas de GPU dédié</value></data>
+  <data name="Fmt_DgpuRemoved" xml:space="preserve"><value>Éteint (mode intégré seul)</value></data>
+  <data name="Fmt_DgpuDisabled" xml:space="preserve"><value>Désactivé dans Windows</value></data>
+  <data name="Fmt_DgpuAsleep" xml:space="preserve"><value>En veille</value></data>
+  <data name="Fmt_DgpuAwake" xml:space="preserve"><value>Actif</value></data>
+  <data name="Fmt_DgpuUnknown" xml:space="preserve"><value>Inconnu</value></data>
+  <data name="Fmt_Limits" xml:space="preserve"><value>PL1 {0} pendant {1} s · PL2 {2}</value></data>
+  <data name="Fmt_LimitsLocked" xml:space="preserve"><value>{0} · verrouillé</value></data>
+  <data name="Fmt_LimitOff" xml:space="preserve"><value>désactivé</value></data>
+  <data name="Fmt_DetailManual" xml:space="preserve"><value>CPU {0} W, pics {1} W</value></data>
+  <data name="Fmt_DetailShift" xml:space="preserve"><value>CPU {0}</value></data>
+  <data name="Fmt_DetailTurboOn" xml:space="preserve"><value>turbo activé</value></data>
+  <data name="Fmt_DetailTurboOff" xml:space="preserve"><value>turbo désactivé</value></data>
+  <data name="Fmt_DetailMaxCpu" xml:space="preserve"><value>CPU jusqu&apos;à {0}</value></data>
+  <data name="Fmt_DetailNoClockCap" xml:space="preserve"><value>fréquence libre</value></data>
+  <data name="Fmt_DetailClockCap" xml:space="preserve"><value>jusqu&apos;à {0}</value></data>
+  <data name="Fmt_ScreenHz" xml:space="preserve"><value>écran à {0} Hz</value></data>
+  <data name="Fmt_DetailKeyboard" xml:space="preserve"><value>éclairage {0}</value></data>
+  <data name="Fmt_LeavesEverything" xml:space="preserve"><value>ne change rien</value></data>
+  <data name="Fmt_FansFull" xml:space="preserve"><value>ventilateurs à fond</value></data>
+  <data name="Fmt_FansAuto" xml:space="preserve"><value>ventilateurs auto</value></data>
+  <data name="Fmt_FansSilent" xml:space="preserve"><value>ventilateurs silencieux</value></data>
+  <data name="Fmt_FansOwnCurve" xml:space="preserve"><value>courbe de ventilation propre</value></data>
+  <data name="Fmt_FansLaptopCurve" xml:space="preserve"><value>courbe de ventilation du portable</value></data>
+  <data name="Fmt_SummaryManual" xml:space="preserve"><value>processeur tenu à {0} W</value></data>
+  <data name="Fmt_SummaryEco" xml:space="preserve"><value>puissance minimale</value></data>
+  <data name="Fmt_SummarySport" xml:space="preserve"><value>limites de puissance plus hautes</value></data>
+  <data name="Fmt_SummaryExtreme" xml:space="preserve"><value>limites de puissance maximales</value></data>
+  <data name="Fmt_SummaryBalanced" xml:space="preserve"><value>puissance normale</value></data>
+  <data name="Fmt_SummaryNoTurbo" xml:space="preserve"><value>sans Turbo Boost</value></data>
+  <data name="Fmt_SummaryMaxCpu" xml:space="preserve"><value>CPU plafonné à {0}</value></data>
+  <data name="Fmt_SummaryClockCap" xml:space="preserve"><value>fréquence plafonnée à {0}</value></data>
+  <data name="Fmt_SummaryEfficiency" xml:space="preserve"><value>privilégie l&apos;efficacité</value></data>
+  <data name="Fmt_SummaryKeyboardOff" xml:space="preserve"><value>éclairage du clavier éteint</value></data>
+  <data name="Fmt_SummaryKeyboardOn" xml:space="preserve"><value>éclairage du clavier allumé</value></data>
+  <data name="Shift_Eco" xml:space="preserve"><value>Éco</value></data>
+  <data name="Shift_Balanced" xml:space="preserve"><value>Équilibré</value></data>
+  <data name="Shift_Sport" xml:space="preserve"><value>Sport</value></data>
+  <data name="Shift_Extreme" xml:space="preserve"><value>Extrême</value></data>
+  <data name="Tray_Settings" xml:space="preserve"><value>Paramètres…</value></data>
+  <data name="Tray_Exit" xml:space="preserve"><value>Quitter Wattkin</value></data>
+  <data name="Tray_TipCpuTemperature" xml:space="preserve"><value>CPU {0}</value></data>
+  <data name="Tray_TipCpuLoad" xml:space="preserve"><value>Charge CPU {0}</value></data>
+  <data name="Tray_TipProfile" xml:space="preserve"><value>Profil : {0}</value></data>
+  <data name="Tray_ShowLogo" xml:space="preserve"><value>Logo</value></data>
+  <data name="Tray_ShowWatts" xml:space="preserve"><value>Watts</value></data>
+  <data name="Tray_ShowCpuTemperature" xml:space="preserve"><value>Température CPU</value></data>
+  <data name="Tray_ShowCpuLoad" xml:space="preserve"><value>Charge CPU</value></data>
+  <data name="Flyout_WidgetTip" xml:space="preserve"><value>Afficher ou masquer le widget de bureau</value></data>
+  <data name="Flyout_SettingsTip" xml:space="preserve"><value>Paramètres</value></data>
+  <data name="Flyout_Fans" xml:space="preserve"><value>Ventilateurs</value></data>
+  <data name="Flyout_FanTip" xml:space="preserve"><value>Le ventilateur le plus rapide, par rapport à la vitesse la plus haute relevée</value></data>
+  <data name="Flyout_Disk" xml:space="preserve"><value>Disque</value></data>
+  <data name="Flyout_DiskTip" xml:space="preserve"><value>L&apos;activité du disque le plus occupé, avec les débits totaux de lecture et d&apos;écriture</value></data>
+  <data name="Flyout_OnChargerEstimated" xml:space="preserve"><value>Sur secteur · estimé</value></data>
+  <data name="Flyout_OnChargerCpuOnly" xml:space="preserve"><value>Sur secteur · processeur seul</value></data>
+  <data name="Flyout_ChargingFor" xml:space="preserve"><value>En charge · {0}</value></data>
+  <data name="Flyout_OnBatteryEstimate" xml:space="preserve"><value>≈{0} sur batterie</value></data>
+  <data name="Flyout_NeedsAdmin" xml:space="preserve"><value>Droits d&apos;administrateur requis</value></data>
+  <data name="Flyout_RamUsed" xml:space="preserve"><value>{0} sur {1}</value></data>
+  <data name="Flyout_DgpuOffIntegrated" xml:space="preserve"><value>Éteint · intégré seul</value></data>
+  <data name="Flyout_TipCpu" xml:space="preserve"><value>CPU {0} (cœurs {1}, graphisme intégré {2})</value></data>
+  <data name="Flyout_TipRest" xml:space="preserve"><value>Tout le reste (écran, SSD, Wi-Fi, RTX…) {0}</value></data>
+  <data name="Flyout_TipAverage" xml:space="preserve"><value>Moyenne des dernières minutes {0}</value></data>
+  <data name="Flyout_TipSession" xml:space="preserve"><value>Débranché depuis {0}, en moyenne {1}</value></data>
+  <data name="Flyout_CustomLimit" xml:space="preserve"><value>Autre…</value></data>
+  <data name="Flyout_AutoOffNever" xml:space="preserve"><value>Jamais</value></data>
+  <data name="Flyout_AutoOffAlways" xml:space="preserve"><value>Toujours</value></data>
+  <data name="Flyout_GpuIntegrated" xml:space="preserve"><value>Intégré seul</value></data>
+  <data name="Flyout_GpuHybrid" xml:space="preserve"><value>Hybride (RTX)</value></data>
+  <data name="Flyout_BannerNotAdmin" xml:space="preserve"><value>La surveillance fonctionne. Les limites de batterie, les profils, les ventilateurs et le clavier nécessitent les droits d&apos;administrateur.</value></data>
+  <data name="Flyout_BannerMsi" xml:space="preserve"><value>MSI Center tourne encore et peut écraser ces réglages. Fermez-le ou désinstallez-le.</value></data>
+  <data name="Flyout_ShowMeHow" xml:space="preserve"><value>Comment faire</value></data>
+  <data name="Flyout_SaveReport" xml:space="preserve"><value>Enregistrer un rapport de diagnostic</value></data>
+  <data name="Graphics_RestartToSwitch" xml:space="preserve"><value>Redémarrer maintenant pour changer de mode graphique ?
+
+Enregistrez d&apos;abord votre travail. Le portable s&apos;éteint complètement puis redémarre tout seul. S&apos;il reste éteint, appuyez sur le bouton d&apos;alimentation.</value></data>
+  <data name="Graphics_RtxBackAfterRestart" xml:space="preserve"><value>La RTX revient après un redémarrage.</value></data>
+  <data name="Graphics_RtxOffAfterRestart" xml:space="preserve"><value>La RTX s&apos;éteint après un redémarrage.</value></data>
+  <data name="Flyout_FansStopped" xml:space="preserve"><value>Arrêtés</value></data>
+  <data name="Widget_Title" xml:space="preserve"><value>Widget Wattkin</value></data>
+  <data name="Widget_Compact" xml:space="preserve"><value>Compact</value></data>
+  <data name="Widget_AlwaysOnTop" xml:space="preserve"><value>Toujours au premier plan</value></data>
+  <data name="Widget_Opacity" xml:space="preserve"><value>Opacité</value></data>
+  <data name="Widget_Open" xml:space="preserve"><value>Ouvrir Wattkin</value></data>
+  <data name="Widget_Hide" xml:space="preserve"><value>Masquer le widget</value></data>
+  <data name="Widget_TimeLeft" xml:space="preserve"><value>encore {0}</value></data>
+  <data name="Widget_Estimating" xml:space="preserve"><value>estimation…</value></data>
+  <data name="Widget_ChargingToLimit" xml:space="preserve"><value>en charge · {0} jusqu&apos;à la limite</value></data>
+  <data name="Widget_PluggedInEstimate" xml:space="preserve"><value>branché · ≈{0} sur batterie</value></data>
+  <data name="Widget_PluggedInCpuOnly" xml:space="preserve"><value>branché · processeur seul</value></data>
+  <data name="Widget_Disk" xml:space="preserve"><value>Disque ↓{0} ↑{1}</value></data>
+  <data name="Install_Title" xml:space="preserve"><value>Installer Wattkin</value></data>
+  <data name="Install_UpdateTitle" xml:space="preserve"><value>Mettre à jour Wattkin</value></data>
+  <data name="Install_Autostart" xml:space="preserve"><value>Démarrer avec Windows (sans demande UAC à chaque fois)</value></data>
+  <data name="Install_Install" xml:space="preserve"><value>Installer</value></data>
+  <data name="Install_Update" xml:space="preserve"><value>Mettre à jour</value></data>
+  <data name="Install_UpdateHeadline" xml:space="preserve"><value>Mettre à jour Wattkin {0} vers la version {1} ?</value></data>
+  <data name="Install_UpdateBody" xml:space="preserve"><value>Vos réglages sont conservés. Wattkin se ferme un instant puis redémarre.</value></data>
+  <data name="Install_Headline" xml:space="preserve"><value>Installer Wattkin {0} ?</value></data>
+  <data name="Install_Body" xml:space="preserve"><value>Wattkin s&apos;installe dans Program Files et demande une seule fois les droits d&apos;administrateur, pour piloter la batterie, les ventilateurs et le clavier du portable. Vous pouvez le désinstaller à tout moment depuis Paramètres › Applications.</value></data>
+  <data name="Install_NeedsAdmin" xml:space="preserve"><value>Wattkin a besoin des droits d&apos;administrateur pour s&apos;installer. Cliquez sur Installer et choisissez Oui.</value></data>
+  <data name="Install_Failed" xml:space="preserve"><value>L&apos;installation n&apos;a pas abouti (code {0}). Le journal dans %LOCALAPPDATA%\Wattkin\logs donne les détails.</value></data>
+  <data name="Uninstall_Title" xml:space="preserve"><value>Désinstaller Wattkin</value></data>
+  <data name="Uninstall_RemoveData" xml:space="preserve"><value>Supprimer aussi vos réglages Wattkin et l&apos;historique de la batterie ?
+
+Choisissez Non pour les garder au cas où vous réinstalleriez Wattkin.</value></data>
+  <data name="Uninstall_Done" xml:space="preserve"><value>Wattkin a été désinstallé. Les réglages d&apos;alimentation de Windows sont revenus à leur état d&apos;origine, et la batterie se charge de nouveau à 100 %.</value></data>
+  <data name="Osd_NewBattery" xml:space="preserve"><value>Nouvelle batterie détectée</value></data>
+  <data name="Osd_TestMessage" xml:space="preserve"><value>Message de test de Wattkin</value></data>
+  <data name="Osd_Profile" xml:space="preserve"><value>Profil : {0}</value></data>
+  <data name="Osd_MicOff" xml:space="preserve"><value>Micro coupé</value></data>
+  <data name="Osd_MicOn" xml:space="preserve"><value>Micro activé</value></data>
+  <data name="Osd_CoolerBoostOn" xml:space="preserve"><value>Cooler Boost activé</value></data>
+  <data name="Osd_CoolerBoostOff" xml:space="preserve"><value>Cooler Boost désactivé</value></data>
+  <data name="Osd_WebcamOn" xml:space="preserve"><value>Webcam activée</value></data>
+  <data name="Osd_WebcamOff" xml:space="preserve"><value>Webcam désactivée</value></data>
+  <data name="Osd_FnLockOn" xml:space="preserve"><value>Verrouillage Fn activé</value></data>
+  <data name="Osd_FnLockOff" xml:space="preserve"><value>Verrouillage Fn désactivé</value></data>
+  <data name="Osd_TouchpadOff" xml:space="preserve"><value>Pavé tactile désactivé</value></data>
+  <data name="Osd_TouchpadOn" xml:space="preserve"><value>Pavé tactile activé</value></data>
+  <data name="Osd_FansNormal" xml:space="preserve"><value>Ventilateurs revenus à la normale</value></data>
+  <data name="Osd_MeasuringFans" xml:space="preserve"><value>Mesure des ventilateurs : pleine vitesse pendant ~20 s</value></data>
+  <data name="Settings_TabKeyboard" xml:space="preserve"><value>Clavier et touches</value></data>
+  <data name="Settings_TabSystem" xml:space="preserve"><value>Système</value></data>
+  <data name="Settings_TabGeneral" xml:space="preserve"><value>Général</value></data>
+  <data name="Settings_TabDebug" xml:space="preserve"><value>Débogage</value></data>
+  <data name="Settings_View" xml:space="preserve"><value>Vue</value></data>
+  <data name="Settings_Simple" xml:space="preserve"><value>Simple</value></data>
+  <data name="Settings_Expert" xml:space="preserve"><value>Experte</value></data>
+  <data name="Battery_DesignCapacity" xml:space="preserve"><value>Capacité d&apos;origine</value></data>
+  <data name="Battery_HoldsNow" xml:space="preserve"><value>Capacité actuelle</value></data>
+  <data name="Battery_Cycles" xml:space="preserve"><value>Cycles</value></data>
+  <data name="Battery_CyclesNotReported" xml:space="preserve"><value>non communiqué</value></data>
+  <data name="Battery_Details" xml:space="preserve"><value>{0} · {1} · actuellement {2} ({3:0.0} Wh)</value></data>
+  <data name="Battery_DetailCharging" xml:space="preserve"><value>en charge {0:0.0} W</value></data>
+  <data name="Battery_DetailDischarging" xml:space="preserve"><value>décharge {0:0.0} W</value></data>
+  <data name="Battery_DetailNotCharging" xml:space="preserve"><value>pas en charge</value></data>
+  <data name="Battery_CalibrateNow" xml:space="preserve"><value>Calibrer maintenant…</value></data>
+  <data name="Battery_HistoryHint" xml:space="preserve"><value>L&apos;estimation de capacité de la jauge dérive entre deux décharges complètes. Un calibrage (plus bas) lui fait refaire la mesure. L&apos;historique combine le rapport de batterie de Windows et le journal quotidien de Wattkin.</value></data>
+  <data name="Battery_OpenLogFolder" xml:space="preserve"><value>Ouvrir le dossier du journal de batterie</value></data>
+  <data name="Battery_RefreshHistory" xml:space="preserve"><value>Actualiser l&apos;historique</value></data>
+  <data name="Battery_CustomResume" xml:space="preserve"><value>La laisser descendre plus bas avant de recharger (par défaut, 10 % sous le seuil d&apos;arrêt)</value></data>
+  <data name="Battery_StartChargingBelow" xml:space="preserve"><value>Recharger en dessous de</value></data>
+  <data name="Battery_FullOnce" xml:space="preserve"><value>Charger à 100 % une fois (pour une longue journée dehors), puis revenir à la limite</value></data>
+  <data name="Battery_Drain" xml:space="preserve"><value>Ramener maintenant la batterie à la limite, chargeur branché</value></data>
+  <data name="Battery_DrainHint" xml:space="preserve"><value>Baisser la limite ne vide pas la batterie : le portable arrête simplement de charger et fonctionne sur le chargeur. « Ramener » demande au contrôleur embarqué d&apos;utiliser la batterie jusqu&apos;à la limite. Pour un stockage prolongé, 40–60 % ménage le mieux le lithium-ion ; des limites très basses ne font que réduire l&apos;autonomie sur batterie.</value></data>
+  <data name="Battery_Calibration" xml:space="preserve"><value>Calibrage</value></data>
+  <data name="Battery_CalibrationHint" xml:space="preserve"><value>Charge à 100 %, puis décharge presque à vide chargeur branché, pour que la jauge de la batterie remesure sa capacité réelle. Laissez le portable branché. Il ne se met pas en veille pendant l&apos;opération, et vous pouvez continuer à l&apos;utiliser.</value></data>
+  <data name="Battery_StartCalibration" xml:space="preserve"><value>Lancer le calibrage</value></data>
+  <data name="Battery_FastDischarge" xml:space="preserve"><value>Décharge plus rapide (légère charge du processeur, écran allumé)</value></data>
+  <data name="Battery_NoCalibrations" xml:space="preserve"><value>Aucun calibrage pour l&apos;instant.</value></data>
+  <data name="Battery_PastRuns" xml:space="preserve"><value>Calibrages précédents :</value></data>
+  <data name="Battery_StatusWithController" xml:space="preserve"><value>{0} (contrôleur réglé sur {1})</value></data>
+  <data name="Battery_ControllerStopsAt" xml:space="preserve"><value>Le contrôleur du portable est réglé pour arrêter la charge à {0}.</value></data>
+  <data name="Battery_CalibrationEta" xml:space="preserve"><value>En cours depuis {0} · cette étape ~{1} · fin dans ~{2}</value></data>
+  <data name="Battery_CalibrationNotRunning" xml:space="preserve"><value>Pas en cours.</value></data>
+  <data name="Battery_CalibrationRough" xml:space="preserve"><value>Durée approximative sur ce portable : charge complète ~{0}, puis décharge ~{1} (ou ~{2} en décharge rapide).</value></data>
+  <data name="Battery_Suggestion" xml:space="preserve"><value>La batterie annonce {0:0.0} Wh, contre environ {1:0} Wh ces deux derniers mois. Une baisse aussi rapide vient en général d&apos;une dérive de la jauge, pas d&apos;une vraie usure. Un calibrage la remesure : quelques heures chargeur branché.</value></data>
+  <data name="Battery_LimitExplainBand" xml:space="preserve"><value>La charge s&apos;arrête à {0} et reprend sous {1}. L&apos;écart propre au contrôleur est de 10 %, donc Wattkin l&apos;élargit à une plage {2}–{0}. Si Wattkin ne tourne pas, le contrôleur garde la dernière valeur reçue, jamais au-dessus de {0}.</value></data>
+  <data name="Battery_LimitExplain" xml:space="preserve"><value>La charge s&apos;arrête à {0} et reprend sous {1}. Le contrôleur embarqué s&apos;en charge seul, même si Wattkin est fermé ou désinstallé.</value></data>
+  <data name="Calib_Confirm" xml:space="preserve"><value>Le calibrage va :
+
+1. Charger la batterie à 100 %.
+2. La décharger jusqu&apos;à environ 8 %, chargeur toujours branché.
+3. Rendre la main à votre limite de charge habituelle, qui la recharge.
+
+Gardez le chargeur branché tout du long. Le portable ne se met pas en veille, vous pouvez continuer à l&apos;utiliser et annuler à tout moment.
+
+Commencer maintenant ?</value></data>
+  <data name="Calib_ConfirmStop" xml:space="preserve"><value>Arrêter le calibrage ? Votre limite de charge habituelle reprend la main.</value></data>
+  <data name="CalibPhase_ChargingToFull" xml:space="preserve"><value>Charge</value></data>
+  <data name="CalibPhase_DrainingForTopUp" xml:space="preserve"><value>Décharge</value></data>
+  <data name="CalibPhase_Discharging" xml:space="preserve"><value>Décharge</value></data>
+  <data name="CalibPhase_Done" xml:space="preserve"><value>Terminé</value></data>
+  <data name="CalibPhase_Failed" xml:space="preserve"><value>Échec</value></data>
+  <data name="CalibPhase_Cancelled" xml:space="preserve"><value>Annulé</value></data>
+  <data name="Profiles_Hint" xml:space="preserve"><value>Cliquez sur un profil pour l&apos;utiliser tout de suite. La roue dentée d&apos;un bouton modifie ce profil : son nom, le processeur, les ventilateurs, l&apos;écran et le clavier.</value></data>
+  <data name="Profiles_AutoSwitching" xml:space="preserve"><value>Changement automatique</value></data>
+  <data name="Profiles_AutoSwitch" xml:space="preserve"><value>Changer de profil automatiquement</value></data>
+  <data name="Profiles_WhenPluggedIn" xml:space="preserve"><value>Quand le chargeur est branché</value></data>
+  <data name="Profiles_OnBatteryAbove" xml:space="preserve"><value>Sur batterie, au-dessus de {0}</value></data>
+  <data name="Profiles_AtOrBelow" xml:space="preserve"><value>Sur batterie, quand il reste</value></data>
+  <data name="Profiles_ThresholdOff" xml:space="preserve"><value>Désactivé</value></data>
+  <data name="Profiles_RulesHint" xml:space="preserve"><value>Chaque règle agit au moment où elle s&apos;applique : en branchant, en débranchant, ou quand la batterie descend au seuil. Un profil choisi à la main reste jusqu&apos;au prochain de ces événements. « Laisser tel quel » garde le profil en cours.</value></data>
+  <data name="Profiles_RestoreWindows" xml:space="preserve"><value>Rétablir les réglages processeur de Windows</value></data>
+  <data name="Profiles_RestoreWindowsHint" xml:space="preserve"><value>Remet le turbo et l&apos;état maximal du processeur du mode de gestion de l&apos;alimentation tels qu&apos;ils étaient avant que Wattkin ne les modifie.</value></data>
+  <data name="Profiles_RestoredWindows" xml:space="preserve"><value>Le turbo et l&apos;état maximal du processeur sont revenus à leurs réglages d&apos;avant Wattkin.</value></data>
+  <data name="Keyboard_Backlight" xml:space="preserve"><value>Rétroéclairage du clavier</value></data>
+  <data name="Keyboard_MysticHint" xml:space="preserve"><value>Les touches sont éclairées par le contrôleur Mystic Light de MSI, qui ne peut pas dire à Wattkin ce qu&apos;il affiche : Wattkin réapplique votre niveau et votre couleur au démarrage et après la veille. Retirez OpenRGB et MSI Center du démarrage de Windows, sinon ils risquent de les changer.</value></data>
+  <data name="Keyboard_HowLong" xml:space="preserve"><value>Délai sans frappe</value></data>
+  <data name="Keyboard_AlwaysOn" xml:space="preserve"><value>Toujours allumé</value></data>
+  <data name="Keyboard_AutoOff" xml:space="preserve"><value>Extinction auto</value></data>
+  <data name="Keyboard_AutoOffOnBattery" xml:space="preserve"><value>Extinction auto sur batterie seulement</value></data>
+  <data name="Keyboard_AutoOffHintUsb" xml:space="preserve"><value>L&apos;extinction automatique du contrôleur du clavier n&apos;atteint pas ces touches, alors Wattkin s&apos;en charge : l&apos;éclairage s&apos;éteint quand le clavier du portable n&apos;a pas servi pendant le délai ci-dessus, et se rallume à la touche suivante. Un autre clavier ne le rallume pas. Wattkin remarque seulement qu&apos;une touche a été pressée, jamais laquelle. Tant que Windows est verrouillé, l&apos;éclairage reste allumé pour que vous voyiez les touches en tapant votre mot de passe.</value></data>
+  <data name="Keyboard_AutoOffHintEc" xml:space="preserve"><value>L&apos;extinction automatique est intégrée au contrôleur du clavier : l&apos;éclairage s&apos;éteint après environ 10 secondes sans frappe et se rallume à la première touche. Le contrôleur la réactive à chaque démarrage, donc Wattkin réapplique votre choix au démarrage et après la veille.</value></data>
+  <data name="Keyboard_KeysAndLights" xml:space="preserve"><value>Touches et voyants</value></data>
+  <data name="Keyboard_Hotkeys" xml:space="preserve"><value>Gérer les touches spéciales du portable (coupure micro, touche de performance, touche MSI, touche caméra)</value></data>
+  <data name="Keyboard_Osd" xml:space="preserve"><value>Afficher des messages à l&apos;écran pour ces touches et les changements de profil</value></data>
+  <data name="Keyboard_MuteLeds" xml:space="preserve"><value>Synchroniser les voyants de coupure du son et du micro avec Windows</value></data>
+  <data name="Keyboard_KeysHint" xml:space="preserve"><value>MSI Center gérait cela par logiciel. Sans MSI Center (ou Wattkin), la touche de coupure du micro ne fait rien et les voyants ne correspondent plus. La première option prend effet après un redémarrage de Wattkin.</value></data>
+  <data name="Keyboard_Devices" xml:space="preserve"><value>Périphériques</value></data>
+  <data name="Keyboard_Webcam" xml:space="preserve"><value>Webcam alimentée</value></data>
+  <data name="Graphics_GpuNow" xml:space="preserve"><value>GPU NVIDIA en ce moment</value></data>
+  <data name="Graphics_GpuState" xml:space="preserve"><value>{0} : {1}</value></data>
+  <data name="Graphics_ExplainRemoved" xml:space="preserve"><value>Le micrologiciel est en mode intégré seul : la RTX est éteinte et invisible pour Windows. Utilisez « Passer en Hybride » ci-dessous pour la récupérer (redémarrage nécessaire).</value></data>
+  <data name="Graphics_ExplainDisabled" xml:space="preserve"><value>La RTX est désactivée dans Windows. Elle ne peut alors plus s&apos;éteindre correctement et consomme davantage qu&apos;en simple veille.</value></data>
+  <data name="Graphics_ExplainSleeping" xml:space="preserve"><value>Mode hybride, au repos : la RTX est éteinte et ne consomme presque rien. Les applications qui en ont besoin la réveillent, puis elle se rendort.</value></data>
+  <data name="Graphics_ExplainActive" xml:space="preserve"><value>Mode hybride, la RTX est allumée. Quelque chose l&apos;utilise ou vient de l&apos;utiliser. Sa consommation n&apos;est pas comptée dans celle du processeur.</value></data>
+  <data name="Graphics_DisabledTitle" xml:space="preserve"><value>La RTX est désactivée dans Windows</value></data>
+  <data name="Graphics_DisabledHint" xml:space="preserve"><value>Une RTX désactivée ne peut pas utiliser l&apos;extinction profonde de NVIDIA, elle continue donc de consommer (environ 10 W mesurés sur le Prestige 16 Studio). Réactivée, elle se met en veille d&apos;elle-même dès qu&apos;elle est inutilisée.</value></data>
+  <data name="Graphics_ReEnable" xml:space="preserve"><value>Réactiver la RTX</value></data>
+  <data name="Graphics_FirmwareMode" xml:space="preserve"><value>Mode GPU du micrologiciel : redémarrage nécessaire</value></data>
+  <data name="Graphics_FirmwareHint" xml:space="preserve"><value>En Hybride, une RTX au repos s&apos;éteint d&apos;elle-même : vous pouvez l&apos;utiliser ponctuellement sans redémarrer. « Intégré seul » la retire du système dès l&apos;allumage, donc rien ne peut la réveiller ; les sorties HDMI / USB-C qui y sont reliées ne fonctionnent plus. C&apos;est le même commutateur que celui de MSI Center : le portable s&apos;éteint complètement et redémarre dans le nouveau mode.</value></data>
+  <data name="Graphics_SwitchHybrid" xml:space="preserve"><value>Passer en Hybride (RTX disponible)</value></data>
+  <data name="Graphics_SwitchIntegrated" xml:space="preserve"><value>Passer en Intégré seul</value></data>
+  <data name="Graphics_Current" xml:space="preserve"><value>Actuel : {0}</value></data>
+  <data name="Graphics_CurrentSwitching" xml:space="preserve"><value>Actuel : {0} · passage en {1} au prochain arrêt complet</value></data>
+  <data name="Graphics_ModeHybrid" xml:space="preserve"><value>Hybride (RTX disponible, en veille au repos)</value></data>
+  <data name="Graphics_ModeIntegrated" xml:space="preserve"><value>Intégré seul (RTX éteinte)</value></data>
+  <data name="Graphics_ModeDiscrete" xml:space="preserve"><value>Dédié seul</value></data>
+  <data name="Graphics_SwitchFailed" xml:space="preserve"><value>Le changement a échoué : {0}</value></data>
+  <data name="Graphics_ConfirmSwitch" xml:space="preserve"><value>Passer le GPU en {0} ?
+
+C&apos;est le même commutateur du micrologiciel que celui de MSI Center. Il prend effet après un arrêt complet puis un redémarrage du portable.</value></data>
+  <data name="Graphics_SwitchArmed" xml:space="preserve"><value>Changement programmé. Éteindre maintenant pour l&apos;appliquer ?
+
+Enregistrez d&apos;abord votre travail. La méthode de MSI éteint le portable et le redémarre normalement tout seul. S&apos;il reste éteint, appuyez sur le bouton d&apos;alimentation.
+
+Choisissez Non pour l&apos;appliquer au prochain arrêt complet.</value></data>
+  <data name="System_Live" xml:space="preserve"><value>En direct</value></data>
+  <data name="System_ThisLaptop" xml:space="preserve"><value>Ce portable</value></data>
+  <data name="System_BusiestApps" xml:space="preserve"><value>Applications les plus actives</value></data>
+  <data name="System_AppsHint" xml:space="preserve"><value>Part du processeur par application, mesurée seulement quand cet onglet est ouvert.</value></data>
+  <data name="System_LivePower" xml:space="preserve"><value>Puissance    {0} maintenant, {1} en moyenne pour les estimations · {2}</value></data>
+  <data name="System_LivePackage" xml:space="preserve"><value>             processeur (package) {0} · cœurs {1} · graphisme {2}</value></data>
+  <data name="System_LiveRest" xml:space="preserve"><value>             reste du système appris {0} ({1} mesures sur batterie)</value></data>
+  <data name="System_LiveBattery" xml:space="preserve"><value>Batterie     {0} · {1:0.00} / {2:0.00} Wh · débit {3:+0.00;-0.00;0} W</value></data>
+  <data name="System_LiveCpu" xml:space="preserve"><value>CPU          {0} · moy. {1} · cœur le plus rapide {2}</value></data>
+  <data name="System_LivePCores" xml:space="preserve"><value>cœurs P {0}</value></data>
+  <data name="System_LiveECores" xml:space="preserve"><value>cœurs E {0}</value></data>
+  <data name="System_LiveTemps" xml:space="preserve"><value>Températures CPU {0} · GPU {1} · zone ACPI {2}</value></data>
+  <data name="System_LiveFans" xml:space="preserve"><value>Ventilateurs {0}</value></data>
+  <data name="System_LiveMemory" xml:space="preserve"><value>Mémoire      {0} / {1} ({2}) · validée {3} / {4}</value></data>
+  <data name="System_LiveDisk" xml:space="preserve"><value>{0,-12} lecture {1} · écriture {2} · activité {3}</value></data>
+  <data name="System_LiveGpu" xml:space="preserve"><value>GPU          {0}</value></data>
+  <data name="System_DiskName" xml:space="preserve"><value>Disque {0} ({1})</value></data>
+  <data name="System_Disk" xml:space="preserve"><value>Disque {0}</value></data>
+  <data name="System_InfoModel" xml:space="preserve"><value>Modèle       {0}</value></data>
+  <data name="System_InfoBios" xml:space="preserve"><value>BIOS         {0} · EC {1} · MSI WMI {2}</value></data>
+  <data name="System_NeedsAdmin" xml:space="preserve"><value>(droits d&apos;administrateur requis)</value></data>
+  <data name="System_InfoCpu" xml:space="preserve"><value>CPU          {0} · {1} threads P + {2} threads E</value></data>
+  <data name="System_InfoMemory" xml:space="preserve"><value>Mémoire      {0} {1} · à {2} MT/s (nominal {3}) · {4}</value></data>
+  <data name="System_InfoBattery" xml:space="preserve"><value>Batterie     {0} · {1} · d&apos;origine {2:0.0} Wh</value></data>
+  <data name="System_InfoDisplay" xml:space="preserve"><value>Écran        {0} Hz (disponibles : {1})</value></data>
+  <data name="General_StartWithWindows" xml:space="preserve"><value>Démarrer avec Windows (en administrateur, sans demande UAC)</value></data>
+  <data name="General_TrayShows" xml:space="preserve"><value>L&apos;icône de notification affiche</value></data>
+  <data name="General_ShowWidget" xml:space="preserve"><value>Afficher le widget de bureau</value></data>
+  <data name="General_BatteryLog" xml:space="preserve"><value>Tenir un journal de batterie (sur batterie une ligne par minute ; sur secteur seulement les changements)</value></data>
+  <data name="General_ReplacingMsi" xml:space="preserve"><value>Remplacer MSI Center</value></data>
+  <data name="General_MsiSteps" xml:space="preserve"><value>Wattkin utilise la même interface du micrologiciel que MSI Center : il continue de fonctionner une fois MSI Center supprimé. Faire tourner les deux les fait se disputer les réglages. Pour supprimer MSI Center :
+1. Activez « Démarrer avec Windows » ci-dessus, puis réglez votre limite de charge et vos profils.
+2. Paramètres › Applications › Applications installées : désinstallez « MSI Center », puis « MSI NBFoundation Service » et « MSI Center SDK ».
+3. Redémarrez. Vérifiez que les watts dans la zone de notification, la limite de charge et la touche de coupure du micro fonctionnent.
+Les mises à jour de BIOS et de pilotes de MSI restent disponibles sur le site d&apos;assistance de MSI.</value></data>
+  <data name="General_About" xml:space="preserve"><value>À propos</value></data>
+  <data name="General_AboutLine" xml:space="preserve"><value>Wattkin {0} · EC {1} · réglages : {2}</value></data>
+  <data name="General_SupportReading" xml:space="preserve"><value>Lecture du micrologiciel du portable…</value></data>
+  <data name="General_SupportNeedsAdmin" xml:space="preserve"><value>Prise en charge du matériel : droits d&apos;administrateur nécessaires pour la vérifier.</value></data>
+  <data name="General_SupportVerified" xml:space="preserve"><value>Prise en charge du matériel : vérifiée sur ce micrologiciel ({0}).</value></data>
+  <data name="General_SupportCommunity" xml:space="preserve"><value>Prise en charge du matériel : carte de registres msi-ec ({0}), contrôlée sur ce portable au démarrage. Si quelque chose se comporte mal, signalez-le avec un rapport de diagnostic.</value></data>
+  <data name="General_SupportStandard" xml:space="preserve"><value>Prise en charge du matériel : disposition standard de MSI (les registres qu&apos;utilise MSI Center sur tous les portables MSI récents), contrôlée sur ce portable au démarrage. Merci de signaler comment cela fonctionne avec un rapport de diagnostic.</value></data>
+  <data name="General_SupportMonitoring" xml:space="preserve"><value>Prise en charge du matériel : surveillance seulement sur ce micrologiciel.</value></data>
+  <data name="General_Elevated" xml:space="preserve"><value>Lancé en administrateur : les commandes du matériel sont disponibles.</value></data>
+  <data name="General_NotElevated" xml:space="preserve"><value>Lancé sans droits d&apos;administrateur : surveillance seulement.</value></data>
+  <data name="General_MsiRunning" xml:space="preserve"><value>Des composants de MSI Center tournent en ce moment. Ils peuvent écraser les réglages de Wattkin.</value></data>
+  <data name="General_MsiNotRunning" xml:space="preserve"><value>Aucun composant de MSI Center ne tourne.</value></data>
+  <data name="General_StartupNeedsAdmin" xml:space="preserve"><value>Le démarrage avec Windows nécessite les droits d&apos;administrateur. Redémarrer Wattkin en administrateur maintenant ?</value></data>
+  <data name="Debug_ForceFans" xml:space="preserve"><value>Forcer les ventilateurs</value></data>
+  <data name="Debug_ForceCurve" xml:space="preserve"><value>Courbe</value></data>
+  <data name="Debug_ForceFull" xml:space="preserve"><value>Pleine vitesse</value></data>
+  <data name="Debug_ForceHint" xml:space="preserve"><value>Un mode forcé dure 5 minutes, puis les ventilateurs reviennent au réglage du profil. Fermer Wattkin les remet aussi. Auto et Silencieux sont les courbes intégrées au micrologiciel. Courbe utilise la table de ventilation du contrôleur (affichée sous les registres plus bas). Pleine vitesse correspond au Cooler Boost de MSI.</value></data>
+  <data name="Debug_MeasureTopSpeed" xml:space="preserve"><value>Mesurer la vitesse maximale</value></data>
+  <data name="Debug_CompareFans" xml:space="preserve"><value>Comparer les modes de ventilation (2 min 15)</value></data>
+  <data name="Debug_FansNow" xml:space="preserve"><value>Ventilateur 1 {0,7} tr/min   Ventilateur 2 {1,7} tr/min   CPU {2}   GPU {3}</value></data>
+  <data name="Debug_FansNeedAdmin" xml:space="preserve"><value>La vitesse des ventilateurs nécessite les droits d&apos;administrateur.</value></data>
+  <data name="Debug_TopSpeedMeasured" xml:space="preserve"><value>Vitesse maximale {0} / {1} tr/min, mesurée le {2:d MMM &apos;à&apos; HH:mm}.</value></data>
+  <data name="Debug_TopSpeedSeen" xml:space="preserve"><value>Vitesse maximale pas encore mesurée. La plus haute relevée : {0} / {1} tr/min.</value></data>
+  <data name="Debug_TopSpeedNotMeasured" xml:space="preserve"><value>Vitesse maximale pas encore mesurée.</value></data>
+  <data name="Debug_BatteryCharger" xml:space="preserve"><value>Batterie et chargeur</value></data>
+  <data name="Debug_RunOnBatteryHint" xml:space="preserve"><value>Fait fonctionner le portable sur sa batterie pendant 2 minutes, chargeur toujours branché, avec le même commutateur que le calibrage. Les watts sont alors mesurés, pas estimés. S&apos;arrête tout seul.</value></data>
+  <data name="Debug_RunOnBattery" xml:space="preserve"><value>Fonctionner sur batterie 2 minutes</value></data>
+  <data name="Debug_RunningMeasured" xml:space="preserve"><value>Sur batterie : encore {0:0} s · {1} mesurés</value></data>
+  <data name="Debug_RunningWaiting" xml:space="preserve"><value>Sur batterie : encore {0:0} s · {1} (en attente des mesures de la batterie)</value></data>
+  <data name="Debug_LightsMessages" xml:space="preserve"><value>Voyants et messages</value></data>
+  <data name="Debug_FlashLights" xml:space="preserve"><value>Faire clignoter les voyants et le rétroéclairage</value></data>
+  <data name="Debug_TestMessage" xml:space="preserve"><value>Afficher un message de test</value></data>
+  <data name="Debug_Registers" xml:space="preserve"><value>Registres du contrôleur (lecture seule)</value></data>
+  <data name="Debug_RegistersHint" xml:space="preserve"><value>Le contenu actuel du contrôleur embarqué, relu toutes les quelques secondes tant que cet onglet est ouvert.</value></data>
+  <data name="Debug_DiagnosticsHint" xml:space="preserve"><value>Un rapport texte du micrologiciel, des capteurs et de tous les registres du contrôleur, pour signaler un bogue. Il ne fait que lire et ne réveille pas la RTX. Prend environ 15 secondes.</value></data>
+  <data name="Debug_SaveReport" xml:space="preserve"><value>Enregistrer le rapport de diagnostic</value></data>
+  <data name="Debug_OpenLog" xml:space="preserve"><value>Ouvrir le journal</value></data>
+  <data name="Debug_TextFilter" xml:space="preserve"><value>Texte|*.txt</value></data>
+  <data name="Simple_FullOnceText" xml:space="preserve"><value>Pour une longue journée dehors. Revient ensuite à votre limite.</value></data>
+  <data name="Simple_Performance" xml:space="preserve"><value>Performances</value></data>
+  <data name="Simple_NvidiaGraphics" xml:space="preserve"><value>Graphisme NVIDIA</value></data>
+  <data name="Simple_GpuIntegrated" xml:space="preserve"><value>Intégré</value></data>
+  <data name="Simple_GpuHybrid" xml:space="preserve"><value>Hybride</value></data>
+  <data name="Simple_GpuHybridText" xml:space="preserve"><value>Hybride : la RTX est là quand une application en a besoin, et se met en veille d&apos;elle-même le reste du temps.</value></data>
+  <data name="Simple_GpuIntegratedText" xml:space="preserve"><value>Intégré : la RTX est éteinte. Choisissez Hybride pour l&apos;utiliser (redémarrage nécessaire).</value></data>
+  <data name="Simple_Keyboard" xml:space="preserve"><value>Clavier</value></data>
+  <data name="Simple_Backlight" xml:space="preserve"><value>Rétroéclairage</value></data>
+  <data name="Simple_BacklightText" xml:space="preserve"><value>L&apos;éclairage sous les touches.</value></data>
+  <data name="Simple_ColourText" xml:space="preserve"><value>Gardée par Wattkin : réappliquée au démarrage et après la veille.</value></data>
+  <data name="Simple_AutoOffUsb" xml:space="preserve"><value>Quand le clavier du portable n&apos;a pas servi pendant ce délai ; la touche suivante rallume l&apos;éclairage.</value></data>
+  <data name="Simple_AutoOffEc" xml:space="preserve"><value>Après environ 10 secondes ; n&apos;importe quelle touche le rallume.</value></data>
+  <data name="Simple_StartText" xml:space="preserve"><value>Se lance à l&apos;ouverture de session, sans demande UAC.</value></data>
+  <data name="Simple_InTheTaskbar" xml:space="preserve"><value>Dans la barre des tâches</value></data>
+  <data name="Simple_WidgetText" xml:space="preserve"><value>Un petit panneau sur le bureau avec les watts et l&apos;autonomie.</value></data>
+  <data name="Simple_ExpertLink" xml:space="preserve"><value>Vue experte : tous les réglages, les capteurs et le diagnostic</value></data>
+  <data name="Simple_LowBatterySwitch" xml:space="preserve"><value>À {0} ou moins, il passe tout seul au profil {1}.</value></data>
+  <data name="Simple_KeepsProfile" xml:space="preserve"><value>Garde le profil en cours.</value></data>
+  <data name="Simple_TrayLogo" xml:space="preserve"><value>Le logo de Wattkin. Survolez-le pour voir les watts et la batterie.</value></data>
+  <data name="Simple_TrayTemperatureNeedsAdmin" xml:space="preserve"><value>La température du processeur nécessite que Wattkin tourne en administrateur ; le logo s&apos;affiche en attendant.</value></data>
+  <data name="Simple_TrayTemperature" xml:space="preserve"><value>La température du processeur, en °C.</value></data>
+  <data name="Simple_TrayLoad" xml:space="preserve"><value>L&apos;occupation du processeur, comptée comme dans le Gestionnaire des tâches.</value></data>
+  <data name="Simple_TrayWatts" xml:space="preserve"><value>La consommation du portable, en watts.</value></data>
+  <data name="Simple_LimitBand" xml:space="preserve"><value>Réglé dans la vue experte : charge jusqu&apos;à {0} et reprend sous {1}.</value></data>
+  <data name="Simple_LimitCustom" xml:space="preserve"><value>Réglé dans la vue experte : {0}.</value></data>
+  <data name="Simple_Limit60" xml:space="preserve"><value>Le plus doux pour la batterie si le portable est presque toujours branché.</value></data>
+  <data name="Simple_Limit80" xml:space="preserve"><value>Un bon équilibre entre durée de vie de la batterie et autonomie.</value></data>
+  <data name="Simple_Limit90" xml:space="preserve"><value>Plus d&apos;autonomie, un peu plus d&apos;usure.</value></data>
+  <data name="Simple_Limit100" xml:space="preserve"><value>L&apos;autonomie maximale. Une batterie gardée pleine s&apos;use plus vite.</value></data>
+  <data name="Simple_Calibrating" xml:space="preserve"><value>Calibrage de la batterie en cours</value></data>
+  <data name="Simple_CalibratingText" xml:space="preserve"><value>{0} Encore environ {1}. Gardez le chargeur branché.</value></data>
+  <data name="Simple_Recalibrate" xml:space="preserve"><value>Recalibrer la jauge de la batterie</value></data>
+  <data name="Simple_RecalibrateText" xml:space="preserve"><value>Elle annonce {0:0.0} Wh, contre environ {1:0} Wh. Une baisse aussi rapide vient en général d&apos;une dérive de la jauge, pas de l&apos;usure. Compte quelques heures sur secteur.</value></data>
+  <data name="Simple_Calibrate" xml:space="preserve"><value>Calibrer…</value></data>
+  <data name="Simple_NoticeNotAdmin" xml:space="preserve"><value>Les commandes du matériel sont désactivées</value></data>
+  <data name="Simple_NoticeNotAdminText" xml:space="preserve"><value>Les limites de batterie, les modes et le clavier nécessitent que Wattkin tourne en administrateur.</value></data>
+  <data name="Simple_NoticeMsi" xml:space="preserve"><value>MSI Center tourne encore</value></data>
+  <data name="Simple_NoticeMsiText" xml:space="preserve"><value>Il peut écraser ces réglages. Désinstallez MSI Center, puis MSI NBFoundation Service, dans Paramètres › Applications.</value></data>
+  <data name="Simple_OpenApps" xml:space="preserve"><value>Ouvrir Applications</value></data>
+  <data name="Simple_NoticeMonitoring" xml:space="preserve"><value>Surveillance seulement sur ce portable</value></data>
+  <data name="Simple_Details" xml:space="preserve"><value>Détails</value></data>
+  <data name="Simple_HealthText" xml:space="preserve"><value>Stocke {0:0.0} Wh une fois pleine, contre {1:0.0} Wh neuve. Actuellement {2}.</value></data>
+  <data name="Editor_Title" xml:space="preserve"><value>Modifier le profil</value></data>
+  <data name="Editor_TitleNamed" xml:space="preserve"><value>Modifier le profil : {0}</value></data>
+  <data name="Editor_Slot" xml:space="preserve"><value>Profil {0} sur {1}</value></data>
+  <data name="Editor_Name" xml:space="preserve"><value>Nom</value></data>
+  <data name="Editor_NameHint" xml:space="preserve"><value>Affiché sur les boutons de profil, dans le panneau de Wattkin et dans les Paramètres. Chaque réglage ci-dessous peut être laissé tel quel.</value></data>
+  <data name="Editor_Processor" xml:space="preserve"><value>Processeur</value></data>
+  <data name="Editor_PowerLimits" xml:space="preserve"><value>Limites de puissance</value></data>
+  <data name="Editor_ShiftHint" xml:space="preserve"><value>Les modes du micrologiciel MSI fixent combien de watts le processeur peut tirer, en continu (PL1) et en pointe (PL2) ; l&apos;autotest les mesure. Manuel vous laisse régler PL1, PL2 et la durée du turbo (nécessite PawnIO).</value></data>
+  <data name="Editor_ShiftLeave" xml:space="preserve"><value>Laisser tel quel (pour des limites réglées dans le BIOS ou ThrottleStop)</value></data>
+  <data name="Editor_ShiftEco" xml:space="preserve"><value>Éco : limites les plus basses (Super Battery de MSI)</value></data>
+  <data name="Editor_ShiftBalanced" xml:space="preserve"><value>Équilibré (Balanced / Silent de MSI)</value></data>
+  <data name="Editor_ShiftSport" xml:space="preserve"><value>Sport : entre Équilibré et Extrême (le Balanced de YAMDCC)</value></data>
+  <data name="Editor_ShiftExtreme" xml:space="preserve"><value>Extrême : limites les plus hautes (Extreme Performance de MSI)</value></data>
+  <data name="Editor_ShiftManual" xml:space="preserve"><value>Manuel : régler PL1, PL2 et la durée du turbo</value></data>
+  <data name="Editor_NotOffered" xml:space="preserve"><value>{0} (non proposé par ce portable)</value></data>
+  <data name="Editor_Pl1" xml:space="preserve"><value>PL1 (continu) W</value></data>
+  <data name="Editor_Pl2" xml:space="preserve"><value>PL2 (pointes) W</value></data>
+  <data name="Editor_TurboTime" xml:space="preserve"><value>Durée turbo</value></data>
+  <data name="Editor_ReadingLimits" xml:space="preserve"><value>Lecture des limites de puissance du processeur…</value></data>
+  <data name="Editor_LimitsUnavailable" xml:space="preserve"><value>{0} Les limites manuelles restent enregistrées dans le profil et s&apos;appliqueront dès que Wattkin pourra y accéder.</value></data>
+  <data name="Editor_LimitsNow" xml:space="preserve"><value>Actuellement : {0}.</value></data>
+  <data name="Editor_LimitsBios" xml:space="preserve"><value>BIOS : {0}.</value></data>
+  <data name="Editor_ManualCeiling" xml:space="preserve"><value>Manuel règle aussi le mode MSI sur Équilibré, sous lequel le micrologiciel autorise {0} : Manuel peut descendre en dessous, pas monter au-dessus.</value></data>
+  <data name="Editor_ManualCeilingUnknown" xml:space="preserve"><value>Manuel règle aussi le mode MSI sur Équilibré, qui impose son propre plafond : Wattkin l&apos;affiche ici dès qu&apos;un profil a tourné en Équilibré.</value></data>
+  <data name="Editor_TurboBoost" xml:space="preserve"><value>Turbo Boost</value></data>
+  <data name="Editor_TurboOn" xml:space="preserve"><value>Activé</value></data>
+  <data name="Editor_TurboOff" xml:space="preserve"><value>Désactivé : fréquence de base seulement, bien plus frais et silencieux</value></data>
+  <data name="Editor_MaxState" xml:space="preserve"><value>État maximal du processeur</value></data>
+  <data name="Editor_MaxStateNoTurbo" xml:space="preserve"><value>{0} (sans turbo)</value></data>
+  <data name="Editor_MaxFrequency" xml:space="preserve"><value>Fréquence maximale</value></data>
+  <data name="Editor_NoCap" xml:space="preserve"><value>Pas de plafond</value></data>
+  <data name="Editor_Epp" xml:space="preserve"><value>Performance ou efficacité (EPP)</value></data>
+  <data name="Editor_EppPerformance" xml:space="preserve"><value>0 : performance d&apos;abord</value></data>
+  <data name="Editor_EppBalanced" xml:space="preserve"><value>50 : équilibré</value></data>
+  <data name="Editor_EppEfficiency" xml:space="preserve"><value>100 : efficacité d&apos;abord</value></data>
+  <data name="Editor_WindowsHint" xml:space="preserve"><value>Ces quatre réglages sont ceux du mode de gestion de l&apos;alimentation actif de Windows, sur secteur et sur batterie. Un état maximal sous 100 % coupe aussi le turbo ; une fréquence maximale plafonne l&apos;horloge mais peut garder un peu de turbo. L&apos;EPP détermine avec quel empressement le processeur accélère pour les tâches courantes (le mode « Meilleure efficacité énergétique » de Windows peut le remplacer sur batterie).</value></data>
+  <data name="Editor_FanCustom" xml:space="preserve"><value>Courbe personnalisée</value></data>
+  <data name="Editor_CoolerBoost" xml:space="preserve"><value>Pleine vitesse (Cooler Boost), quel que soit le mode</value></data>
+  <data name="Editor_FanHintBoost" xml:space="preserve"><value>Les ventilateurs tournent à fond tant que ce profil est actif.</value></data>
+  <data name="Editor_FanHintAuto" xml:space="preserve"><value>Le comportement des ventilateurs propre au portable (le micrologiciel décide).</value></data>
+  <data name="Editor_FanHintSilent" xml:space="preserve"><value>Le comportement plus silencieux propre au portable (le micrologiciel décide).</value></data>
+  <data name="Editor_FanHintCustom" xml:space="preserve"><value>La courbe ci-dessous : la vitesse de chaque ventilateur à chaque palier, et quand il monte ou redescend d&apos;un palier.</value></data>
+  <data name="Editor_FanHintLeave" xml:space="preserve"><value>Ce profil laisse les ventilateurs tels quels.</value></data>
+  <data name="Editor_CurveReading" xml:space="preserve"><value>Lecture de la table de ventilation du portable…</value></data>
+  <data name="Editor_CurveUnavailable" xml:space="preserve"><value>Les courbes personnalisées nécessitent les droits d&apos;administrateur et une table de ventilation que Wattkin sait lire sur ce portable.</value></data>
+  <data name="Editor_CurveOwn" xml:space="preserve"><value>La courbe propre à ce profil.</value></data>
+  <data name="Editor_CurveLaptop" xml:space="preserve"><value>Ce profil utilise la courbe du portable, affichée ci-dessous. Modifiez n&apos;importe quelle valeur pour lui donner sa propre courbe.</value></data>
+  <data name="Editor_LaptopCurve" xml:space="preserve"><value>Utiliser la courbe du portable</value></data>
+  <data name="Editor_Unrestricted" xml:space="preserve"><value>Autoriser les courbes qui laissent chauffer le portable (expérimental)</value></data>
+  <data name="Editor_ExperimentalWarning" xml:space="preserve"><value>C&apos;est expérimental.
+
+Normalement, Wattkin veille à ce que les ventilateurs gardent de l&apos;avance sur la chaleur : les vitesses ne baissent jamais quand la température monte, les ventilateurs tournent dès l&apos;avant-dernier palier, et vite au dernier. Autoriser ceci permet d&apos;enregistrer des courbes qui laissent le portable chauffer au point de se ralentir lui-même (bridage thermique).
+
+Surveillez vos températures dans le panneau de Wattkin.</value></data>
+  <data name="Editor_ScreenKeyboard" xml:space="preserve"><value>Écran et clavier</value></data>
+  <data name="Editor_RefreshRate" xml:space="preserve"><value>Fréquence de l&apos;écran intégré</value></data>
+  <data name="Editor_RefreshUnavailable" xml:space="preserve"><value>{0} Hz (écran intégré éteint pour l&apos;instant)</value></data>
+  <data name="Editor_Reset" xml:space="preserve"><value>Rétablir par défaut…</value></data>
+  <data name="Editor_ResetTitle" xml:space="preserve"><value>Rétablir le profil</value></data>
+  <data name="Editor_ConfirmReset" xml:space="preserve"><value>Remettre ce profil tel que Wattkin le fournit, nom « {0} » compris ?
+
+{1}</value></data>
+  <data name="Editor_ApplyAndClose" xml:space="preserve"><value>Appliquer et fermer</value></data>
+  <data name="Editor_NeedsName" xml:space="preserve"><value>Donnez un nom au profil.</value></data>
+  <data name="Editor_NameTaken" xml:space="preserve"><value>Un autre profil s&apos;appelle déjà « {0} ».</value></data>
+  <data name="Profiles_EditTip" xml:space="preserve"><value>Modifier {0}</value></data>
+  <data name="Fan_Auto" xml:space="preserve"><value>Auto</value></data>
+  <data name="Fan_Silent" xml:space="preserve"><value>Silencieux</value></data>
+  <data name="Fans_Cpu" xml:space="preserve"><value>Ventilateur CPU</value></data>
+  <data name="Fans_Gpu" xml:space="preserve"><value>Ventilateur GPU</value></data>
+  <data name="Fans_Speed" xml:space="preserve"><value>Vitesse</value></data>
+  <data name="Fans_UpAt" xml:space="preserve"><value>Monte à (°C)</value></data>
+  <data name="Fans_DownUnder" xml:space="preserve"><value>Redescend sous (°C)</value></data>
+  <data name="Fans_Base" xml:space="preserve"><value>base</value></data>
+  <data name="Fans_Step" xml:space="preserve"><value>palier {0}</value></data>
+  <data name="Fans_TableHint" xml:space="preserve"><value>Un palier commence quand la température atteint « Monte à » et finit quand elle passe sous « Redescend sous » : l&apos;écart évite que le ventilateur oscille entre deux vitesses. Changez une température avec − et +, ou cliquez dessus et utilisez les flèches. Les vitesses sont les pourcentages de MSI ; Cooler Boost correspond à la pleine vitesse.</value></data>
+  <data name="Fans_FixedTop" xml:space="preserve"><value>Le ventilateur {0} ne peut pas dépasser {1} ici : le dernier palier est fixé à {1}.</value></data>
+  <data name="Fans_FixedTip" xml:space="preserve"><value>Fixé par le micrologiciel du portable</value></data>
+  <data name="Fans_Fixed" xml:space="preserve"><value>fixe</value></data>
+  <data name="Colour_White" xml:space="preserve"><value>Blanc</value></data>
+  <data name="Colour_Red" xml:space="preserve"><value>Rouge</value></data>
+  <data name="Colour_Orange" xml:space="preserve"><value>Orange</value></data>
+  <data name="Colour_Yellow" xml:space="preserve"><value>Jaune</value></data>
+  <data name="Colour_Green" xml:space="preserve"><value>Vert</value></data>
+  <data name="Colour_Blue" xml:space="preserve"><value>Bleu</value></data>
+  <data name="Colour_Purple" xml:space="preserve"><value>Violet</value></data>
+  <data name="Colour_Pink" xml:space="preserve"><value>Rose</value></data>
+  <data name="Colour_Other" xml:space="preserve"><value>Une autre couleur…</value></data>
+  <data name="Colour_Custom" xml:space="preserve"><value>{0} (cliquez pour une autre couleur)</value></data>
+  <data name="Keyboard_DelayTip" xml:space="preserve"><value>Délai sans frappe avant l&apos;extinction de l&apos;éclairage</value></data>
+  <data name="Chart_Peak" xml:space="preserve"><value>pic {0:0.#} W · sur {1}</value></data>
+  <data name="Chart_NoHistory" xml:space="preserve"><value>L&apos;historique de capacité apparaît après quelques jours de données.</value></data>
+  <data name="Chart_Design" xml:space="preserve"><value>d&apos;origine {0:0.#} Wh</value></data>
+  <data name="Hw_Connecting" xml:space="preserve"><value>Connexion au contrôleur embarqué…</value></data>
+  <data name="Hw_NeedsAdmin" xml:space="preserve"><value>Les commandes du matériel nécessitent les droits d&apos;administrateur.</value></data>
+  <data name="Hw_NotOwner" xml:space="preserve"><value>Une autre copie de Wattkin pilote le matériel.</value></data>
+  <data name="Hw_NoWmi" xml:space="preserve"><value>Interface WMI de MSI indisponible.</value></data>
+  <data name="Hw_ControlsUnavailable" xml:space="preserve"><value>Les commandes du matériel ne sont pas disponibles.</value></data>
+  <data name="Hw_ControlsOff" xml:space="preserve"><value>Les commandes du matériel sont désactivées pour ce micrologiciel.</value></data>
+  <data name="Charge_Calibrating" xml:space="preserve"><value>Calibrage en cours</value></data>
+  <data name="Charge_Waiting" xml:space="preserve"><value>En attente des données de la batterie</value></data>
+  <data name="Charge_CheckingFull" xml:space="preserve"><value>Vérification que la batterie est pleine…</value></data>
+  <data name="Charge_ToFullOnce" xml:space="preserve"><value>Charge à 100 % (une fois)</value></data>
+  <data name="Charge_TopsUpBelow90" xml:space="preserve"><value>À {0:0} %. Le contrôleur ne recharge que sous 90 %, donc cela se terminera quand la batterie repassera sous 90 %</value></data>
+  <data name="Charge_WillChargeToFull" xml:space="preserve"><value>Chargera à 100 % (une fois)</value></data>
+  <data name="Charge_FullBackToLimit" xml:space="preserve"><value>Pleine. Retour à la limite de {0} %</value></data>
+  <data name="Charge_Draining" xml:space="preserve"><value>Décharge jusqu&apos;à {0} %, chargeur branché</value></data>
+  <data name="Charge_Drained" xml:space="preserve"><value>Déchargée à {0} %</value></data>
+  <data name="Charge_OnBattery" xml:space="preserve"><value>Sur batterie. Limite {0} %, reprise sous {1} %</value></data>
+  <data name="Charge_ChargingTo" xml:space="preserve"><value>Charge jusqu&apos;à {0} %</value></data>
+  <data name="Charge_Holding" xml:space="preserve"><value>Maintenue à {0} %. Reprise sous {1} %</value></data>
+  <data name="Charge_NotCharging" xml:space="preserve"><value>Pas en charge. Reprise sous {1} %</value></data>
+  <data name="Calib_NeedsRegister" xml:space="preserve"><value>Le calibrage nécessite un registre vérifié seulement sur les micrologiciels pris en charge.</value></data>
+  <data name="Calib_CancelledShort" xml:space="preserve"><value>Annulé.</value></data>
+  <data name="Calib_AlreadyRunning" xml:space="preserve"><value>Un calibrage est déjà en cours.</value></data>
+  <data name="Calib_PlugIn" xml:space="preserve"><value>Branchez d&apos;abord le chargeur. Il reste branché pendant tout le calibrage.</value></data>
+  <data name="Calib_NoLevel" xml:space="preserve"><value>Le niveau de la batterie n&apos;est pas disponible.</value></data>
+  <data name="Calib_Cancelled" xml:space="preserve"><value>Annulé. Votre limite de charge reprend la main.</value></data>
+  <data name="Calib_TooLong" xml:space="preserve"><value>Arrêté au bout de 24 heures par sécurité.</value></data>
+  <data name="Calib_LevelUnknown" xml:space="preserve"><value>Le niveau de la batterie est resté illisible pendant 5 minutes. Arrêté par sécurité.</value></data>
+  <data name="Calib_Unplugged" xml:space="preserve"><value>Le chargeur a été débranché pendant la charge à 100 %.</value></data>
+  <data name="Calib_WontCharge" xml:space="preserve"><value>La batterie ne charge pas au-delà de {0:0} %. Son contrôleur la retient peut-être. Réessayez plus tard.</value></data>
+  <data name="Calib_NotCharging" xml:space="preserve"><value>La batterie ne charge pas à {0:0} %.</value></data>
+  <data name="Calib_Stalled" xml:space="preserve"><value>Le niveau de la batterie a cessé de baisser pendant 20 minutes. Arrêté par sécurité.</value></data>
+  <data name="Calib_Done" xml:space="preserve"><value>Terminé. Elle se recharge maintenant jusqu&apos;à votre limite de {0} %. Windows met à jour la capacité mesurée pendant la prochaine charge.</value></data>
+  <data name="Calib_Step1Charging" xml:space="preserve"><value>Étape 1 sur 2 : charge à 100 % ({0:0} %)</value></data>
+  <data name="Calib_Step1Waiting" xml:space="preserve"><value>Étape 1 sur 2 : attente que la batterie se dise pleine ({0:0} %)</value></data>
+  <data name="Calib_Step1TooFull" xml:space="preserve"><value>Étape 1 sur 2 : la batterie est trop pleine pour être rechargée ({0:0} %), elle se décharge donc un peu d&apos;abord</value></data>
+  <data name="Calib_Step2" xml:space="preserve"><value>Étape 2 sur 2 : décharge jusqu&apos;à {0:0} %, chargeur branché ({1:0} %)</value></data>
+  <data name="Calib_Step2Fast" xml:space="preserve"><value>Étape 2 sur 2 : décharge jusqu&apos;à {0:0} %, chargeur branché ({1:0} %), mode rapide (charge processeur en plus)</value></data>
+  <data name="FanTest_Unavailable" xml:space="preserve"><value>Le contrôle des ventilateurs n&apos;est pas disponible sur ce micrologiciel.</value></data>
+  <data name="FanTest_Running" xml:space="preserve"><value>Un test des ventilateurs est déjà en cours.</value></data>
+  <data name="FanTest_Failed" xml:space="preserve"><value>Le test des ventilateurs a échoué. Le journal donne les détails.</value></data>
+  <data name="FanTest_FullSpeed" xml:space="preserve"><value>Ventilateurs à pleine vitesse : {0} / {1} tr/min…</value></data>
+  <data name="FanTest_StoppedEarly" xml:space="preserve"><value>Arrêté avant que les ventilateurs n&apos;atteignent leur pleine vitesse.</value></data>
+  <data name="FanTest_NoSpeed" xml:space="preserve"><value>Les ventilateurs n&apos;ont pas communiqué de vitesse.</value></data>
+  <data name="FanTest_TopSpeed" xml:space="preserve"><value>Vitesse maximale : {0} / {1} tr/min.</value></data>
+  <data name="FanTest_Comparing" xml:space="preserve"><value>{0} : {1} s sur {2:0} · {3} / {4} tr/min</value></data>
+  <data name="FanTest_Stopped" xml:space="preserve"><value>Arrêté.</value></data>
+  <data name="FanTest_ModeResult" xml:space="preserve"><value>{0} : {1} / {2} tr/min</value></data>
+  <data name="FanTest_ModeResultAt" xml:space="preserve"><value>{0} : {1} / {2} tr/min, CPU à {3:0} °C</value></data>
+  <data name="FanTest_AllOff" xml:space="preserve"><value>Les ventilateurs étaient arrêtés dans tous les modes : le portable est assez frais pour chacun d&apos;eux. Les modes se distinguent quand il fait plus chaud, réessayez donc en charge ou après un peu de travail.</value></data>
+  <data name="Debug_NeedsRegister" xml:space="preserve"><value>Cela nécessite un registre vérifié seulement sur les micrologiciels pris en charge.</value></data>
+  <data name="Debug_NotWhileCalibrating" xml:space="preserve"><value>Pas pendant un calibrage.</value></data>
+  <data name="Power_ToolRunning" xml:space="preserve"><value>{0} tourne et règle les mêmes limites : fermez-le et retirez-le du démarrage de Windows pour utiliser Manuel.</value></data>
+  <data name="Power_NotConnected" xml:space="preserve"><value>Pas encore connecté.</value></data>
+  <data name="Power_NeedsAdmin" xml:space="preserve"><value>Les limites de puissance manuelles nécessitent les droits d&apos;administrateur.</value></data>
+  <data name="Power_Locked" xml:space="preserve"><value>Le BIOS a verrouillé les limites de puissance : elles ne peuvent pas changer tant qu&apos;il ne les déverrouille pas.</value></data>
+  <data name="Power_Unreadable" xml:space="preserve"><value>Les limites de puissance n&apos;ont pas pu être lues.</value></data>
+  <data name="Power_UnitsUnreadable" xml:space="preserve"><value>Les unités de puissance du processeur n&apos;ont pas pu être lues.</value></data>
+  <data name="Power_PawnIoMissing" xml:space="preserve"><value>PawnIO n&apos;est pas installé (winget install namazso.PawnIO, puis redémarrez Wattkin).</value></data>
+  <data name="Power_ModuleMissing" xml:space="preserve"><value>Le module {0} manque dans cette version.</value></data>
+  <data name="Power_DriverClosed" xml:space="preserve"><value>Le pilote PawnIO n&apos;a pas pu être ouvert (erreur {0}) ; il nécessite les droits d&apos;administrateur.</value></data>
+  <data name="Power_ModuleRefused" xml:space="preserve"><value>PawnIO a refusé le module {0} (erreur {1}) : processeur d&apos;un autre type, ou PawnIO trop ancien.</value></data>
+  <data name="Power_WattsRange" xml:space="preserve"><value>PL1 et PL2 doivent être compris entre {0} et {1} W.</value></data>
+  <data name="Power_Pl2BelowPl1" xml:space="preserve"><value>PL2 (pointes) ne peut pas être inférieur à PL1 (continu).</value></data>
+  <data name="Power_TurboRange" xml:space="preserve"><value>La durée du turbo doit être comprise entre {0:0} et {1:0} secondes.</value></data>
+  <data name="Power_BothAboveFirmware" xml:space="preserve"><value>PL1 et PL2 dépassent ce que le micrologiciel autorise en Équilibré ({0:0.#} W et {1:0.#} W) : le processeur reste en dessous.</value></data>
+  <data name="Power_Pl1AboveFirmware" xml:space="preserve"><value>PL1 dépasse les {0:0.#} W que le micrologiciel autorise en Équilibré : le processeur reste en dessous.</value></data>
+  <data name="Power_Pl2AboveFirmware" xml:space="preserve"><value>PL2 dépasse les {0:0.#} W que le micrologiciel autorise en Équilibré : le processeur reste en dessous.</value></data>
+  <data name="Fans_CurveSpeeds" xml:space="preserve"><value>Le ventilateur {0} doit avoir {1} vitesses entre 0 et {2} %.</value></data>
+  <data name="Fans_SpeedDrops" xml:space="preserve"><value>La vitesse du ventilateur {0} ne peut pas baisser quand la température monte.</value></data>
+  <data name="Fans_CurveTooSlow" xml:space="preserve"><value>Le ventilateur {0} doit atteindre au moins {1} % au palier modifiable le plus chaud, pour que le portable ne surchauffe pas. Pour descendre plus bas, autorisez toutes les courbes (expérimental).</value></data>
+  <data name="Fans_TableIncomplete" xml:space="preserve"><value>La table du ventilateur {0} est incomplète.</value></data>
+  <data name="Fans_TableSpeeds" xml:space="preserve"><value>Les vitesses du ventilateur {0} doivent être comprises entre 0 et {1} %.</value></data>
+  <data name="Fans_TableTemps" xml:space="preserve"><value>Les températures des paliers du ventilateur {0} doivent être comprises entre {1} et {2} °C.</value></data>
+  <data name="Fans_TableRising" xml:space="preserve"><value>Chaque palier du ventilateur {0} doit commencer plus chaud que le précédent.</value></data>
+  <data name="Fans_TableDropBack" xml:space="preserve"><value>Au palier {0}, le ventilateur {1} doit redescendre entre 1 et {2} °C sous les {3} °C qui le déclenchent.</value></data>
+  <data name="Fans_TableTopSpeed" xml:space="preserve"><value>Le ventilateur {0} doit tourner à {1} % ou plus à partir de {2} °C au plus tard (son dernier palier), pour que le portable ne surchauffe pas. Pour passer outre, autorisez toutes les courbes (expérimental).</value></data>
+  <data name="Fans_TableLateStart" xml:space="preserve"><value>Le ventilateur {0} doit tourner dès l&apos;avant-dernier palier ({1} °C), pour ne pas rester arrêté jusqu&apos;au dernier moment. Pour passer outre, autorisez toutes les courbes (expérimental).</value></data>
+  <data name="Ec_SchemaFailed" xml:space="preserve"><value>Impossible de préparer l&apos;accès à l&apos;interface du micrologiciel ({0}).</value></data>
+  <data name="Ec_NoMsiInterface" xml:space="preserve"><value>Le micrologiciel de ce portable ne propose pas l&apos;interface de MSI : les commandes du matériel ne sont pas disponibles. La surveillance fonctionne toujours.</value></data>
+  <data name="Ec_NoAnswer" xml:space="preserve"><value>L&apos;interface du micrologiciel n&apos;a pas répondu.</value></data>
+  <data name="Ec_NoAnswerCode" xml:space="preserve"><value>L&apos;interface du micrologiciel n&apos;a pas répondu ({0}).</value></data>
+  <data name="Ec_NeedsAdmin" xml:space="preserve"><value>Les droits d&apos;administrateur sont nécessaires pour dialoguer avec le contrôleur embarqué.</value></data>
+  <data name="Ec_NotSetUp" xml:space="preserve"><value>L&apos;accès de Wattkin à l&apos;interface du micrologiciel n&apos;est pas encore préparé. Redémarrez Wattkin en administrateur.</value></data>
+  <data name="Ec_WmiError" xml:space="preserve"><value>Erreur WMI 0x{0:X8}.</value></data>
+  <data name="Ec_OlderInterface" xml:space="preserve"><value>Ce portable utilise l&apos;ancienne interface du micrologiciel de MSI (version {0}), que Wattkin ne sait pas encore piloter. La surveillance fonctionne.</value></data>
+  <data name="Ec_NewerInterface" xml:space="preserve"><value>Ce portable utilise une version plus récente de l&apos;interface du micrologiciel de MSI ({0}), pas encore testée avec Wattkin : il se contente donc de surveiller pour l&apos;instant. Un rapport de diagnostic (Paramètres › Débogage) aiderait à la prendre en charge.</value></data>
+  <data name="Ec_NoMap" xml:space="preserve"><value>Aucune carte de registres pour ce micrologiciel.</value></data>
+  <data name="Ec_RegistersOdd" xml:space="preserve"><value>Les registres ne ressemblaient pas à {0} ({1}), donc Wattkin reste en lecture seule.</value></data>
+  <data name="Gpu_SwitchNotVerified" xml:space="preserve"><value>Le commutateur GPU du micrologiciel n&apos;est activé que sur les micrologiciels vérifiés.</value></data>
+  <data name="Gpu_InProgress" xml:space="preserve"><value>Un changement de mode GPU est déjà en cours.</value></data>
+  <data name="Gpu_NoSwitch" xml:space="preserve"><value>Le micrologiciel de ce portable ne propose pas le commutateur GPU.</value></data>
+  <data name="Gpu_NoIntegrated" xml:space="preserve"><value>Le mode intégré seul n&apos;est pas pris en charge sur ce portable.</value></data>
+  <data name="Gpu_NoDiscrete" xml:space="preserve"><value>Le mode dédié seul n&apos;est pas pris en charge sur ce portable.</value></data>
+  <data name="Gpu_WriteFailed" xml:space="preserve"><value>L&apos;écriture du réglage du micrologiciel a échoué (erreur {0}).</value></data>
+  <data name="Gpu_VerifyRestored" xml:space="preserve"><value>Le réglage du micrologiciel ne s&apos;est pas relu tel qu&apos;écrit, il a donc été remis comme avant. Rien n&apos;a changé.</value></data>
+  <data name="Gpu_VerifyRestoreFailed" xml:space="preserve"><value>Le réglage du micrologiciel ne s&apos;est pas relu tel qu&apos;écrit, et sa restauration a échoué. Ne redémarrez pas tout de suite ; enregistrez un rapport de diagnostic.</value></data>
+  <data name="Gpu_EcRefusedRestored" xml:space="preserve"><value>Le contrôleur embarqué n&apos;a pas accepté la demande de changement, le réglage du micrologiciel a donc été remis. Rien n&apos;a changé.</value></data>
+  <data name="Gpu_EcRefusedRestoreFailed" xml:space="preserve"><value>Le contrôleur embarqué n&apos;a pas accepté la demande de changement, et la restauration du réglage du micrologiciel a échoué. Le changement peut encore se produire au prochain démarrage à froid.</value></data>
+  <data name="Gpu_ReadNeedsAdmin" xml:space="preserve"><value>Les droits d&apos;administrateur sont nécessaires pour lire les réglages du micrologiciel.</value></data>
+  <data name="Gpu_VariableMissing" xml:space="preserve"><value>Réglage du micrologiciel MSI introuvable (erreur {0}).</value></data>
+  <data name="Gpu_VariableShort" xml:space="preserve"><value>Le réglage du micrologiciel MSI est plus court que prévu.</value></data>
+  <data name="Gpu_VariableLarge" xml:space="preserve"><value>Le réglage du micrologiciel MSI est anormalement grand.</value></data>
+  <data name="Gpu_NoPciList" xml:space="preserve"><value>Impossible de lister les périphériques PCI.</value></data>
+  <data name="Gpu_EnableRefused" xml:space="preserve"><value>Windows a refusé d&apos;activer {0} (erreur {1}).</value></data>
+  <data name="Gpu_NoNvidia" xml:space="preserve"><value>Aucun périphérique NVIDIA présent (le GPU est-il éteint par le micrologiciel ?).</value></data>
+  <data name="Gpu_EnableAfterRestart" xml:space="preserve"><value>Windows finira de réactiver le GPU au prochain redémarrage.</value></data>
+  <data name="Startup_NotInstalled" xml:space="preserve"><value>Le démarrage avec Windows ne fonctionne que pour la copie installée (dans Program Files). Installez d&apos;abord Wattkin, puis activez-le depuis celle-ci.</value></data>
+  <data name="Startup_NoScheduler" xml:space="preserve"><value>Le Planificateur de tâches n&apos;est pas disponible.</value></data>
+  <data name="Startup_CreateFailed" xml:space="preserve"><value>Impossible de créer la tâche d&apos;ouverture de session : {0}</value></data>
+  <data name="Startup_RemoveFailed" xml:space="preserve"><value>Impossible de supprimer la tâche d&apos;ouverture de session : {0}</value></data>
+  <data name="Install_CouldNotInstall" xml:space="preserve"><value>Installation impossible : {0}</value></data>
+  <data name="Install_CouldNotReplace" xml:space="preserve"><value>Impossible de remplacer Wattkin.exe : {0}</value></data>
+</root>

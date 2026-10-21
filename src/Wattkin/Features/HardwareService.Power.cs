@@ -25,7 +25,7 @@ public sealed partial class HardwareService
     /// <summary>A sentence for the user while ThrottleStop (or a similar tool) runs, else null.</summary>
     internal static string? PowerLimitToolRunning() =>
         PowerLimitTools.FirstOrDefault(n => Process.GetProcessesByName(n).Length > 0) is { } name
-            ? $"{name} is running and sets the same limits: close it and take it out of Windows startup to use Manual."
+            ? string.Format(Strings.Power_ToolRunning, name)
             : null;
 
     internal static PowerLimitMemory PowerLimitMemoryOf(AppSettings s) =>
@@ -68,7 +68,7 @@ public sealed partial class HardwareService
     /// <summary>What the power-limit registers hold now, for the profile editor.</summary>
     public CpuPowerStatus ReadCpuPower() =>
         _powerLimits?.Status()
-        ?? CpuPowerStatus.Unavailable(_cpuPowerError ?? (Elevation.IsElevated ? "Not connected yet." : "Manual power limits need administrator rights."));
+        ?? CpuPowerStatus.Unavailable(_cpuPowerError ?? (Elevation.IsElevated ? Strings.Power_NotConnected : Strings.Power_NeedsAdmin));
 
     /// <summary>Manual power limits can be used (PawnIO there, register not locked).</summary>
     public bool HasManualPowerLimits => _powerLimits is { Usable: true };

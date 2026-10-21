@@ -66,7 +66,7 @@ internal static class DiscreteGpu
         var set = SetupApi.SetupDiGetClassDevs(Guid.Empty, "PCI", IntPtr.Zero, SetupApi.DIGCF_PRESENT | SetupApi.DIGCF_ALLCLASSES);
         if (set == new IntPtr(-1))
         {
-            return "Could not enumerate PCI devices.";
+            return Strings.Gpu_NoPciList;
         }
 
         var changed = 0;
@@ -97,7 +97,8 @@ internal static class DiscreteGpu
                 if (!SetupApi.SetupDiSetClassInstallParams(set, ref data, ref parameters, Marshal.SizeOf<SetupApi.SP_PROPCHANGE_PARAMS>())
                     || !SetupApi.SetupDiCallClassInstaller(SetupApi.DIF_PROPERTYCHANGE, set, ref data))
                 {
-                    return $"Windows refused to enable {id} (error {Marshal.GetLastWin32Error()}).";
+                    var code = Marshal.GetLastWin32Error(); // before anything else can overwrite it
+                    return string.Format(Strings.Gpu_EnableRefused, id, code);
                 }
 
                 // A driver that won't stop right now gets the change queued for the next restart instead.
@@ -117,12 +118,10 @@ internal static class DiscreteGpu
 
         if (changed == 0)
         {
-            return "No NVIDIA device is present (is the GPU switched off in firmware?).";
+            return Strings.Gpu_NoNvidia;
         }
 
-        return needsRestart
-            ? "Windows will finish turning the GPU back on at the next restart."
-            : null;
+        return needsRestart ? Strings.Gpu_EnableAfterRestart : null;
     }
 
     private sealed record Device(string InstanceId, string? Name, uint Status, uint Problem, int PowerState);

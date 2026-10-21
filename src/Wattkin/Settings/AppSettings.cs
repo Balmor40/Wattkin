@@ -200,6 +200,9 @@ public sealed class AppSettings
     // Settings window: the simple view hides the fine-grained controls (they keep their values).
     public bool ExpertView { get; set; }
 
+    /// <summary>The interface language, "en" or "fr"; null follows Windows' display language (see <see cref="UiLanguage"/>).</summary>
+    public string? Language { get; set; }
+
     // Tray / widget
     public TrayDisplay TrayDisplay { get; set; } = TrayDisplay.Watts;
 
@@ -481,6 +484,7 @@ public sealed class AppSettings
             TrayDisplay = TrayDisplay.Watts;
         }
 
+        Language = UiLanguage.Valid(Language);
         WidgetOpacity = double.IsFinite(WidgetOpacity) ? Math.Clamp(WidgetOpacity, 0.3, 1) : 0.92;
         CalibrationHistory ??= [];
         OriginalPowerSettings ??= [];

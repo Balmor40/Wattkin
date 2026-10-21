@@ -41,14 +41,14 @@ internal sealed unsafe class PawnIo : IDisposable
     {
         if (InstalledVersion is null)
         {
-            error = "PawnIO isn't installed (winget install namazso.PawnIO, then restart Wattkin).";
+            error = Strings.Power_PawnIoMissing;
             return null;
         }
 
         using var stream = typeof(PawnIo).Assembly.GetManifestResourceStream($"Wattkin.PawnIO.{module}.bin");
         if (stream is null)
         {
-            error = $"The {module} module is missing from this build.";
+            error = string.Format(Strings.Power_ModuleMissing, module);
             return null;
         }
 
@@ -58,7 +58,8 @@ internal sealed unsafe class PawnIo : IDisposable
         var handle = Kernel32.CreateFile(@"\\?\GLOBALROOT\Device\PawnIO", GenericReadWrite, ShareReadWrite, IntPtr.Zero, OpenExisting, 0, IntPtr.Zero);
         if (handle.IsInvalid)
         {
-            error = $"The PawnIO driver couldn't be opened (error {Marshal.GetLastWin32Error()}); it needs administrator rights.";
+            var code = Marshal.GetLastWin32Error(); // before anything else can overwrite it
+            error = string.Format(Strings.Power_DriverClosed, code);
             handle.Dispose();
             return null;
         }
@@ -67,7 +68,8 @@ internal sealed unsafe class PawnIo : IDisposable
         {
             if (!Kernel32.DeviceIoControl(handle, IoctlLoadBinary, p, blob.Length, null, 0, out _, IntPtr.Zero))
             {
-                error = $"PawnIO refused the {module} module (error {Marshal.GetLastWin32Error()}): not this kind of processor, or an older PawnIO.";
+                var code = Marshal.GetLastWin32Error();
+                error = string.Format(Strings.Power_ModuleRefused, module, code);
                 handle.Dispose();
                 return null;
             }

@@ -17,16 +17,16 @@ public partial class InstallWindow : Window
         _update = Installation.InstalledVersion is { } installed;
         if (_update)
         {
-            Title = "Update Wattkin";
-            Headline.Text = $"Update Wattkin {Installation.InstalledVersion!.ToString(3)} to {version}?";
-            Body.Text = "Your settings are kept. Wattkin closes for a moment and starts again.";
+            Title = Strings.Install_UpdateTitle;
+            Headline.Text = string.Format(Strings.Install_UpdateHeadline, Installation.InstalledVersion!.ToString(3), version);
+            Body.Text = Strings.Install_UpdateBody;
             Autostart.Visibility = Visibility.Collapsed;
-            InstallButton.Content = "Update";
+            InstallButton.Content = Strings.Install_Update;
         }
         else
         {
-            Headline.Text = $"Install Wattkin {version}?";
-            Body.Text = "Wattkin installs into Program Files and asks for administrator rights once, so it can control the laptop's battery, fans and keyboard. It keeps itself up to date, and you can uninstall it any time from Settings › Apps.";
+            Headline.Text = string.Format(Strings.Install_Headline, version);
+            Body.Text = Strings.Install_Body;
         }
     }
 
@@ -42,9 +42,7 @@ public partial class InstallWindow : Window
             return;
         }
 
-        ErrorText.Text = code is null
-            ? "Wattkin needs administrator rights to install. Click Install and choose Yes."
-            : $"Installing didn't finish (code {code}). The log in %LOCALAPPDATA%\\Wattkin\\logs has the details.";
+        ErrorText.Text = code is null ? Strings.Install_NeedsAdmin : string.Format(Strings.Install_Failed, code);
         ErrorText.Visibility = Visibility.Visible;
         InstallButton.IsEnabled = true;
     }

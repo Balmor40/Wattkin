@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:Wattkin.UI"
+        xmlns:l="clr-namespace:Wattkin"
         Title="Wattkin" Width="920" Height="700" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource Lc.Window}" Foreground="{DynamicResource Lc.Text}"
@@ -20,78 +21,78 @@
     <TabControl x:Name="Tabs" Margin="8" Background="Transparent" BorderThickness="0">
 
         <!-- ================= Battery ================= -->
-        <TabItem Header="Battery" Tag="battery">
+        <TabItem Header="{x:Static l:Strings.Common_Battery}" Tag="battery">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Health" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_Health}" Style="{StaticResource Lc.Section}" />
                             <UniformGrid Columns="4" Margin="0,0,0,8">
-                                <StackPanel><TextBlock Text="Design capacity" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="DesignText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                                <StackPanel><TextBlock Text="Holds now" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="FullText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                                <StackPanel><TextBlock Text="Health" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="HealthText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
-                                <StackPanel><TextBlock Text="Cycles" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="CyclesText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="{x:Static l:Strings.Battery_DesignCapacity}" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="DesignText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="{x:Static l:Strings.Battery_HoldsNow}" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="FullText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="{x:Static l:Strings.Common_Health}" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="HealthText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
+                                <StackPanel><TextBlock Text="{x:Static l:Strings.Battery_Cycles}" Style="{StaticResource Lc.Label}" /><TextBlock x:Name="CyclesText" FontSize="18" FontWeight="SemiBold" /></StackPanel>
                             </UniformGrid>
                             <TextBlock x:Name="BatteryDetails" Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" />
                             <Border x:Name="CalibrationSuggestion" Visibility="Collapsed" BorderBrush="{DynamicResource Lc.Accent}" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,8">
                                 <StackPanel>
                                     <TextBlock x:Name="CalibrationSuggestionText" Style="{StaticResource Lc.Value}" TextWrapping="Wrap" />
-                                    <Button x:Name="CalibrationSuggestionButton" Content="Calibrate now…" Click="OnCalibrationStart" HorizontalAlignment="Left" Margin="0,8,0,0" />
+                                    <Button x:Name="CalibrationSuggestionButton" Content="{x:Static l:Strings.Battery_CalibrateNow}" Click="OnCalibrationStart" HorizontalAlignment="Left" Margin="0,8,0,0" />
                                 </StackPanel>
                             </Border>
                             <ui:CapacityChart x:Name="Chart" Height="170" Margin="0,4,0,4" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Text="The gauge's capacity estimate drifts between full discharges. A calibration (below) makes it re-measure. History combines Windows' battery report with Wattkin's daily log." />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Text="{x:Static l:Strings.Battery_HistoryHint}" />
                             <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                                <Button Content="Open battery log folder" Click="OnOpenBatteryLog" Margin="0,0,8,0" />
-                                <Button Content="Refresh history" Click="OnRefreshHistory" />
+                                <Button Content="{x:Static l:Strings.Battery_OpenLogFolder}" Click="OnOpenBatteryLog" Margin="0,0,8,0" />
+                                <Button Content="{x:Static l:Strings.Battery_RefreshHistory}" Click="OnRefreshHistory" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Charge limit" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_ChargeLimit}" Style="{StaticResource Lc.Section}" />
 
                             <!-- Simple: one tap per limit; the controller restarts charging 10% below it. -->
 
                             <StackPanel>
                                 <Grid Style="{StaticResource Row}">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /><ColumnDefinition Width="60" /></Grid.ColumnDefinitions>
-                                    <TextBlock Text="Stop charging at" Style="{StaticResource Lc.Label}" />
+                                    <TextBlock Text="{x:Static l:Strings.Common_StopChargingAt}" Style="{StaticResource Lc.Label}" />
                                     <Slider x:Name="StopSlider" Grid.Column="1" Minimum="10" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="False" SmallChange="1" LargeChange="5" ValueChanged="OnLimitSliders" />
                                     <TextBlock x:Name="StopValue" Grid.Column="2" Style="{StaticResource Lc.Value}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                 </Grid>
-                                <CheckBox x:Name="CustomResume" Content="Let it drop further before charging again (the default is 10% below the stop point)" Checked="OnLimitSliders" Unchecked="OnLimitSliders" />
+                                <CheckBox x:Name="CustomResume" Content="{x:Static l:Strings.Battery_CustomResume}" Checked="OnLimitSliders" Unchecked="OnLimitSliders" />
                                 <Grid Style="{StaticResource Row}">
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /><ColumnDefinition Width="60" /></Grid.ColumnDefinitions>
-                                    <TextBlock Text="Start charging below" Style="{StaticResource Lc.Label}" />
+                                    <TextBlock Text="{x:Static l:Strings.Battery_StartChargingBelow}" Style="{StaticResource Lc.Label}" />
                                     <Slider x:Name="ResumeSlider" Grid.Column="1" Minimum="5" Maximum="99" SmallChange="1" LargeChange="5" ValueChanged="OnLimitSliders" />
                                     <TextBlock x:Name="ResumeValue" Grid.Column="2" Style="{StaticResource Lc.Value}" HorizontalAlignment="Right" FontWeight="SemiBold" />
                                 </Grid>
                                 <TextBlock x:Name="LimitExplain" Style="{StaticResource Lc.Hint}" Margin="0,4,0,8" />
-                                <Button x:Name="ApplyLimit" Content="Apply" Click="OnApplyLimit" HorizontalAlignment="Left" MinWidth="90" Margin="0,0,0,8" />
+                                <Button x:Name="ApplyLimit" Content="{x:Static l:Strings.Common_Apply}" Click="OnApplyLimit" HorizontalAlignment="Left" MinWidth="90" Margin="0,0,0,8" />
                             </StackPanel>
                             <TextBlock x:Name="ChargeStatusText" Style="{StaticResource Lc.Label}" Margin="0,6,0,0" />
                             <Separator Margin="0,12" />
-                            <CheckBox x:Name="FullOnce" Content="Charge to 100% once (for a long day away), then go back to the limit" Click="OnFullOnce" />
+                            <CheckBox x:Name="FullOnce" Content="{x:Static l:Strings.Battery_FullOnce}" Click="OnFullOnce" />
                             <StackPanel>
-                                <CheckBox x:Name="Drain" Content="Bring the battery down to the limit now while plugged in" Click="OnDrain" />
-                                <TextBlock Style="{StaticResource Lc.Hint}" Text="Lowering the limit doesn't drain the battery by itself: the laptop simply stops charging and runs from the charger. 'Bring down' tells the embedded controller to use the battery until it reaches the limit. For long-term storage, 40–60% is kindest to lithium-ion; very low limits only reduce how long you can run unplugged." />
+                                <CheckBox x:Name="Drain" Content="{x:Static l:Strings.Battery_Drain}" Click="OnDrain" />
+                                <TextBlock Style="{StaticResource Lc.Hint}" Text="{x:Static l:Strings.Battery_DrainHint}" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
 
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Calibration" Style="{StaticResource Lc.Section}" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Text="Charges to 100%, then discharges to near empty while the charger stays connected, so the battery gauge re-measures its real capacity. Leave the laptop plugged in. It stays awake during the run. You can keep using it." Margin="0,0,0,8" />
+                            <TextBlock Text="{x:Static l:Strings.Battery_Calibration}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Text="{x:Static l:Strings.Battery_CalibrationHint}" Margin="0,0,0,8" />
                             <TextBlock x:Name="CalibrationStatus" Style="{StaticResource Lc.Value}" TextWrapping="Wrap" Margin="0,0,0,6" />
                             <ProgressBar x:Name="CalibrationBar" Height="6" Minimum="0" Maximum="100" Margin="0,0,0,6" />
                             <TextBlock x:Name="CalibrationEta" Style="{StaticResource Lc.Label}" Margin="0,0,0,8" />
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="CalibrationStart" Content="Start calibration" Click="OnCalibrationStart" Margin="0,0,8,0" />
-                                <Button x:Name="CalibrationCancel" Content="Cancel" Click="OnCalibrationCancel" Margin="0,0,16,0" />
-                                <CheckBox x:Name="CalibrationFast" Content="Faster discharge (adds light CPU load, keeps screen on)" Click="OnCalibrationFast" VerticalAlignment="Center" />
+                                <Button x:Name="CalibrationStart" Content="{x:Static l:Strings.Battery_StartCalibration}" Click="OnCalibrationStart" Margin="0,0,8,0" />
+                                <Button x:Name="CalibrationCancel" Content="{x:Static l:Strings.Common_Cancel}" Click="OnCalibrationCancel" Margin="0,0,16,0" />
+                                <CheckBox x:Name="CalibrationFast" Content="{x:Static l:Strings.Battery_FastDischarge}" Click="OnCalibrationFast" VerticalAlignment="Center" />
                             </StackPanel>
                             <TextBlock x:Name="CalibrationHistory" Style="{StaticResource Lc.Hint}" Margin="0,10,0,0" />
                         </StackPanel>
@@ -101,32 +102,32 @@
         </TabItem>
 
         <!-- ================= Profiles ================= -->
-        <TabItem Header="Profiles" Tag="profiles">
+        <TabItem Header="{x:Static l:Strings.Common_Profiles}" Tag="profiles">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Profiles" Style="{StaticResource Lc.Section}" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="Click a profile to use it now. The gear inside a button edits that profile: its name, processor, fans, screen and keyboard." />
+                            <TextBlock Text="{x:Static l:Strings.Common_Profiles}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="{x:Static l:Strings.Profiles_Hint}" />
                             <ui:ProfileButtons x:Name="ProfileButtonsPanel" Margin="-2,0,-2,10" />
                             <StackPanel x:Name="ProfileSummaries" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Automatic switching" Style="{StaticResource Lc.Section}" />
-                            <CheckBox x:Name="AutoSwitch" Content="Switch profiles by themselves" Click="OnAutoChanged" />
+                            <TextBlock Text="{x:Static l:Strings.Profiles_AutoSwitching}" Style="{StaticResource Lc.Section}" />
+                            <CheckBox x:Name="AutoSwitch" Content="{x:Static l:Strings.Profiles_AutoSwitch}" Click="OnAutoChanged" />
                             <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <TextBlock Text="When the charger is plugged in" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="AcProfile" Grid.Column="1" SelectionChanged="OnAutoChanged" /></Grid>
+                                <TextBlock Text="{x:Static l:Strings.Profiles_WhenPluggedIn}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="AcProfile" Grid.Column="1" SelectionChanged="OnAutoChanged" /></Grid>
                             <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <TextBlock x:Name="DcLabel" Text="On battery" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="DcProfile" Grid.Column="1" SelectionChanged="OnAutoChanged" /></Grid>
+                                <TextBlock x:Name="DcLabel" Text="{x:Static l:Strings.Common_OnBattery}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="DcProfile" Grid.Column="1" SelectionChanged="OnAutoChanged" /></Grid>
                             <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="120" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <TextBlock Text="On battery, at or below" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="LowThreshold" Grid.Column="1" SelectionChanged="OnAutoChanged" /><ComboBox x:Name="LowProfile" Grid.Column="2" Margin="8,0,0,0" SelectionChanged="OnAutoChanged" /></Grid>
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" TextWrapping="Wrap" Text="Each rule acts when it happens: plugging in, unplugging, or the battery falling to the threshold. A profile you pick yourself stays until the next of these. &quot;Leave as is&quot; keeps whichever profile is on." />
+                                <TextBlock Text="{x:Static l:Strings.Profiles_AtOrBelow}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="LowThreshold" Grid.Column="1" SelectionChanged="OnAutoChanged" /><ComboBox x:Name="LowProfile" Grid.Column="2" Margin="8,0,0,0" SelectionChanged="OnAutoChanged" /></Grid>
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{x:Static l:Strings.Profiles_RulesHint}" />
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
-                                <Button Content="Restore Windows processor settings" Click="OnRestoreWindowsPower" />
+                                <Button Content="{x:Static l:Strings.Profiles_RestoreWindows}" Click="OnRestoreWindowsPower" />
                             </StackPanel>
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" TextWrapping="Wrap" Text="Puts the power plan's turbo and maximum processor state back to what they were before Wattkin changed them." />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" TextWrapping="Wrap" Text="{x:Static l:Strings.Profiles_RestoreWindowsHint}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -134,24 +135,24 @@
         </TabItem>
 
         <!-- ================= Keyboard & keys ================= -->
-        <TabItem Header="Keyboard &amp; keys" Tag="keyboard">
+        <TabItem Header="{x:Static l:Strings.Settings_TabKeyboard}" Tag="keyboard">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Keyboard backlight" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Keyboard_Backlight}" Style="{StaticResource Lc.Section}" />
                             <WrapPanel x:Name="KbLevelPanel" Margin="0,0,0,10" />
                             <!-- Only where the keys are lit by an RGB controller over USB (Mystic Light). -->
                             <StackPanel x:Name="KbColorSection">
-                                <TextBlock Text="Colour" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                                <TextBlock Text="{x:Static l:Strings.Common_Colour}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                                 <WrapPanel x:Name="KbColorPanel" Margin="-4,0,0,4" />
-                                <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,10" Text="The keys are lit by MSI's Mystic Light controller, which can't tell Wattkin what it shows: Wattkin sets your level and colour again at startup and after sleep. Take OpenRGB and MSI Center out of Windows startup, or they may change it back." />
+                                <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,10" Text="{x:Static l:Strings.Keyboard_MysticHint}" />
                             </StackPanel>
-                            <TextBlock Text="Turn off when not typing" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                            <TextBlock Text="{x:Static l:Strings.Common_TurnOffWhenNotTyping}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                             <WrapPanel x:Name="KbTimeoutPanel" />
                             <!-- Only where auto-off is Wattkin's own (USB light); the controller's is fixed at about 10 s. -->
                             <StackPanel x:Name="KbDelaySection" Orientation="Horizontal" Margin="0,8,0,0">
-                                <TextBlock Text="How long without typing" Style="{StaticResource Lc.Label}" Margin="0,0,10,0" />
+                                <TextBlock Text="{x:Static l:Strings.Keyboard_HowLong}" Style="{StaticResource Lc.Label}" Margin="0,0,10,0" />
                                 <Border x:Name="KbDelayHost" />
                             </StackPanel>
                             <TextBlock x:Name="KbTimeoutHint" Style="{StaticResource Lc.Hint}" Margin="0,8,0,0" />
@@ -159,18 +160,18 @@
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Keys and lights" Style="{StaticResource Lc.Section}" />
-                            <CheckBox x:Name="Hotkeys" Content="Handle the laptop's special keys (mic mute, performance key, MSI key, camera key)" Click="OnKeysChanged" />
-                            <CheckBox x:Name="Osd" Content="Show on-screen messages for those keys and profile changes" Click="OnKeysChanged" />
-                            <CheckBox x:Name="MuteLeds" Content="Keep the mute and mic-mute key lights in sync with Windows" Click="OnKeysChanged" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Text="MSI Center did these in software. Without MSI Center (or Wattkin) the mic-mute key does nothing and the key lights stop matching. Changing the first option takes effect after restarting Wattkin." />
+                            <TextBlock Text="{x:Static l:Strings.Keyboard_KeysAndLights}" Style="{StaticResource Lc.Section}" />
+                            <CheckBox x:Name="Hotkeys" Content="{x:Static l:Strings.Keyboard_Hotkeys}" Click="OnKeysChanged" />
+                            <CheckBox x:Name="Osd" Content="{x:Static l:Strings.Keyboard_Osd}" Click="OnKeysChanged" />
+                            <CheckBox x:Name="MuteLeds" Content="{x:Static l:Strings.Keyboard_MuteLeds}" Click="OnKeysChanged" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Text="{x:Static l:Strings.Keyboard_KeysHint}" />
                         </StackPanel>
                     </Border>
                     <!-- Only on laptops with an EC webcam switch (Cooler Boost is on the Debug tab and in profiles). -->
                     <Border x:Name="DevicesCard" Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Devices" Style="{StaticResource Lc.Section}" />
-                            <CheckBox x:Name="WebcamToggle" Content="Webcam powered on" Click="OnWebcam" />
+                            <TextBlock Text="{x:Static l:Strings.Keyboard_Devices}" Style="{StaticResource Lc.Section}" />
+                            <CheckBox x:Name="WebcamToggle" Content="{x:Static l:Strings.Keyboard_Webcam}" Click="OnWebcam" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -178,12 +179,12 @@
         </TabItem>
 
         <!-- ================= Graphics ================= -->
-        <TabItem Header="Graphics" Tag="graphics">
+        <TabItem Header="{x:Static l:Strings.Common_Graphics}" Tag="graphics">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="NVIDIA GPU right now" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Graphics_GpuNow}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="DgpuNow" FontSize="16" FontWeight="SemiBold" />
                             <TextBlock x:Name="DgpuExplain" Style="{StaticResource Lc.Hint}" Margin="0,4,0,0" />
                             <!-- Simple: an idle RTX already powers down by itself; a button only when there's something to fix. -->
@@ -192,18 +193,18 @@
                     <!-- Expert: only when the RTX was left disabled in Windows (older Wattkin, Device Manager). -->
                     <Border x:Name="DisabledCard" Style="{StaticResource Lc.Card}" Visibility="Collapsed">
                         <StackPanel>
-                            <TextBlock Text="The RTX is disabled in Windows" Style="{StaticResource Lc.Section}" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="A disabled RTX can't use NVIDIA's deep power-off, so it keeps drawing power (about 10 W measured on the Prestige 16 Studio). Turned back on, it sleeps by itself whenever it's idle." />
-                            <Button x:Name="ReEnableButton" Content="Turn the RTX back on" Click="OnReEnable" HorizontalAlignment="Left" />
+                            <TextBlock Text="{x:Static l:Strings.Graphics_DisabledTitle}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="{x:Static l:Strings.Graphics_DisabledHint}" />
+                            <Button x:Name="ReEnableButton" Content="{x:Static l:Strings.Graphics_ReEnable}" Click="OnReEnable" HorizontalAlignment="Left" />
                         </StackPanel>
                     </Border>                    <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Firmware GPU mode: needs a restart" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Graphics_FirmwareMode}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="FirmwareMode" Style="{StaticResource Lc.Value}" Margin="0,0,0,6" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="In Hybrid an idle RTX powers itself down, so you can use it in bursts without restarting. 'Integrated only' removes it from the system at power-on, so nothing can wake it; HDMI / USB-C outputs wired to it stop working. This is the same switch MSI Center uses: the laptop shuts down fully and starts again in the new mode." />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="{x:Static l:Strings.Graphics_FirmwareHint}" />
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="ModeHybrid" Content="Switch to Hybrid (RTX available)" Click="OnModeHybrid" Margin="0,0,8,0" />
-                                <Button x:Name="ModeIntegrated" Content="Switch to Integrated only" Click="OnModeIntegrated" />
+                                <Button x:Name="ModeHybrid" Content="{x:Static l:Strings.Graphics_SwitchHybrid}" Click="OnModeHybrid" Margin="0,0,8,0" />
+                                <Button x:Name="ModeIntegrated" Content="{x:Static l:Strings.Graphics_SwitchIntegrated}" Click="OnModeIntegrated" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -212,26 +213,26 @@
         </TabItem>
 
         <!-- ================= System ================= -->
-        <TabItem Header="System" Tag="system">
+        <TabItem Header="{x:Static l:Strings.Settings_TabSystem}" Tag="system">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Live" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.System_Live}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="LiveText" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="This laptop" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.System_ThisLaptop}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="InfoText" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" TextWrapping="Wrap" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Busiest apps" Style="{StaticResource Lc.Section}" />
-                            <TextBlock x:Name="ProcessText" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" Text="Measuring…" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" Text="CPU share per app, measured only while this tab is open." />
+                            <TextBlock Text="{x:Static l:Strings.System_BusiestApps}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock x:Name="ProcessText" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" Text="{x:Static l:Strings.Common_Measuring}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" Text="{x:Static l:Strings.System_AppsHint}" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -239,38 +240,34 @@
         </TabItem>
 
         <!-- ================= General ================= -->
-        <TabItem Header="General" Tag="general">
+        <TabItem Header="{x:Static l:Strings.Settings_TabGeneral}" Tag="general">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
                             <TextBlock Text="Wattkin" Style="{StaticResource Lc.Section}" />
-                            <CheckBox x:Name="StartWithWindows" Content="Start with Windows (as administrator, without a UAC prompt)" Click="OnStartWithWindows" />
-                            <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="200" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                                <TextBlock Text="The tray icon shows" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TrayDisplayChoice" Grid.Column="1" SelectionChanged="OnTrayDisplay" /></Grid>
-                            <CheckBox x:Name="WidgetToggle" Content="Show the desktop widget" Click="OnWidgetToggle" />
-                            <CheckBox x:Name="BatteryLogToggle" Content="Keep a battery log (on battery a line a minute; on the charger only changes)" Click="OnGeneralChanged" />
+                            <CheckBox x:Name="StartWithWindows" Content="{x:Static l:Strings.General_StartWithWindows}" Click="OnStartWithWindows" />
+                            <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="240" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Static l:Strings.General_TrayShows}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="TrayDisplayChoice" Grid.Column="1" SelectionChanged="OnTrayDisplay" /></Grid>
+                            <Grid Style="{StaticResource Row}"><Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="240" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{x:Static l:Strings.Common_Language}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" /><ComboBox x:Name="LanguageChoice" Grid.Column="1" SelectionChanged="OnLanguage" /></Grid>
+                            <CheckBox x:Name="WidgetToggle" Content="{x:Static l:Strings.General_ShowWidget}" Click="OnWidgetToggle" />
+                            <CheckBox x:Name="BatteryLogToggle" Content="{x:Static l:Strings.General_BatteryLog}" Click="OnGeneralChanged" />
                             <TextBlock x:Name="ElevationText" Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" />
-                            <Button x:Name="ElevateButton" Content="Restart as administrator" Click="OnElevate" HorizontalAlignment="Left" Margin="0,6,0,0" />
+                            <Button x:Name="ElevateButton" Content="{x:Static l:Strings.Common_RestartAsAdmin}" Click="OnElevate" HorizontalAlignment="Left" Margin="0,6,0,0" />
                         </StackPanel>
                     </Border>
                     <!-- Shown in the simple view only while MSI Center is still running. -->
                     <Border x:Name="MsiCard" Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Replacing MSI Center" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.General_ReplacingMsi}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="MsiStatus" Style="{StaticResource Lc.Value}" TextWrapping="Wrap" Margin="0,0,0,8" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" TextWrapping="Wrap">
-                                Wattkin talks to the same firmware interface MSI Center used, so it keeps working after MSI Center is gone. Running both makes them fight over settings. To remove MSI Center:
-                                <LineBreak />1. Turn on "Start with Windows" above, and set your charge limit and profiles.
-                                <LineBreak />2. Settings › Apps › Installed apps: uninstall "MSI Center", then "MSI NBFoundation Service" and "MSI Center SDK".
-                                <LineBreak />3. Restart. Check that the tray watts, charge limit and mic-mute key work.
-                                <LineBreak />MSI's own updates for BIOS/drivers are still available from MSI's support website.
-                            </TextBlock>
+                            <TextBlock Style="{StaticResource Lc.Hint}" TextWrapping="Wrap" Text="{x:Static l:Strings.General_MsiSteps}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="About" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.General_About}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="SupportText" Style="{StaticResource Lc.Value}" TextWrapping="Wrap" Margin="0,0,0,6" />
                             <TextBlock x:Name="AboutText" Style="{StaticResource Lc.Hint}" />
                         </StackPanel>
@@ -280,58 +277,58 @@
         </TabItem>
 
         <!-- ================= Debug ================= -->
-        <TabItem Header="Debug" Tag="debug">
+        <TabItem Header="{x:Static l:Strings.Settings_TabDebug}" Tag="debug">
             <ScrollViewer CanContentScroll="False" VerticalScrollBarVisibility="Auto" Padding="4,8,12,8">
                 <StackPanel>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Fans" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_Fans}" Style="{StaticResource Lc.Section}" />
                             <TextBlock x:Name="DebugFansNow" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" Margin="0,0,0,4" />
                             <TextBlock x:Name="DebugTopSpeed" Style="{StaticResource Lc.Label}" Margin="0,0,0,10" />
-                            <TextBlock Text="Force the fans" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                            <TextBlock Text="{x:Static l:Strings.Debug_ForceFans}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                             <WrapPanel x:Name="FanForcePanel" Margin="0,0,0,8" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,10" Text="A forced mode lasts 5 minutes, then the fans go back to what the profile sets. Closing Wattkin puts them back too. Auto and Silent are the firmware's built-in curves. Curve uses the controller's own fan table (shown under the registers below). Full speed is MSI's Cooler Boost." />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,10" Text="{x:Static l:Strings.Debug_ForceHint}" />
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="MeasureFansButton" Content="Measure top speed" Click="OnMeasureFans" Margin="0,0,8,0" />
-                                <Button x:Name="CompareFansButton" Content="Compare fan modes (2¼ min)" Click="OnCompareFans" />
+                                <Button x:Name="MeasureFansButton" Content="{x:Static l:Strings.Debug_MeasureTopSpeed}" Click="OnMeasureFans" Margin="0,0,8,0" />
+                                <Button x:Name="CompareFansButton" Content="{x:Static l:Strings.Debug_CompareFans}" Click="OnCompareFans" />
                             </StackPanel>
                             <TextBlock x:Name="FanTestText" Style="{StaticResource Lc.Value}" TextWrapping="Wrap" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Battery and charger" Style="{StaticResource Lc.Section}" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="Runs the laptop from its battery for 2 minutes with the charger still connected, using the same switch as calibration. The watts are then measured, not estimated. It stops by itself." />
+                            <TextBlock Text="{x:Static l:Strings.Debug_BatteryCharger}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="{x:Static l:Strings.Debug_RunOnBatteryHint}" />
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="RunOnBatteryButton" Content="Run from the battery for 2 minutes" Click="OnRunOnBattery" Margin="0,0,8,0" />
-                                <Button x:Name="StopOnBatteryButton" Content="Stop" Click="OnStopOnBattery" />
+                                <Button x:Name="RunOnBatteryButton" Content="{x:Static l:Strings.Debug_RunOnBattery}" Click="OnRunOnBattery" Margin="0,0,8,0" />
+                                <Button x:Name="StopOnBatteryButton" Content="{x:Static l:Strings.Common_Stop}" Click="OnStopOnBattery" />
                             </StackPanel>
                             <TextBlock x:Name="OnBatteryText" Style="{StaticResource Lc.Value}" Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Lights and messages" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Text="{x:Static l:Strings.Debug_LightsMessages}" Style="{StaticResource Lc.Section}" />
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="TestLightsButton" Content="Flash the key lights and backlight" Click="OnTestLights" Margin="0,0,8,0" />
-                                <Button Content="Show a test message" Click="OnTestOsd" />
+                                <Button x:Name="TestLightsButton" Content="{x:Static l:Strings.Debug_FlashLights}" Click="OnTestLights" Margin="0,0,8,0" />
+                                <Button Content="{x:Static l:Strings.Debug_TestMessage}" Click="OnTestOsd" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Controller registers (read only)" Style="{StaticResource Lc.Section}" />
-                            <TextBlock x:Name="RegistersText" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" TextWrapping="Wrap" Text="Reading…" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" Text="What the embedded controller holds right now, read every few seconds while this tab is open." />
+                            <TextBlock Text="{x:Static l:Strings.Debug_Registers}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock x:Name="RegistersText" FontFamily="{DynamicResource Lc.Mono}" FontSize="12.5" TextWrapping="Wrap" Text="{x:Static l:Strings.Common_Reading}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" Text="{x:Static l:Strings.Debug_RegistersHint}" />
                         </StackPanel>
                     </Border>
                     <Border Style="{StaticResource Lc.Card}">
                         <StackPanel>
-                            <TextBlock Text="Diagnostics" Style="{StaticResource Lc.Section}" />
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="A text report of the firmware, sensors and every controller register, for a bug report. It only reads, and doesn't wake the RTX. Takes about 15 seconds." />
+                            <TextBlock Text="{x:Static l:Strings.Common_Diagnostics}" Style="{StaticResource Lc.Section}" />
+                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,0,0,8" Text="{x:Static l:Strings.Debug_DiagnosticsHint}" />
                             <StackPanel Orientation="Horizontal">
-                                <Button x:Name="DiagnosticsButton" Content="Save diagnostics report" Click="OnDiagnostics" Margin="0,0,8,0" />
-                                <Button Content="Open log" Click="OnOpenLog" />
+                                <Button x:Name="DiagnosticsButton" Content="{x:Static l:Strings.Debug_SaveReport}" Click="OnDiagnostics" Margin="0,0,8,0" />
+                                <Button Content="{x:Static l:Strings.Debug_OpenLog}" Click="OnOpenLog" />
                             </StackPanel>
                         </StackPanel>
                     </Border>
@@ -344,9 +341,9 @@
 
     <!-- On the tab strip's empty right side. -->
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,10,20,0">
-        <TextBlock Text="View" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
-        <RadioButton x:Name="SimpleViewButton" Content="Simple" GroupName="view" Style="{StaticResource Lc.Segment}" Checked="OnViewChanged" />
-        <RadioButton x:Name="ExpertViewButton" Content="Expert" GroupName="view" Style="{StaticResource Lc.Segment}" Checked="OnViewChanged" />
+        <TextBlock Text="{x:Static l:Strings.Settings_View}" Style="{StaticResource Lc.Label}" VerticalAlignment="Center" Margin="0,0,8,0" />
+        <RadioButton x:Name="SimpleViewButton" Content="{x:Static l:Strings.Settings_Simple}" GroupName="view" Style="{StaticResource Lc.Segment}" Checked="OnViewChanged" />
+        <RadioButton x:Name="ExpertViewButton" Content="{x:Static l:Strings.Settings_Expert}" GroupName="view" Style="{StaticResource Lc.Segment}" Checked="OnViewChanged" />
     </StackPanel>
     </Grid>
 </Window>

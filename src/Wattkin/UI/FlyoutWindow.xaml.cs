@@ -19,6 +19,7 @@ public partial class FlyoutWindow : Window
     private DateTime _hiddenAtUtc;
 
     private Rect _anchorArea;
+    private bool _discarded;
 
     public FlyoutWindow()
     {
@@ -27,11 +28,14 @@ public partial class FlyoutWindow : Window
         Deactivated += (_, _) => HideFlyout();
         ProfilePanel.Picked += profile => ProfileDetails.Text = Fmt.ProfileDetails(profile);
 
-        // Alt+F4 hides instead of destroying the one flyout the app reuses.
+        // Alt+F4 hides instead of destroying the one flyout the app reuses (until it's discarded).
         Closing += (_, e) =>
         {
-            e.Cancel = true;
-            HideFlyout();
+            if (!_discarded)
+            {
+                e.Cancel = true;
+                HideFlyout();
+            }
         };
 
         // Release live updates however the window got hidden.
@@ -51,10 +55,21 @@ public partial class FlyoutWindow : Window
 
         // Content can grow after showing (e.g. a banner appears); keep the bottom edge anchored.
         SizeChanged += (_, _) => Anchor();
-        App.Current.Hardware.StateChanged += () => Dispatcher.BeginInvoke(RefreshIfVisible);
-        App.Current.Store.Changed += () => Dispatcher.BeginInvoke(RefreshIfVisible);
+        App.Current.Hardware.StateChanged += OnChanged;
+        App.Current.Store.Changed += OnChanged;
         BuildStaticSegments();
     }
+
+    /// <summary>Closes it for good: the app builds a new one (in another language).</summary>
+    public void Discard()
+    {
+        _discarded = true;
+        App.Current.Hardware.StateChanged -= OnChanged;
+        App.Current.Store.Changed -= OnChanged;
+        Close();
+    }
+
+    private void OnChanged() => Dispatcher.BeginInvoke(RefreshIfVisible);
 
     private void RefreshIfVisible()
     {
@@ -133,21 +148,21 @@ public partial class FlyoutWindow : Window
         WattsText.Text = Fmt.WattsNumber(p.WattsNow);
         WattsCaption.Text = p.Source switch
         {
-            PowerSource.BatteryMeasured => "On battery",
-            PowerSource.AcEstimated => "On the charger · estimated",
-            PowerSource.AcCpuOnly => "On the charger · CPU only",
+            PowerSource.BatteryMeasured => Strings.Common_OnBattery,
+            PowerSource.AcEstimated => Strings.Flyout_OnChargerEstimated,
+            PowerSource.AcCpuOnly => Strings.Flyout_OnChargerCpuOnly,
             _ => "",
         };
         PercentText.Text = Fmt.Percent(p.Percent);
         BatteryLine.Text = p switch
         {
             { Percent: null } => "",
-            { Source: PowerSource.BatteryMeasured, TimeToEmpty: { } left } => $"{Fmt.Duration(Fmt.Steady(left))} left",
-            { Source: PowerSource.BatteryMeasured } => "Estimating…",
-            { Charging: true, TimeToTarget: { } full } => $"Charging · {Fmt.Duration(Fmt.Steady(full))}",
-            { Charging: true } => "Charging",
-            { UnpluggedRuntimeEstimate: { } est } => $"≈{Fmt.Duration(Fmt.Steady(est))} on battery",
-            _ => "Plugged in",
+            { Source: PowerSource.BatteryMeasured, TimeToEmpty: { } left } => string.Format(Strings.Fmt_TimeLeft, Fmt.Duration(Fmt.Steady(left))),
+            { Source: PowerSource.BatteryMeasured } => Strings.Fmt_Estimating,
+            { Charging: true, TimeToTarget: { } full } => string.Format(Strings.Flyout_ChargingFor, Fmt.Duration(Fmt.Steady(full))),
+            { Charging: true } => Strings.Fmt_Charging,
+            { UnpluggedRuntimeEstimate: { } est } => string.Format(Strings.Flyout_OnBatteryEstimate, Fmt.Duration(Fmt.Steady(est))),
+            _ => Strings.Fmt_PluggedIn,
         };
         HeadlineDetails.Text = HeadlineTooltip(s, app);
         Spark.SetPoints(app.History.Snapshot());
@@ -155,27 +170,27 @@ public partial class FlyoutWindow : Window
         // CPU: usage on the left; package watts, clocks and temperature on the right, inside the bar.
         var cpu = s.Cpu;
         var temp = s.Sensors?.CpuTempC is { } t ? Fmt.Temp(t) : Fmt.Temp(s.ThermalZoneC);
-        CpuBar.Set(cpu.UsagePercent / 100, $"{cpu.UsagePercent:0}%", Fmt.Join(p.CpuPackageWatts is { } pkg ? Fmt.Watts(pkg) : null, Fmt.GHz(cpu.AverageMHz), temp));
+        CpuBar.Set(cpu.UsagePercent / 100, Fmt.Percent(cpu.UsagePercent), Fmt.Join(p.CpuPackageWatts is { } pkg ? Fmt.Watts(pkg) : null, Fmt.GHz(cpu.AverageMHz), temp));
 
         // Fans: the faster one, against its measured top speed (or the fastest it has been seen to spin).
         var settings = app.Store.Current;
         if (s.Sensors is { } sensors && (sensors.Fan1Rpm is not null || sensors.Fan2Rpm is not null))
         {
             var (rpm, max) = (sensors.Fan1Rpm ?? 0) >= (sensors.Fan2Rpm ?? 0) ? (sensors.Fan1Rpm ?? 0, settings.Fan1MaxRpm) : (sensors.Fan2Rpm ?? 0, settings.Fan2MaxRpm);
-            FanBar.Set(rpm / (double)Math.Max(max ?? 0, MinimumFanMax), rpm > 0 ? $"{rpm:N0} rpm" : "Off");
+            FanBar.Set(rpm / (double)Math.Max(max ?? 0, MinimumFanMax), rpm > 0 ? string.Format(Strings.Unit_Rpm, Fmt.Rpm(rpm)) : Strings.Flyout_FansStopped);
         }
         else
         {
-            FanBar.Set(null, Elevation.IsElevated ? "—" : "Needs administrator");
+            FanBar.Set(null, Elevation.IsElevated ? "—" : Strings.Flyout_NeedsAdmin);
         }
 
         var mem = s.Memory;
-        RamBar.Set(mem.LoadPercent / 100.0, $"{Fmt.Bytes(mem.UsedBytes)} of {Fmt.Bytes(mem.TotalBytes)}", $"{mem.LoadPercent}%");
+        RamBar.Set(mem.LoadPercent / 100.0, string.Format(Strings.Flyout_RamUsed, Fmt.Bytes(mem.UsedBytes), Fmt.Bytes(mem.TotalBytes)), Fmt.Percent(mem.LoadPercent));
 
         var read = s.Disks.Sum(d => d.ReadBytesPerSec);
         var write = s.Disks.Sum(d => d.WriteBytesPerSec);
         var busy = s.Disks.Count > 0 ? s.Disks.Max(d => d.ActivePercent) : 0;
-        DiskBar.Set(busy / 100, $"↓ {Fmt.Rate(read)}   ↑ {Fmt.Rate(write)}", $"{busy:0}%");
+        DiskBar.Set(busy / 100, $"↓ {Fmt.Rate(read)}   ↑ {Fmt.Rate(write)}", Fmt.Percent(busy));
 
         UpdateGpus(s);
         ChargeStatus.Text = app.Hardware.State.Calibration?.Message ?? "";
@@ -188,30 +203,30 @@ public partial class FlyoutWindow : Window
         var integrated = s.Gpus.FirstOrDefault(g => !g.Adapter.Discrete);
         var discrete = s.Gpus.FirstOrDefault(g => g.Adapter.Discrete);
         Gpu1Label.Text = integrated?.Adapter.ShortName ?? "iGPU";
-        Gpu1Bar.Set(integrated?.Percent / 100, integrated is null ? "—" : $"{integrated.Percent:0}%", integrated?.Watts is { } igpuWatts ? Fmt.Watts(igpuWatts) : "");
+        Gpu1Bar.Set(integrated?.Percent / 100, integrated is null ? "—" : Fmt.Percent(integrated.Percent), integrated?.Watts is { } igpuWatts ? Fmt.Watts(igpuWatts) : "");
 
         var hasDiscrete = s.Dgpu.State != DgpuState.None;
         Gpu2Label.Visibility = Gpu2Bar.Visibility = hasDiscrete ? Visibility.Visible : Visibility.Collapsed;
         Gpu1Bar.Margin = new Thickness(0, 0, 0, hasDiscrete ? 6 : 0);
-        Gpu1Label.Margin = Gpu1Bar.Margin;
+        Gpu1Label.Margin = new Thickness(0, 0, 10, Gpu1Bar.Margin.Bottom);
         Gpu2Label.Text = (discrete?.Adapter.Name ?? s.Dgpu.Name ?? "").Contains("RTX", StringComparison.OrdinalIgnoreCase) ? "RTX" : "dGPU";
         var gpuTemp = s.Sensors?.GpuTempC is { } gt ? Fmt.Temp(gt) : null;
         switch (s.Dgpu.State)
         {
             case DgpuState.Active:
-                Gpu2Bar.Set((discrete?.Percent ?? 0) / 100, $"{discrete?.Percent ?? 0:0}%", Fmt.Join(discrete?.Watts is { } w ? Fmt.Watts(w) : null, gpuTemp));
+                Gpu2Bar.Set((discrete?.Percent ?? 0) / 100, Fmt.Percent(discrete?.Percent ?? 0), Fmt.Join(discrete?.Watts is { } w ? Fmt.Watts(w) : null, gpuTemp));
                 break;
             case DgpuState.Sleeping:
-                Gpu2Bar.Set(0, "Asleep");
+                Gpu2Bar.Set(0, Strings.Fmt_DgpuAsleep);
                 break;
             case DgpuState.RemovedByFirmware:
-                Gpu2Bar.Set(0, "Off · Integrated only");
+                Gpu2Bar.Set(0, Strings.Flyout_DgpuOffIntegrated);
                 break;
             case DgpuState.DisabledInWindows:
-                Gpu2Bar.Set(0, "Disabled in Windows");
+                Gpu2Bar.Set(0, Strings.Fmt_DgpuDisabled);
                 break;
             default:
-                Gpu2Bar.Set(discrete?.Percent / 100, discrete is null ? "—" : $"{discrete.Percent:0}%");
+                Gpu2Bar.Set(discrete?.Percent / 100, discrete is null ? "—" : Fmt.Percent(discrete.Percent));
                 break;
         }
     }
@@ -223,21 +238,21 @@ public partial class FlyoutWindow : Window
         var lines = new List<string> { Fmt.Sentence(Fmt.PowerHeadline(p)) };
         if (p.CpuPackageWatts is { } pkg)
         {
-            lines.Add($"CPU {Fmt.Watts(pkg)} (cores {Fmt.Watts(s.Cpu.CoresWatts)}, integrated graphics {Fmt.Watts(s.Cpu.GraphicsWatts)})");
+            lines.Add(string.Format(Strings.Flyout_TipCpu, Fmt.Watts(pkg), Fmt.Watts(s.Cpu.CoresWatts), Fmt.Watts(s.Cpu.GraphicsWatts)));
             if (p.Source == PowerSource.BatteryMeasured && p.SystemWatts is { } sys)
             {
-                lines.Add($"Everything else (screen, SSD, Wi-Fi, RTX…) {Fmt.Watts(Math.Max(0, sys - pkg))}");
+                lines.Add(string.Format(Strings.Flyout_TipRest, Fmt.Watts(Math.Max(0, sys - pkg))));
             }
         }
 
         if (p.AverageWatts is { } avg)
         {
-            lines.Add($"Average over the last few minutes {Fmt.Watts(avg)}");
+            lines.Add(string.Format(Strings.Flyout_TipAverage, Fmt.Watts(avg)));
         }
 
         if (p.Session is { AverageWatts: { } sessionAvg } session)
         {
-            lines.Add($"Unplugged {Fmt.Duration(session.Duration)} ago, averaging {Fmt.Watts(sessionAvg)}");
+            lines.Add(string.Format(Strings.Flyout_TipSession, Fmt.Duration(session.Duration), Fmt.Watts(sessionAvg)));
         }
 
         var status = app.Hardware.State.ChargeStatus;
@@ -266,7 +281,7 @@ public partial class FlyoutWindow : Window
         for (var i = 0; i < LimitChoices.Length; i++)
         {
             var limit = LimitChoices[i];
-            var button = Segment($"{limit}%", "limit", limit);
+            var button = Segment(Fmt.Percent(limit), "limit", limit);
             button.Checked += async (_, _) =>
             {
                 if (!_updating)
@@ -278,12 +293,12 @@ public partial class FlyoutWindow : Window
             LimitPanel.Children.Add(button);
         }
 
-        var custom = Segment("Custom…", "limit", -1);
+        var custom = Segment(Strings.Flyout_CustomLimit, "limit", -1);
         custom.Click += (_, _) => App.Current.OpenSettings("battery", expert: true);
         Grid.SetColumn(custom, LimitChoices.Length);
         LimitPanel.Children.Add(custom);
 
-        string[] levels = ["Off", "Low", "Mid", "High"];
+        var levels = Fmt.KeyboardLevels();
         for (var i = 0; i < levels.Length; i++)
         {
             var level = i;
@@ -299,7 +314,7 @@ public partial class FlyoutWindow : Window
         }
 
         _keyboardColors = new ColorSwatches(KeyboardColorPanel, "flyoutKbColor");
-        foreach (var (text, timeout) in new[] { ("Never", KeyboardTimeout.AlwaysOn), ("Always", KeyboardTimeout.AutoOff), ("On battery", KeyboardTimeout.AutoOffOnBattery) })
+        foreach (var (text, timeout) in new[] { (Strings.Flyout_AutoOffNever, KeyboardTimeout.AlwaysOn), (Strings.Flyout_AutoOffAlways, KeyboardTimeout.AutoOff), (Strings.Common_OnBattery, KeyboardTimeout.AutoOffOnBattery) })
         {
             var button = Segment(text, "kbTimeout", timeout);
             button.Checked += async (_, _) =>
@@ -314,7 +329,7 @@ public partial class FlyoutWindow : Window
 
         AutoOffDelayHost.Child = _autoOffDelay.Control;
 
-        foreach (var (text, mode) in new[] { ("Integrated only", FirmwareGpuMode.Integrated), ("Hybrid (RTX)", FirmwareGpuMode.Hybrid) })
+        foreach (var (text, mode) in new[] { (Strings.Flyout_GpuIntegrated, FirmwareGpuMode.Integrated), (Strings.Flyout_GpuHybrid, FirmwareGpuMode.Hybrid) })
         {
             var button = Segment(text, "gpu", mode);
             button.Checked += async (_, _) =>
@@ -345,8 +360,7 @@ public partial class FlyoutWindow : Window
     private void OnRestartForGpu(object sender, RoutedEventArgs e)
     {
         HideFlyout();
-        if (MessageBox.Show("Restart now to switch the graphics mode?\n\nSave your work first. The laptop shuts down fully and starts again by itself. If it stays off, press the power button.",
-                "Wattkin", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+        if (MessageBox.Show(Strings.Graphics_RestartToSwitch, "Wattkin", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
         {
             FirmwareGpuSwitch.ShutDownToApply();
         }
@@ -422,7 +436,7 @@ public partial class FlyoutWindow : Window
 
         // Only something to say while a switch is waiting for the restart.
         GraphicsHint.Text = gpu!.SwitchPending
-            ? gpu.Requested == FirmwareGpuMode.Hybrid ? "The RTX comes back after a restart." : "The RTX switches off after a restart."
+            ? gpu.Requested == FirmwareGpuMode.Hybrid ? Strings.Graphics_RtxBackAfterRestart : Strings.Graphics_RtxOffAfterRestart
             : "";
         GraphicsHint.Visibility = RestartButton.Visibility = gpu.SwitchPending ? Visibility.Visible : Visibility.Collapsed;
     }
@@ -441,8 +455,8 @@ public partial class FlyoutWindow : Window
     {
         (string? text, _bannerAction) = (Elevation.IsElevated, state) switch
         {
-            (false, _) => ("Monitoring works now. Battery limits, profiles, fans and keyboard need administrator rights.", BannerAction.Elevate),
-            (_, { MsiSoftwareRunning: true }) => ("MSI Center is still running and can overwrite these settings. Close or uninstall it.", BannerAction.ShowMsiHelp),
+            (false, _) => (Strings.Flyout_BannerNotAdmin, BannerAction.Elevate),
+            (_, { MsiSoftwareRunning: true }) => (Strings.Flyout_BannerMsi, BannerAction.ShowMsiHelp),
             // Hardware controls are off: a one-click report is what someone needs to help.
             (_, { Problem: { } problem, CanWrite: false }) => (problem, BannerAction.SaveReport),
             _ => ((string?)null, BannerAction.None),
@@ -452,9 +466,9 @@ public partial class FlyoutWindow : Window
         BannerText.Text = text;
         BannerButton.Content = _bannerAction switch
         {
-            BannerAction.Elevate => "Restart as administrator",
-            BannerAction.ShowMsiHelp => "Show me how",
-            BannerAction.SaveReport => "Save a diagnostics report",
+            BannerAction.Elevate => Strings.Common_RestartAsAdmin,
+            BannerAction.ShowMsiHelp => Strings.Flyout_ShowMeHow,
+            BannerAction.SaveReport => Strings.Flyout_SaveReport,
             _ => null,
         };
         BannerButton.Visibility = _bannerAction == BannerAction.None ? Visibility.Collapsed : Visibility.Visible;
@@ -472,10 +486,10 @@ public partial class FlyoutWindow : Window
                 break;
             case BannerAction.SaveReport:
                 BannerButton.IsEnabled = false;
-                BannerButton.Content = "Reading the hardware…";
+                BannerButton.Content = Strings.Common_ReadingHardware;
                 await SaveReportToDesktopAsync();
                 BannerButton.IsEnabled = true;
-                BannerButton.Content = "Save a diagnostics report";
+                BannerButton.Content = Strings.Flyout_SaveReport;
                 break;
         }
     }
@@ -492,7 +506,7 @@ public partial class FlyoutWindow : Window
         catch (Exception ex)
         {
             Log.Error("Diagnostics failed", ex);
-            MessageBox.Show(ex.Message, "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(ex.Message, Strings.Common_Diagnostics, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

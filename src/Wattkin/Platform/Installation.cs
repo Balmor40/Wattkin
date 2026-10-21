@@ -71,7 +71,7 @@ internal static class Installation
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
             Log.Error("Install failed", ex);
-            return $"Couldn't install: {ex.Message}";
+            return string.Format(Strings.Install_CouldNotInstall, ex.Message);
         }
     }
 
@@ -221,7 +221,7 @@ internal static class Installation
                 File.Move(old, Exe, overwrite: true);
             }
 
-            return $"Couldn't replace Wattkin.exe: {ex.Message}";
+            return string.Format(Strings.Install_CouldNotReplace, ex.Message);
         }
     }
 

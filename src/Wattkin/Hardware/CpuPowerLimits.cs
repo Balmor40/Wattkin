@@ -135,16 +135,16 @@ public sealed class PowerLimitSetting
         var top = maxWatts is > MinWatts and < MaxWatts ? (int)maxWatts.Value : MaxWatts;
         if (Pl1Watts < MinWatts || Pl1Watts > top || Pl2Watts < MinWatts || Pl2Watts > top)
         {
-            return $"PL1 and PL2 must be between {MinWatts} and {top} W.";
+            return string.Format(Strings.Power_WattsRange, MinWatts, top);
         }
 
         if (Pl2Watts < Pl1Watts)
         {
-            return "PL2 (bursts) can't be lower than PL1 (sustained).";
+            return Strings.Power_Pl2BelowPl1;
         }
 
         return TurboSeconds is < MinTurboSeconds or > MaxTurboSeconds or double.NaN
-            ? $"The turbo time must be between {MinTurboSeconds:0} and {MaxTurboSeconds:0} seconds."
+            ? string.Format(Strings.Power_TurboRange, MinTurboSeconds, MaxTurboSeconds)
             : null;
     }
 
@@ -165,9 +165,9 @@ public sealed class PowerLimitSetting
         var pl2 = fw.Pl2Enabled && Pl2Watts > fw.Pl2Watts;
         return (pl1, pl2) switch
         {
-            (true, true) => string.Create(CultureInfo.InvariantCulture, $"PL1 and PL2 are above what the firmware allows under Balanced ({fw.Pl1Watts:0.#} W and {fw.Pl2Watts:0.#} W): the processor stays under those."),
-            (true, false) => string.Create(CultureInfo.InvariantCulture, $"PL1 is above the {fw.Pl1Watts:0.#} W the firmware allows under Balanced: the processor stays under it."),
-            (false, true) => string.Create(CultureInfo.InvariantCulture, $"PL2 is above the {fw.Pl2Watts:0.#} W the firmware allows under Balanced: the processor stays under it."),
+            (true, true) => string.Format(Strings.Power_BothAboveFirmware, fw.Pl1Watts, fw.Pl2Watts),
+            (true, false) => string.Format(Strings.Power_Pl1AboveFirmware, fw.Pl1Watts),
+            (false, true) => string.Format(Strings.Power_Pl2AboveFirmware, fw.Pl2Watts),
             _ => null,
         };
     }

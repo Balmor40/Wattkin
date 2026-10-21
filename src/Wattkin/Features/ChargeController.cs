@@ -17,7 +17,7 @@ internal sealed class ChargeController
 
     public ChargeController(SettingsStore store) => _store = store;
 
-    public string Status { get; private set; } = "Waiting for battery data";
+    public string Status { get; private set; } = Strings.Charge_Waiting;
 
     /// <param name="simulatingNow">EC 0xBF bit0 as read just now. While it's set, Windows reports battery power even though the charger is connected.</param>
     public ChargeTarget? Decide(Snapshot snapshot, bool simulatingNow)
@@ -44,7 +44,7 @@ internal sealed class ChargeController
 
         if (decision.FullChargeDone && !fullDone)
         {
-            Status = "Checking the battery is full…";
+            Status = Strings.Charge_CheckingFull;
             return new ChargeTarget(ChargePolicy.Max, false);
         }
 

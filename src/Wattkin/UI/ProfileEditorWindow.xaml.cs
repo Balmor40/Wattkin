@@ -98,7 +98,7 @@ public partial class ProfileEditorWindow : Window
         TurboTimeBox.Items.Clear();
         foreach (var seconds in PackagePowerLimit.TurboTimeChoices(units))
         {
-            TurboTimeBox.Items.Add(Item($"{seconds} s", seconds));
+            TurboTimeBox.Items.Add(Item(string.Format(Strings.Unit_Seconds, seconds), seconds));
         }
     }
 
@@ -128,30 +128,28 @@ public partial class ProfileEditorWindow : Window
 
         if (_cpuPower is not { } power)
         {
-            ManualStatus.Text = "Reading the processor's power limits…";
+            ManualStatus.Text = Strings.Editor_ReadingLimits;
             return;
         }
 
         if (!power.Available)
         {
-            ManualStatus.Text = $"{power.Problem} Manual limits are kept with the profile and apply once Wattkin can reach them.";
+            ManualStatus.Text = string.Format(Strings.Editor_LimitsUnavailable, power.Problem);
             return;
         }
 
         var lines = new List<string>();
         if (power.Msr is { } now)
         {
-            lines.Add($"Now: {now.Describe()}.");
+            lines.Add(string.Format(Strings.Editor_LimitsNow, Fmt.Limits(now)));
         }
 
         if (power.Bios is { } bios)
         {
-            lines.Add($"BIOS: {bios.Describe()}.");
+            lines.Add(string.Format(Strings.Editor_LimitsBios, Fmt.Limits(bios)));
         }
 
-        lines.Add(ManualCeiling is { } ceiling
-            ? $"Manual also sets MSI's mode to Balanced, under which the firmware allows {ceiling.Describe()}: Manual can go below that, not above."
-            : "Manual also sets MSI's mode to Balanced, which sets a ceiling of its own: Wattkin shows it here once a profile has run in Balanced.");
+        lines.Add(ManualCeiling is { } ceiling ? string.Format(Strings.Editor_ManualCeiling, Fmt.Limits(ceiling)) : Strings.Editor_ManualCeilingUnknown);
         ManualStatus.Text = string.Join(" ", lines);
     }
 
@@ -166,55 +164,55 @@ public partial class ProfileEditorWindow : Window
     private void BuildChoices()
     {
         var caps = App.Current.Hardware.State.Caps;
-        ShiftBox.Items.Add(Item("Leave as is (for limits set in the BIOS or ThrottleStop)", null));
-        ShiftBox.Items.Add(Item("Eco: lowest limits (MSI Super Battery)", ShiftMode.Eco));
-        ShiftBox.Items.Add(Item("Balanced (MSI Balanced / Silent)", ShiftMode.Balanced));
+        ShiftBox.Items.Add(Item(Strings.Editor_ShiftLeave, null));
+        ShiftBox.Items.Add(Item(Strings.Editor_ShiftEco, ShiftMode.Eco));
+        ShiftBox.Items.Add(Item(Strings.Editor_ShiftBalanced, ShiftMode.Balanced));
         if (caps?.HasSportMode != false)
         {
-            ShiftBox.Items.Add(Item("Sport: between Balanced and Extreme (YAMDCC's Balanced)", ShiftMode.Sport));
+            ShiftBox.Items.Add(Item(Strings.Editor_ShiftSport, ShiftMode.Sport));
         }
 
-        ShiftBox.Items.Add(Item("Extreme: highest limits (MSI Extreme Performance)", ShiftMode.Turbo));
-        ShiftBox.Items.Add(Item("Manual: set PL1, PL2 and the turbo time", ManualTag));
+        ShiftBox.Items.Add(Item(Strings.Editor_ShiftExtreme, ShiftMode.Turbo));
+        ShiftBox.Items.Add(Item(Strings.Editor_ShiftManual, ManualTag));
         FillTurboTimes(RaplUnits.Typical);
 
-        MaxFreqBox.Items.Add(Item("Leave as is", null));
-        MaxFreqBox.Items.Add(Item("No cap", (int?)0));
+        MaxFreqBox.Items.Add(Item(Strings.Common_LeaveAsIs, null));
+        MaxFreqBox.Items.Add(Item(Strings.Editor_NoCap, (int?)0));
         foreach (var mhz in new[] { 1500, 1800, 2000, 2200, 2400, 2600, 2800, 3000, 3300, 3600, 4000, 4400 })
         {
-            MaxFreqBox.Items.Add(Item($"{mhz / 1000.0:0.0#} GHz", (int?)mhz));
+            MaxFreqBox.Items.Add(Item(Fmt.Gigahertz(mhz), (int?)mhz));
         }
 
-        EppBox.Items.Add(Item("Leave as is", null));
-        foreach (var (value, text) in new[] { (0, "0: performance first"), (20, "20"), (33, "33"), (50, "50: balanced"), (70, "70"), (85, "85"), (100, "100: efficiency first") })
+        EppBox.Items.Add(Item(Strings.Common_LeaveAsIs, null));
+        foreach (var (value, text) in new[] { (0, Strings.Editor_EppPerformance), (20, "20"), (33, "33"), (50, Strings.Editor_EppBalanced), (70, "70"), (85, "85"), (100, Strings.Editor_EppEfficiency) })
         {
             EppBox.Items.Add(Item(text, (int?)value));
         }
 
-        TurboBox.Items.Add(Item("Leave as is", null));
-        TurboBox.Items.Add(Item("On", true));
-        TurboBox.Items.Add(Item("Off: base clock only, much cooler and quieter", false));
+        TurboBox.Items.Add(Item(Strings.Common_LeaveAsIs, null));
+        TurboBox.Items.Add(Item(Strings.Editor_TurboOn, true));
+        TurboBox.Items.Add(Item(Strings.Editor_TurboOff, false));
 
-        MaxCpuBox.Items.Add(Item("Leave as is", null));
+        MaxCpuBox.Items.Add(Item(Strings.Common_LeaveAsIs, null));
         foreach (var value in new[] { 100, 99, 90, 80, 70, 60, 50 })
         {
-            MaxCpuBox.Items.Add(Item(value == 99 ? "99% (no turbo)" : $"{value}%", (int?)value));
+            MaxCpuBox.Items.Add(Item(value == 99 ? string.Format(Strings.Editor_MaxStateNoTurbo, Fmt.Percent(value)) : Fmt.Percent(value), (int?)value));
         }
 
-        RefreshBox.Items.Add(Item("Leave as is", null));
+        RefreshBox.Items.Add(Item(Strings.Common_LeaveAsIs, null));
         foreach (var hz in DisplayModes.SupportedRefreshRates())
         {
             RefreshBox.Items.Add(Item($"{hz} Hz", (int?)hz));
         }
 
-        KeyboardBox.Items.Add(Item("Leave as is", null));
-        string[] levels = ["Off", "Low", "Mid", "High"];
+        KeyboardBox.Items.Add(Item(Strings.Common_LeaveAsIs, null));
+        var levels = Fmt.KeyboardLevels();
         for (var i = 0; i < levels.Length; i++)
         {
             KeyboardBox.Items.Add(Item(levels[i], (int?)i));
         }
 
-        foreach (var (text, mode) in new (string, FanMode?)[] { ("Auto", FanMode.Auto), ("Silent", FanMode.Silent), ("Custom curve", FanMode.Custom), ("Leave as is", null) })
+        foreach (var (text, mode) in new (string, FanMode?)[] { (Strings.Fan_Auto, FanMode.Auto), (Strings.Fan_Silent, FanMode.Silent), (Strings.Editor_FanCustom, FanMode.Custom), (Strings.Common_LeaveAsIs, null) })
         {
             var button = new RadioButton { Content = text, Style = (Style)FindResource("Lc.Segment"), GroupName = "fanmode", Tag = mode, Margin = new Thickness(2, 0, 2, 0) };
             button.Checked += (_, _) =>
@@ -239,8 +237,8 @@ public partial class ProfileEditorWindow : Window
         _loading = true;
         try
         {
-            Title = $"Edit profile: {profile.Name}";
-            SlotTitle.Text = $"Profile {_slot + 1} of {AppSettings.ProfileSlots}";
+            Title = string.Format(Strings.Editor_TitleNamed, profile.Name);
+            SlotTitle.Text = string.Format(Strings.Editor_Slot, _slot + 1, AppSettings.ProfileSlots);
             NameBox.Text = profile.Name;
             if (profile.PowerLimits is { } limits)
             {
@@ -251,16 +249,16 @@ public partial class ProfileEditorWindow : Window
             }
             else
             {
-                Select(ShiftBox, profile.Performance, t => $"{t} (not offered by this laptop)");
+                Select(ShiftBox, profile.Performance, t => string.Format(Strings.Editor_NotOffered, Fmt.Shift((ShiftMode)t)));
                 Select(TurboTimeBox, NearestTurboTime(28));
             }
 
             ManualPanel.Visibility = profile.PowerLimits is null ? Visibility.Collapsed : Visibility.Visible;
             Select(TurboBox, profile.CpuBoost);
             Select(MaxCpuBox, profile.MaxCpuPercent);
-            Select(MaxFreqBox, profile.MaxFrequencyMHz, t => $"{(int)t / 1000.0:0.0#} GHz");
+            Select(MaxFreqBox, profile.MaxFrequencyMHz, t => Fmt.Gigahertz((int)t));
             Select(EppBox, profile.EnergyPreference, t => $"{t}");
-            Select(RefreshBox, profile.RefreshRate, t => $"{t} Hz (built-in screen off right now)");
+            Select(RefreshBox, profile.RefreshRate, t => string.Format(Strings.Editor_RefreshUnavailable, t));
             Select(KeyboardBox, profile.KeyboardLevel);
             foreach (RadioButton button in FanModePanel.Children)
             {
@@ -318,21 +316,21 @@ public partial class ProfileEditorWindow : Window
         var mode = SelectedFanMode;
         var custom = FanModeChosen && mode == FanMode.Custom;
         FanHint.Text = !FanModeChosen ? ""
-            : CoolerBoostBox.IsChecked == true ? "The fans run flat out while this profile is on."
+            : CoolerBoostBox.IsChecked == true ? Strings.Editor_FanHintBoost
             : mode switch
             {
-                FanMode.Auto => "The laptop's own fan behaviour (the firmware decides).",
-                FanMode.Silent => "The laptop's own quieter behaviour (the firmware decides).",
-                FanMode.Custom => "The curve below: each fan's speed at each step, and when it steps up and back down.",
-                _ => "This profile leaves the fans as they are.",
+                FanMode.Auto => Strings.Editor_FanHintAuto,
+                FanMode.Silent => Strings.Editor_FanHintSilent,
+                FanMode.Custom => Strings.Editor_FanHintCustom,
+                _ => Strings.Editor_FanHintLeave,
             };
 
         CurvePanel.Visibility = custom ? Visibility.Visible : Visibility.Collapsed;
         LaptopCurveButton.IsEnabled = HasOwnCurveNow;
-        CurveIntro.Text = !_firmwareRead ? "Reading the laptop's fan table…"
-            : !CurveAvailable ? "Custom curves need administrator rights and a fan table Wattkin can read on this laptop."
-            : HasOwnCurveNow ? "This profile's own curve."
-            : "This profile uses the laptop's curve, shown below. Change anything to give it a curve of its own.";
+        CurveIntro.Text = !_firmwareRead ? Strings.Editor_CurveReading
+            : !CurveAvailable ? Strings.Editor_CurveUnavailable
+            : HasOwnCurveNow ? Strings.Editor_CurveOwn
+            : Strings.Editor_CurveLaptop;
         UpdateProblem();
     }
 
@@ -397,9 +395,7 @@ public partial class ProfileEditorWindow : Window
             return true;
         }
 
-        if (MessageBox.Show(this,
-                "This is experimental.\n\nNormally Wattkin makes sure the fans keep ahead of the heat: speeds never drop as it gets hotter, the fans run by the step before the hottest, and fast at the hottest. Allowing this lets you save curves that let the laptop run hot enough to slow itself down (thermal throttling).\n\nKeep an eye on your temperatures in the flyout.",
-                "Fans", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+        if (MessageBox.Show(this, Strings.Editor_ExperimentalWarning, Strings.Common_Fans, MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
         {
             return false;
         }
@@ -417,12 +413,12 @@ public partial class ProfileEditorWindow : Window
         var settings = App.Current.Store.Current;
         var current = settings.Profiles[_slot];
         var name = NameBox.Text.Trim();
-        var problem = name.Length == 0 ? "Give the profile a name."
-            : !string.Equals(settings.UniqueName(name, _slot), name, StringComparison.OrdinalIgnoreCase) ? $"Another profile is already called \"{name}\"."
+        var problem = name.Length == 0 ? Strings.Editor_NeedsName
+            : !string.Equals(settings.UniqueName(name, _slot), name, StringComparison.OrdinalIgnoreCase) ? string.Format(Strings.Editor_NameTaken, name)
             : ManualProblem() ?? CurveProblemText();
         if (problem is not null)
         {
-            MessageBox.Show(this, problem, "Profile", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, problem, Strings.Common_Profile, MessageBoxButton.OK, MessageBoxImage.Warning);
             return null;
         }
 
@@ -516,7 +512,7 @@ public partial class ProfileEditorWindow : Window
     private async void OnReset(object sender, RoutedEventArgs e)
     {
         var fresh = Profile.Default(_slot);
-        if (MessageBox.Show(this, $"Put this profile back to how Wattkin ships it, \"{fresh.Name}\" included?\n\n{Fmt.ProfileDetails(fresh)}", "Reset profile", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(this, string.Format(Strings.Editor_ConfirmReset, fresh.Name, Fmt.ProfileDetails(fresh)), Strings.Editor_ResetTitle, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
         {
             return;
         }

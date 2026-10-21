@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using Wattkin.Hardware;
@@ -21,9 +20,9 @@ public sealed class FanCurveEditor : StackPanel
 
     public FanCurveEditor()
     {
-        Children.Add(Header("CPU fan"));
+        Children.Add(Header(Strings.Fans_Cpu));
         Children.Add(_cpuGrid);
-        Children.Add(Header("GPU fan", top: 10));
+        Children.Add(Header(Strings.Fans_Gpu, top: 10));
         Children.Add(_gpuGrid);
     }
 
@@ -70,7 +69,7 @@ public sealed class FanCurveEditor : StackPanel
         {
             if (speeds[^1] > top)
             {
-                return $"The {name} fan can't be faster than {top}% here: the hottest step is fixed at {top}%.";
+                return string.Format(Strings.Fans_FixedTop, name, Fmt.Percent(top));
             }
         }
 
@@ -101,7 +100,7 @@ public sealed class FanCurveEditor : StackPanel
                 Value = value,
                 IsEnabled = !fixedStep,
                 HorizontalAlignment = HorizontalAlignment.Center,
-                ToolTip = fixedStep ? "Fixed by the laptop's firmware" : null,
+                ToolTip = fixedStep ? Strings.Fans_FixedTip : null,
             };
             slider.ValueChanged += (_, _) =>
             {
@@ -113,8 +112,8 @@ public sealed class FanCurveEditor : StackPanel
             };
 
             // Below the first step, then "from" each step; the hottest one is the firmware's.
-            var temp = i == 0 ? $"<{table.Temps[0]}°C" : $"{table.Temps[i - 1]}°C";
-            var caption = new TextBlock { Text = fixedStep ? temp + "\nfixed" : temp, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 };
+            var temp = i == 0 ? "<" + Fmt.Temp(table.Temps[0]) : Fmt.Temp(table.Temps[i - 1]);
+            var caption = new TextBlock { Text = fixedStep ? temp + "\n" + Strings.Fans_Fixed : temp, TextAlignment = TextAlignment.Center, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 4, 0, 0), FontSize = 11.5 };
             caption.SetResourceReference(TextBlock.ForegroundProperty, "Lc.SubText");
 
             var column = new StackPanel();
@@ -130,7 +129,7 @@ public sealed class FanCurveEditor : StackPanel
         }
     }
 
-    private static string Percent(int value) => value == 0 ? "off" : value.ToString(CultureInfo.CurrentCulture) + "%";
+    private static string Percent(int value) => value == 0 ? Strings.Fmt_FanOff : Fmt.Percent(value);
 
     private static TextBlock Header(string text, double top = 0)
     {

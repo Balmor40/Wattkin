@@ -33,7 +33,7 @@ public partial class SimpleSettings : UserControl
         };
         foreach (var limit in Limits)
         {
-            var button = Segment($"{limit}%", "simpleLimit", limit);
+            var button = Segment(Fmt.Percent(limit), "simpleLimit", limit);
             button.Checked += async (_, _) =>
             {
                 if (!_loading)
@@ -44,7 +44,7 @@ public partial class SimpleSettings : UserControl
             LimitPanel.Children.Add(button);
         }
 
-        string[] levels = ["Off", "Low", "Mid", "High"];
+        var levels = Fmt.KeyboardLevels();
         for (var i = 0; i < levels.Length; i++)
         {
             var level = i;
@@ -62,8 +62,9 @@ public partial class SimpleSettings : UserControl
         _keyboardColors = new ColorSwatches(KeyboardColorPanel, "simpleKbColor");
         AutoOffDelayHost.Child = _autoOffDelay.Control;
         Choices.FillTrayDisplay(TrayChoice);
+        Choices.FillLanguages(LanguageChoice);
 
-        foreach (var (text, mode) in new[] { ("Integrated", FirmwareGpuMode.Integrated), ("Hybrid", FirmwareGpuMode.Hybrid) })
+        foreach (var (text, mode) in new[] { (Strings.Simple_GpuIntegrated, FirmwareGpuMode.Integrated), (Strings.Simple_GpuHybrid, FirmwareGpuMode.Hybrid) })
         {
             var button = Segment(text, "simpleGpu", mode);
             button.Checked += async (_, _) =>
@@ -75,7 +76,7 @@ public partial class SimpleSettings : UserControl
                     GpuPanel.IsEnabled = true;
                     if (error is not null)
                     {
-                        MessageBox.Show(Window.GetWindow(this), error, "Graphics", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        MessageBox.Show(Window.GetWindow(this), error, Strings.Common_Graphics, MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
 
                     RefreshState();
@@ -90,6 +91,13 @@ public partial class SimpleSettings : UserControl
 
     private RadioButton Segment(string text, string group, object tag) =>
         new() { Content = text, Style = (Style)FindResource("Lc.Segment"), GroupName = group, Tag = tag, Margin = new Thickness(2, 0, 2, 0), Padding = new Thickness(6, 6, 6, 6) };
+
+    /// <summary>Scrolled where <paramref name="old"/> was, once laid out: this page replaces it (in another language).</summary>
+    public void KeepScrollOf(SimpleSettings old)
+    {
+        var offset = old.Scroller.VerticalOffset;
+        Loaded += (_, _) => Scroller.ScrollToVerticalOffset(offset);
+    }
 
     // ---- loading ------------------------------------------------------------------------------
 
@@ -121,12 +129,13 @@ public partial class SimpleSettings : UserControl
             Choices.Select(DcProfile, s.BatteryProfile ?? "");
             AcText.Text = Describe(s.FindProfile(s.AcProfile));
             DcText.Text = Describe(s.FindProfile(s.BatteryProfile))
-                + (s.AutoSwitchProfiles && s.LowBatteryThreshold > 0 && s.LowBatteryProfile is { } low ? $" At {s.LowBatteryThreshold}% or less it switches to {low} by itself." : "");
+                + (s.AutoSwitchProfiles && s.LowBatteryThreshold > 0 && s.LowBatteryProfile is { } low ? " " + string.Format(Strings.Simple_LowBatterySwitch, Fmt.Percent(s.LowBatteryThreshold), low) : "");
 
             AutoOffToggle.IsChecked = s.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
             _keyboardColors.Show(s.KeyboardColor);
             _autoOffDelay.Show(s.KeyboardAutoOffSeconds);
             Choices.Select(TrayChoice, s.TrayDisplay);
+            Choices.Select(LanguageChoice, s.Language);
             TrayText.Text = TrayDescription(s.TrayDisplay, Elevation.IsElevated);
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
         }
@@ -136,36 +145,36 @@ public partial class SimpleSettings : UserControl
         }
     }
 
-    private static string Describe(Profile? p) => p is null ? "Keeps whichever profile is on." : char.ToUpperInvariant(Fmt.ProfileSummary(p)[0]) + Fmt.ProfileSummary(p)[1..] + ".";
+    private static string Describe(Profile? p) => p is null ? Strings.Simple_KeepsProfile : Fmt.Sentence(Fmt.ProfileSummary(p)) + ".";
 
     /// <param name="elevated">The CPU temperature comes from the EC, which only an administrator can read.</param>
     private static string TrayDescription(TrayDisplay display, bool elevated) => display switch
     {
-        TrayDisplay.Logo => "Wattkin's logo. Point at it for the watts and the battery.",
-        TrayDisplay.CpuTemperature when !elevated =>"The processor's temperature needs Wattkin running as administrator; the logo shows until then.",
-        TrayDisplay.CpuTemperature => "The processor's temperature, in °C.",
-        TrayDisplay.CpuLoad => "How busy the processor is, as Task Manager counts it.",
-        _ => "What the laptop is drawing, in watts.",
+        TrayDisplay.Logo => Strings.Simple_TrayLogo,
+        TrayDisplay.CpuTemperature when !elevated => Strings.Simple_TrayTemperatureNeedsAdmin,
+        TrayDisplay.CpuTemperature => Strings.Simple_TrayTemperature,
+        TrayDisplay.CpuLoad => Strings.Simple_TrayLoad,
+        _ => Strings.Simple_TrayWatts,
     };
 
     private static string LimitDescription(AppSettings s)
     {
         if (s.ChargeResumeBelow is { } resume)
         {
-            return $"Set in Expert view: charges to {s.ChargeLimit}% and starts again below {resume}%.";
+            return string.Format(Strings.Simple_LimitBand, Fmt.Percent(s.ChargeLimit), Fmt.Percent(resume));
         }
 
         if (!Limits.Contains(s.ChargeLimit))
         {
-            return $"Set in Expert view: {s.ChargeLimit}%.";
+            return string.Format(Strings.Simple_LimitCustom, Fmt.Percent(s.ChargeLimit));
         }
 
         return s.ChargeLimit switch
         {
-            <= 60 => "Kindest to the battery when it's plugged in most of the time.",
-            <= 80 => "A good balance between battery lifespan and time unplugged.",
-            < 100 => "More time unplugged, a little more wear.",
-            _ => "The most time unplugged. Batteries wear fastest kept full.",
+            <= 60 => Strings.Simple_Limit60,
+            <= 80 => Strings.Simple_Limit80,
+            < 100 => Strings.Simple_Limit90,
+            _ => Strings.Simple_Limit100,
         };
     }
 
@@ -202,9 +211,7 @@ public partial class SimpleSettings : UserControl
             KeyboardColorRow.Visibility = AutoOffDelayHost.Visibility = usbLight ? Visibility.Visible : Visibility.Collapsed;
             KeyboardColorPanel.IsEnabled = state.CanWrite;
             AutoOffDelayHost.IsEnabled = state.CanWrite && app.Store.Current.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
-            AutoOffText.Text = usbLight
-                ? "When the laptop's keyboard isn't used for that long; its next key press brings the light back."
-                : "After about 10 seconds; any key brings it back.";
+            AutoOffText.Text = usbLight ? Strings.Simple_AutoOffUsb : Strings.Simple_AutoOffEc;
             AutoOffToggle.IsEnabled = state.CanWrite && state.Caps?.HasKeyboardTimeout != false;
             AcProfile.IsEnabled = DcProfile.IsEnabled = state.CanWrite;
 
@@ -234,10 +241,8 @@ public partial class SimpleSettings : UserControl
         }
 
         GpuText.Text = gpu!.SwitchPending
-            ? gpu.Requested == FirmwareGpuMode.Hybrid ? "The RTX comes back after a restart." : "The RTX switches off after a restart."
-            : gpu.Current == FirmwareGpuMode.Hybrid
-                ? "Hybrid: the RTX is there when an app needs it, and sleeps by itself otherwise."
-                : "Integrated: the RTX is switched off. Choose Hybrid to use it (takes a restart).";
+            ? gpu.Requested == FirmwareGpuMode.Hybrid ? Strings.Graphics_RtxBackAfterRestart : Strings.Graphics_RtxOffAfterRestart
+            : gpu.Current == FirmwareGpuMode.Hybrid ? Strings.Simple_GpuHybridText : Strings.Simple_GpuIntegratedText;
         RestartButton.Visibility = gpu.SwitchPending ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -247,23 +252,23 @@ public partial class SimpleSettings : UserControl
         if (running)
         {
             CalibrationRow.Visibility = Visibility.Visible;
-            CalibrationTitle.Text = "Calibrating the battery";
+            CalibrationTitle.Text = Strings.Simple_Calibrating;
             var c = state.Calibration;
-            CalibrationText.Text = c is null ? "Starting…" : $"{c.Message} About {Fmt.Duration(Fmt.Steady(c.TotalEta))} to go. Keep the charger plugged in.";
+            CalibrationText.Text = c is null ? Strings.Common_Starting : string.Format(Strings.Simple_CalibratingText, c.Message, Fmt.Duration(Fmt.Steady(c.TotalEta)));
             CalibrationBar.Visibility = Visibility.Visible;
             CalibrationBar.Value = c is null ? 0 : c.Phase == CalibrationPhase.Discharging
                 ? Math.Clamp(((100 - (c.Percent ?? 100)) / Math.Max(1, 100 - c.TargetPercent) * 50) + 50, 50, 100)
                 : Math.Clamp((c.Percent ?? 0) / 2, 0, 50);
-            CalibrationButton.Content = "Cancel";
+            CalibrationButton.Content = Strings.Common_Cancel;
             CalibrationButton.IsEnabled = true;
         }
         else if (_suggestion is { } advice && state.Caps?.CanSimulateUnplug == true)
         {
             CalibrationRow.Visibility = Visibility.Visible;
-            CalibrationTitle.Text = "Recalibrate the battery gauge";
-            CalibrationText.Text = $"It reports {advice.NowWh:0.0} Wh, down from about {advice.TypicalWh:0} Wh. A drop this quick is usually the gauge drifting, not wear. Takes a few hours on the charger.";
+            CalibrationTitle.Text = Strings.Simple_Recalibrate;
+            CalibrationText.Text = string.Format(Strings.Simple_RecalibrateText, advice.NowWh, advice.TypicalWh);
             CalibrationBar.Visibility = Visibility.Collapsed;
-            CalibrationButton.Content = "Calibrate…";
+            CalibrationButton.Content = Strings.Simple_Calibrate;
             CalibrationButton.IsEnabled = state.CanWrite;
         }
         else
@@ -279,15 +284,15 @@ public partial class SimpleSettings : UserControl
         (string Title, string Text, string Button, Action Act)? notice = null;
         if (!Elevation.IsElevated)
         {
-            notice = ("Hardware controls are off", "Battery limits, modes and the keyboard need Wattkin to run as administrator.", "Restart as administrator", () => App.Current.RestartElevated());
+            notice = (Strings.Simple_NoticeNotAdmin, Strings.Simple_NoticeNotAdminText, Strings.Common_RestartAsAdmin, () => App.Current.RestartElevated());
         }
         else if (state.MsiSoftwareRunning)
         {
-            notice = ("MSI Center is still running", "It can overwrite these settings. Uninstall MSI Center, then MSI NBFoundation Service, in Settings › Apps.", "Open Apps", () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:appsfeatures") { UseShellExecute = true }));
+            notice = (Strings.Simple_NoticeMsi, Strings.Simple_NoticeMsiText, Strings.Simple_OpenApps, () => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:appsfeatures") { UseShellExecute = true }));
         }
         else if (state.Caps is { Support: EcSupport.Unknown } && state.Problem is { } problem)
         {
-            notice = ("Monitoring only on this laptop", problem, "Details", () => ExpertRequested?.Invoke());
+            notice = (Strings.Simple_NoticeMonitoring, problem, Strings.Simple_Details, () => ExpertRequested?.Invoke());
         }
 
         NoticeGroup.Visibility = notice is null ? Visibility.Collapsed : Visibility.Visible;
@@ -306,8 +311,8 @@ public partial class SimpleSettings : UserControl
         if (App.Current.Monitor.BatteryInfo is { DesignedCapacityMWh: > 0 } info)
         {
             var health = 100.0 * info.FullChargedCapacityMWh / info.DesignedCapacityMWh;
-            HealthPercent.Text = $"{health:0}%";
-            HealthText.Text = $"Holds {info.FullChargedCapacityMWh / 1000.0:0.0} Wh when full, of {info.DesignedCapacityMWh / 1000.0:0.0} Wh when new. Now {Fmt.Percent(s.Power.Percent)}.";
+            HealthPercent.Text = Fmt.Percent(health);
+            HealthText.Text = string.Format(Strings.Simple_HealthText, info.FullChargedCapacityMWh / 1000.0, info.DesignedCapacityMWh / 1000.0, Fmt.Percent(s.Power.Percent));
         }
 
         if (App.Current.Store.Current.Calibration is not null)
@@ -348,13 +353,21 @@ public partial class SimpleSettings : UserControl
 
     private void OnWidget(object sender, RoutedEventArgs e) => App.Current.SetWidgetVisible(WidgetToggle.IsChecked == true);
 
+    private void OnLanguage(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && LanguageChoice.SelectedItem is ComboBoxItem item)
+        {
+            App.Current.SetLanguage(item.Tag as string);
+        }
+    }
+
     private async void OnStartWithWindows(object sender, RoutedEventArgs e)
     {
         var wanted = StartToggle.IsChecked == true;
         if (!Elevation.IsElevated || !App.Current.Hardware.ControlsHardware)
         {
             RefreshStartup(!wanted);
-            if (!Elevation.IsElevated && MessageBox.Show(Window.GetWindow(this), "Setting up start-with-Windows needs administrator rights. Restart Wattkin as administrator now?", "Wattkin", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            if (!Elevation.IsElevated && MessageBox.Show(Window.GetWindow(this), Strings.General_StartupNeedsAdmin, "Wattkin", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 App.Current.RestartElevated();
             }
@@ -367,7 +380,7 @@ public partial class SimpleSettings : UserControl
         StartToggle.IsEnabled = true;
         if (error is not null)
         {
-            MessageBox.Show(Window.GetWindow(this), error, "Start with Windows", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(Window.GetWindow(this), error, Strings.Common_StartWithWindows, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         RefreshStartup(await Task.Run(StartupTask.IsEnabled));
@@ -378,17 +391,15 @@ public partial class SimpleSettings : UserControl
         var owner = Window.GetWindow(this);
         if (App.Current.Store.Current.Calibration is not null)
         {
-            if (MessageBox.Show(owner, "Stop the calibration? Your normal charge limit takes over again.", "Battery calibration", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show(owner, Strings.Calib_ConfirmStop, Strings.Common_BatteryCalibration, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 App.Current.Hardware.CancelCalibration();
             }
         }
-        else if (MessageBox.Show(owner,
-                     "Calibration will:\n\n1. Charge the battery to 100%.\n2. Run it down to about 8% with the charger still plugged in.\n3. Hand back to your normal charge limit.\n\nKeep the charger connected the whole time. The laptop stays awake, you can keep using it, and you can cancel any time.\n\nStart now?",
-                     "Battery calibration", MessageBoxButton.OKCancel, MessageBoxImage.Information) == MessageBoxResult.OK
+        else if (MessageBox.Show(owner, Strings.Calib_Confirm, Strings.Common_BatteryCalibration, MessageBoxButton.OKCancel, MessageBoxImage.Information) == MessageBoxResult.OK
                  && App.Current.Hardware.StartCalibration(fast: false) is { } error)
         {
-            MessageBox.Show(owner, error, "Battery calibration", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(owner, error, Strings.Common_BatteryCalibration, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         RefreshState();
@@ -396,8 +407,7 @@ public partial class SimpleSettings : UserControl
 
     private void OnRestart(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(Window.GetWindow(this), "Restart now to switch the graphics mode?\n\nSave your work first. The laptop shuts down fully and starts again by itself. If it stays off, press the power button.",
-                "Graphics", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
+        if (MessageBox.Show(Window.GetWindow(this), Strings.Graphics_RestartToSwitch, Strings.Common_Graphics, MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK)
         {
             FirmwareGpuSwitch.ShutDownToApply();
         }

@@ -212,7 +212,7 @@ public sealed class Sparkline : ThemedElement
 
         // The label gets its own band above the chart, so peaks never run into it.
         var label = new FormattedText(
-            $"peak {_points.Max(p => p.Watts):0.#} W · last {Fmt.Duration(_points[^1].Time - start)}",
+            string.Format(Strings.Chart_Peak, _points.Max(p => p.Watts), Fmt.Duration(_points[^1].Time - start)),
             CultureInfo.CurrentCulture,
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
@@ -268,7 +268,7 @@ public sealed class CapacityChart : ThemedElement
 
         if (_points.Count < 2)
         {
-            dc.DrawText(Label("Capacity history appears after a few days of data."), new Point(0, 0));
+            dc.DrawText(Label(Strings.Chart_NoHistory), new Point(0, 0));
             return;
         }
 
@@ -291,7 +291,7 @@ public sealed class CapacityChart : ThemedElement
         }
 
         dc.DrawLine(new Pen(faint, 1.2) { DashStyle = DashStyles.Dash }, new Point(left, Y(design)), new Point(left + w, Y(design)));
-        dc.DrawText(Label($"design {design:0.#} Wh"), new Point(left + 4, Y(design) - 15));
+        dc.DrawText(Label(string.Format(Strings.Chart_Design, design)), new Point(left + 4, Y(design) - 15));
 
         var geometry = new StreamGeometry();
         using (var ctx = geometry.Open())

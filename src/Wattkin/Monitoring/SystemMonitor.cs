@@ -504,7 +504,7 @@ public sealed class SystemMonitor : IDisposable
     {
         // "0 C: D:" -> "Disk 0 (C: D:)"
         var space = instance.IndexOf(' ');
-        return space < 0 ? $"Disk {instance}" : $"Disk {instance[..space]} ({instance[(space + 1)..]})";
+        return space < 0 ? string.Format(Strings.System_Disk, instance) : string.Format(Strings.System_DiskName, instance[..space], instance[(space + 1)..]);
     }
 
     public void Dispose()

@@ -51,14 +51,14 @@ public static class ChargePolicy
             var full = input.OnAc && !input.Charging && input.Percent >= FullPercent;
             if (!full)
             {
-                var status = input.Charging ? "Charging to 100% (one time)"
-                    : input.OnAc && input.Percent >= 89 ? $"At {input.Percent:0}%. The controller only tops up below 90%, so this finishes after the battery next drops below 90%"
-                    : "Will charge to 100% (one time)";
+                var status = input.Charging ? Strings.Charge_ToFullOnce
+                    : input.OnAc && input.Percent >= 89 ? string.Format(Strings.Charge_TopsUpBelow90, input.Percent)
+                    : Strings.Charge_WillChargeToFull;
                 return new ChargeDecision(Max, false, false, false, false, status);
             }
 
             var after = Decide(limit, resumeBelow, false, false, true, input);
-            return after with { FullChargeDone = true, Status = $"Full. Back to the {limit}% limit" };
+            return after with { FullChargeDone = true, Status = string.Format(Strings.Charge_FullBackToLimit, limit) };
         }
 
         var simulate = false;
@@ -98,8 +98,8 @@ public static class ChargePolicy
             ecLimit = holding ? Math.Clamp(resume + Hysteresis, Min, limit) : limit;
         }
 
-        var text = simulate ? $"Draining to {limit}% while plugged in"
-            : drainDone ? $"Drained to {limit}%"
+        var text = simulate ? string.Format(Strings.Charge_Draining, limit)
+            : drainDone ? string.Format(Strings.Charge_Drained, limit)
             : Describe(input, limit, resume);
         return new ChargeDecision(ecLimit, simulate, holding, false, drainDone, text);
     }
@@ -108,16 +108,14 @@ public static class ChargePolicy
     {
         if (!input.OnAc)
         {
-            return $"On battery. Limit {limit}%, resumes below {resume}%";
+            return string.Format(Strings.Charge_OnBattery, limit, resume);
         }
 
         if (input.Charging)
         {
-            return $"Charging to {limit}%";
+            return string.Format(Strings.Charge_ChargingTo, limit);
         }
 
-        return input.Percent >= limit - 1
-            ? $"Holding at {limit}%. Resumes below {resume}%"
-            : $"Not charging. Resumes below {resume}%";
+        return string.Format(input.Percent >= limit - 1 ? Strings.Charge_Holding : Strings.Charge_NotCharging, limit, resume);
     }
 }

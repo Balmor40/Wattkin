@@ -40,6 +40,7 @@ public partial class App : Application
         base.OnStartup(e);
         HookExceptionLogging();
         ProcessHardening.Apply();
+        UiLanguage.Apply(null); // Windows' language until the settings are read (installer, uninstaller)
 
         // One-shot command-line actions (used by the installer and for diagnostics).
         if (RunCommand(e.Args) is { } exitCode)
@@ -86,6 +87,9 @@ public partial class App : Application
         // Settings and hardware belong to the copy that owns the single instance.
         var owner = _single is not null;
         Store = new SettingsStore(readOnly: !owner);
+
+        // Screenshots can be taken in either language (--render <folder> --language fr) without changing the settings.
+        UiLanguage.Apply(_previewOnly && Arg(e.Args, "--language") is { Length: > 0 } language ? language : Store.Current.Language);
         Monitor = new SystemMonitor(Store.Current.LearnedRestOfSystemWatts, Store.Current.LearnedRestOfSystemSamples)
         {
             SensorsInTray = () => Store.Current.TrayDisplay == TrayDisplay.CpuTemperature,
@@ -148,12 +152,14 @@ public partial class App : Application
     {
         if (args.Contains("--diagnose"))
         {
+            UiLanguage.Apply(UiLanguage.English); // reports stay in English, messages they quote included
             Diagnostics.Run(Arg(args, "--diagnose"));
             return 0;
         }
 
         if (args.Contains("--selftest"))
         {
+            UiLanguage.Apply(UiLanguage.English);
             // --selftest read|write [report file]: the hardware self-test (tools\selftest.ps1 runs it).
             var at = Array.IndexOf(args, "--selftest");
             string? Next(int offset) => at + offset < args.Length && !args[at + offset].StartsWith("--", StringComparison.Ordinal) ? args[at + offset] : null;
@@ -198,12 +204,11 @@ public partial class App : Application
 
             var quiet = args.Contains("--quiet");
             var removeData = args.Contains("--remove-data") || (!quiet && MessageBox.Show(
-                "Also delete your Wattkin settings and battery history?\n\nChoose No to keep them in case you install Wattkin again.",
-                "Uninstall Wattkin", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
+                Strings.Uninstall_RemoveData, Strings.Uninstall_Title, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes);
             Installation.Uninstall(removeData);
             if (!quiet)
             {
-                MessageBox.Show("Wattkin has been removed. Windows' power settings are back to how they were, and the battery charges to 100% again.", "Wattkin", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(Strings.Uninstall_Done, "Wattkin", MessageBoxButton.OK, MessageBoxImage.Information);
             }
 
             return 0;
@@ -380,7 +385,7 @@ public partial class App : Application
         if (replaced)
         {
             Log.Info($"New battery detected: {info.Manufacturer} {info.DeviceName}, {info.DesignedCapacityMWh / 1000.0:0.0} Wh design, {info.FullChargedCapacityMWh / 1000.0:0.0} Wh full (was {previousFullMWh / 1000.0:0.0} Wh), {info.CycleCount} cycles. Capacity history starts again.");
-            Dispatcher.BeginInvoke(() => ShowOsd("New battery detected"));
+            Dispatcher.BeginInvoke(() => ShowOsd(Strings.Osd_NewBattery));
         }
     }
 
@@ -431,12 +436,7 @@ public partial class App : Application
         _flyout?.HideFlyout();
         if (_settings is null)
         {
-            _settings = new SettingsWindow();
-            _settings.Closed += (_, _) =>
-            {
-                _settings = null;
-                MemoryTrim.Soon();
-            };
+            _settings = NewSettingsWindow();
             _settings.Show();
         }
 
@@ -451,6 +451,62 @@ public partial class App : Application
         {
             _settings.WindowState = WindowState.Normal;
         }
+    }
+
+    private SettingsWindow NewSettingsWindow()
+    {
+        var window = new SettingsWindow();
+        window.Closed += (_, _) =>
+        {
+            if (_settings == window)
+            {
+                _settings = null;
+            }
+
+            MemoryTrim.Soon();
+        };
+        return window;
+    }
+
+    /// <summary>
+    /// Another interface language (null: Windows'). Windows are built in one language, so the open ones
+    /// are built again: the settings window where it was, on the same page; the flyout and the widget
+    /// as they were. An open profile editor keeps its language (and any unsaved change) until it's closed.
+    /// </summary>
+    public void SetLanguage(string? language)
+    {
+        if (Store.Current.Language == language)
+        {
+            return;
+        }
+
+        Store.Update(s => s.Language = language);
+        UiLanguage.Apply(language);
+        Log.Info($"Interface language: {UiLanguage.Current}{(language is null ? " (Windows')" : "")}.");
+
+        // Not from inside the event of the control that asked: that window is about to close.
+        Dispatcher.BeginInvoke(() =>
+        {
+            _flyout?.Discard();
+            _flyout = null;
+            if (_widget is not null)
+            {
+                _widget.Close();
+                SetWidgetVisible(true);
+            }
+
+            if (_settings is { } old)
+            {
+                var replacement = NewSettingsWindow();
+                replacement.TakePlaceOf(old);
+                _settings = replacement;
+                replacement.Show();
+                old.Close();
+                replacement.Activate();
+            }
+
+            Hardware.SafeRefreshStateAsync(); // the hardware's statuses in the new language
+        });
     }
 
     /// <summary>The gear on a profile button: one editor at a time, switched to this slot.</summary>

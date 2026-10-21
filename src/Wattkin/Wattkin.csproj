@@ -15,6 +15,8 @@
     <Version>1.3.2</Version>
     <Product>Wattkin</Product>
     <Description>Lightweight control center for MSI laptops</Description>
+    <!-- Localization\Strings.resx is English; Strings.fr.resx becomes the fr satellite (bundled in the single file). -->
+    <NeutralLanguage>en</NeutralLanguage>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <TieredPGO>true</TieredPGO>
     <!-- WPF reads PerMonitorV2 from the manifest; the WinForms analyzer only covers the NotifyIcon. -->
@@ -52,5 +54,21 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Wattkin.Tests" />
   </ItemGroup>
+
+  <!--
+    The interface's texts: Localization\Strings.resx (English) and Strings.fr.resx. Their Strings class is
+    generated here, before WPF compiles the XAML: the temporary assembly WPF builds for x:Static and local
+    controls only sees source files, not the class MSBuild would generate later in the build.
+  -->
+  <ItemGroup>
+    <Compile Include="$(BaseIntermediateOutputPath)Strings.Designer.cs" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="GenerateStrings" BeforeTargets="MarkupCompilePass1;CoreCompile" Inputs="Localization\Strings.resx" Outputs="$(BaseIntermediateOutputPath)Strings.Designer.cs">
+    <GenerateResource Sources="Localization\Strings.resx" OutputResources="$(IntermediateOutputPath)Strings.unused.resources"
+                      StronglyTypedLanguage="CSharp" StronglyTypedNamespace="Wattkin" StronglyTypedClassName="Strings"
+                      StronglyTypedManifestPrefix="Wattkin.Localization" StronglyTypedFileName="$(BaseIntermediateOutputPath)Strings.Designer.cs"
+                      PublicClass="true" ExecuteAsTool="false" />
+  </Target>
 
 </Project>

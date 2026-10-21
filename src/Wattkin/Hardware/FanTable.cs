@@ -52,22 +52,22 @@ public sealed class FanSteps
     {
         if (Speeds is not { Length: Count } || Up is not { Length: Thresholds } || Down is not { Length: Thresholds })
         {
-            return $"The {name} fan's table is incomplete.";
+            return string.Format(Strings.Fans_TableIncomplete, name);
         }
 
         if (Speeds.Any(s => s is < 0 or > FanSpeeds.Max))
         {
-            return $"The {name} fan's speeds must be between 0 and {FanSpeeds.Max}%.";
+            return string.Format(Strings.Fans_TableSpeeds, name, FanSpeeds.Max);
         }
 
         if (Up.Any(t => t is < FanTable.MinTemp or > FanTable.MaxTemp))
         {
-            return $"The {name} fan's step temperatures must be between {FanTable.MinTemp} and {FanTable.MaxTemp}°C.";
+            return string.Format(Strings.Fans_TableTemps, name, FanTable.MinTemp, FanTable.MaxTemp);
         }
 
         if (Up.Zip(Up.Skip(1)).Any(p => p.Second <= p.First))
         {
-            return $"Each {name} fan step must start hotter than the one before.";
+            return string.Format(Strings.Fans_TableRising, name);
         }
 
         for (var i = 0; i < Thresholds; i++)
@@ -75,7 +75,7 @@ public sealed class FanSteps
             var gap = Up[i] - Down[i];
             if (gap is < 1 or > FanTable.MaxHysteresis || Down[i] < 0)
             {
-                return $"At step {i + 1}, the {name} fan must drop back between 1 and {FanTable.MaxHysteresis}°C below the {Up[i]}°C that starts it.";
+                return string.Format(Strings.Fans_TableDropBack, i + 1, name, FanTable.MaxHysteresis, Up[i]);
             }
         }
 
@@ -86,17 +86,17 @@ public sealed class FanSteps
 
         if (Speeds.Zip(Speeds.Skip(1)).Any(p => p.Second < p.First))
         {
-            return $"The {name} fan's speed can't drop as the temperature rises.";
+            return string.Format(Strings.Fans_SpeedDrops, name);
         }
 
         if (Speeds[^1] < FanTable.MinTopSpeed || Up[^1] > FanTable.MaxTopStepTemp)
         {
-            return $"The {name} fan must run at {FanTable.MinTopSpeed}% or more from {FanTable.MaxTopStepTemp}°C at the latest (its hottest step), so the laptop can't overheat. To go past that, allow any curve (experimental).";
+            return string.Format(Strings.Fans_TableTopSpeed, name, FanTable.MinTopSpeed, FanTable.MaxTopStepTemp);
         }
 
         if (Speeds[^2] == 0)
         {
-            return $"The {name} fan must be running by the step before its hottest ({Up[^2]}°C), so it isn't off until the last moment. To go past that, allow any curve (experimental).";
+            return string.Format(Strings.Fans_TableLateStart, name, Up[^2]);
         }
 
         return null;

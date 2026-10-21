@@ -29,7 +29,7 @@ internal static class Choices
             return;
         }
 
-        var extra = Item(missing?.Invoke(tag) ?? (tag is int v ? $"{v}%" : tag.ToString() ?? "?"), tag);
+        var extra = Item(missing?.Invoke(tag) ?? (tag is int v ? Fmt.Percent(v) : tag.ToString() ?? "?"), tag);
         box.Items.Add(extra);
         box.SelectedItem = extra;
     }
@@ -40,7 +40,7 @@ internal static class Choices
     public static void FillProfiles(ComboBox box, IEnumerable<string> names)
     {
         box.Items.Clear();
-        box.Items.Add(Item("Leave as is", ""));
+        box.Items.Add(Item(Strings.Common_LeaveAsIs, ""));
         foreach (var name in names)
         {
             box.Items.Add(Item(name, name));
@@ -54,9 +54,20 @@ internal static class Choices
     public static void FillTrayDisplay(ComboBox box)
     {
         box.Items.Clear();
-        box.Items.Add(Item("Logo", TrayDisplay.Logo));
-        box.Items.Add(Item("Watts", TrayDisplay.Watts));
-        box.Items.Add(Item("CPU temperature", TrayDisplay.CpuTemperature));
-        box.Items.Add(Item("CPU load", TrayDisplay.CpuLoad));
+        box.Items.Add(Item(Strings.Tray_ShowLogo, TrayDisplay.Logo));
+        box.Items.Add(Item(Strings.Tray_ShowWatts, TrayDisplay.Watts));
+        box.Items.Add(Item(Strings.Tray_ShowCpuTemperature, TrayDisplay.CpuTemperature));
+        box.Items.Add(Item(Strings.Tray_ShowCpuLoad, TrayDisplay.CpuLoad));
+    }
+
+    /// <summary>The interface languages, each in its own language: Windows' (stored as null), English, French.</summary>
+    public static void FillLanguages(ComboBox box)
+    {
+        box.Items.Clear();
+        box.Items.Add(Item(string.Format(Strings.Language_SameAsWindows, UiLanguage.NameOf(UiLanguage.WindowsLanguage)), null));
+        foreach (var language in new[] { UiLanguage.English, UiLanguage.French })
+        {
+            box.Items.Add(Item(UiLanguage.NameOf(language), language));
+        }
     }
 }

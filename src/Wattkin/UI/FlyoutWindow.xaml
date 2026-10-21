@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="clr-namespace:Wattkin.UI"
+        xmlns:l="clr-namespace:Wattkin"
         Title="Wattkin" Width="392" SizeToContent="Height"
         WindowStyle="None" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True"
         Background="{DynamicResource Lc.Window}" BorderBrush="{DynamicResource Lc.CardBorder}" BorderThickness="1"
@@ -17,8 +18,8 @@
                 <TextBlock x:Name="ModelText" Margin="8,0,0,0" Style="{StaticResource Lc.Label}" />
             </StackPanel>
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Button x:Name="WidgetButton" Style="{StaticResource Lc.IconButton}" Content="&#xE7F4;" ToolTip="Desktop widget on/off" Click="OnWidget" />
-                <Button Style="{StaticResource Lc.IconButton}" Content="&#xE713;" ToolTip="Settings" Click="OnSettings" />
+                <Button x:Name="WidgetButton" Style="{StaticResource Lc.IconButton}" Content="&#xE7F4;" ToolTip="{x:Static l:Strings.Flyout_WidgetTip}" Click="OnWidget" />
+                <Button Style="{StaticResource Lc.IconButton}" Content="&#xE713;" ToolTip="{x:Static l:Strings.Flyout_SettingsTip}" Click="OnSettings" />
             </StackPanel>
         </Grid>
 
@@ -62,7 +63,8 @@
         <Border Style="{StaticResource Lc.Card}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="44" />
+                    <!-- As wide as the longest label (French "Ventilateurs"), with a gap before the bars. -->
+                    <ColumnDefinition Width="Auto" MinWidth="44" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
@@ -74,43 +76,43 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="CPU" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <TextBlock Text="CPU" Style="{StaticResource Lc.Label}" Margin="0,0,10,6" />
                 <ui:MeterBar x:Name="CpuBar" Grid.Column="1" Height="22" Margin="0,0,0,6" />
 
-                <TextBlock Grid.Row="1" Text="Fans" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
-                <ui:MeterBar x:Name="FanBar" Grid.Row="1" Grid.Column="1" Height="22" Margin="0,0,0,6" LabelAtFill="True" ToolTip="The faster fan, against the fastest it has been seen to spin" />
+                <TextBlock Grid.Row="1" Text="{x:Static l:Strings.Flyout_Fans}" Style="{StaticResource Lc.Label}" Margin="0,0,10,6" />
+                <ui:MeterBar x:Name="FanBar" Grid.Row="1" Grid.Column="1" Height="22" Margin="0,0,0,6" LabelAtFill="True" ToolTip="{x:Static l:Strings.Flyout_FanTip}" />
 
-                <TextBlock Grid.Row="2" Text="RAM" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <TextBlock Grid.Row="2" Text="RAM" Style="{StaticResource Lc.Label}" Margin="0,0,10,6" />
                 <ui:MeterBar x:Name="RamBar" Grid.Row="2" Grid.Column="1" Height="22" Margin="0,0,0,6" />
 
-                <TextBlock Grid.Row="3" Text="Disk" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
-                <ui:MeterBar x:Name="DiskBar" Grid.Row="3" Grid.Column="1" Height="22" Margin="0,0,0,6" ToolTip="How busy the busiest drive is, with total read and write speed" />
+                <TextBlock Grid.Row="3" Text="{x:Static l:Strings.Flyout_Disk}" Style="{StaticResource Lc.Label}" Margin="0,0,10,6" />
+                <ui:MeterBar x:Name="DiskBar" Grid.Row="3" Grid.Column="1" Height="22" Margin="0,0,0,6" ToolTip="{x:Static l:Strings.Flyout_DiskTip}" />
 
-                <TextBlock x:Name="Gpu1Label" Grid.Row="4" Text="iGPU" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <TextBlock x:Name="Gpu1Label" Grid.Row="4" Text="iGPU" Style="{StaticResource Lc.Label}" Margin="0,0,10,6" />
                 <ui:MeterBar x:Name="Gpu1Bar" Grid.Row="4" Grid.Column="1" Height="22" Margin="0,0,0,6" />
 
-                <TextBlock x:Name="Gpu2Label" Grid.Row="5" Text="RTX" Style="{StaticResource Lc.Label}" />
+                <TextBlock x:Name="Gpu2Label" Grid.Row="5" Text="RTX" Style="{StaticResource Lc.Label}" Margin="0,0,10,0" />
                 <ui:MeterBar x:Name="Gpu2Bar" Grid.Row="5" Grid.Column="1" Height="22" />
             </Grid>
         </Border>
         <!-- Controls: every choice fills the card's width -->
         <Border x:Name="ControlsCard" Style="{StaticResource Lc.Card}">
             <StackPanel>
-                <TextBlock Text="Profile" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <TextBlock Text="{x:Static l:Strings.Common_Profile}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                 <ui:ProfileButtons x:Name="ProfilePanel" Margin="-2,0,-2,6" />
                 <TextBlock x:Name="ProfileDetails" Style="{StaticResource Lc.Hint}" Margin="0,0,0,12" />
 
-                <TextBlock Text="Charge limit" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <TextBlock Text="{x:Static l:Strings.Common_ChargeLimit}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                 <Grid x:Name="LimitPanel" Margin="-2,0,-2,4" />
                 <TextBlock x:Name="ChargeStatus" Style="{StaticResource Lc.Hint}" Margin="0,2,0,0" Visibility="Collapsed" />
                 <Border Height="12" />
 
-                <TextBlock Text="Keyboard light" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                <TextBlock Text="{x:Static l:Strings.Common_KeyboardLight}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                 <UniformGrid x:Name="KeyboardPanel" Rows="1" Margin="-2,0,-2,0" />
                 <!-- Colour and the auto-off delay: only where the keys are lit over USB (Mystic Light). -->
                 <WrapPanel x:Name="KeyboardColorPanel" Margin="-4,8,0,0" />
                 <StackPanel x:Name="KeyboardTimeoutSection">
-                    <TextBlock Text="Turn off when not typing" Style="{StaticResource Lc.Label}" Margin="0,10,0,6" />
+                    <TextBlock Text="{x:Static l:Strings.Common_TurnOffWhenNotTyping}" Style="{StaticResource Lc.Label}" Margin="0,10,0,6" />
                     <Grid Margin="-2,0,-2,0">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <UniformGrid x:Name="KeyboardTimeoutPanel" Rows="1" />
@@ -119,11 +121,11 @@
                 </StackPanel>
 
                 <StackPanel x:Name="GraphicsSection" Margin="0,12,0,0">
-                    <TextBlock Text="Graphics" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
+                    <TextBlock Text="{x:Static l:Strings.Common_Graphics}" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
                     <UniformGrid x:Name="GraphicsPanel" Rows="1" Margin="-2,0,-2,4" />
                     <StackPanel Orientation="Horizontal">
                         <TextBlock x:Name="GraphicsHint" Style="{StaticResource Lc.Hint}" TextWrapping="NoWrap" />
-                        <Button x:Name="RestartButton" Style="{StaticResource Lc.LinkButton}" Content="Restart now" Margin="8,0,0,0" Click="OnRestartForGpu" Visibility="Collapsed" />
+                        <Button x:Name="RestartButton" Style="{StaticResource Lc.LinkButton}" Content="{x:Static l:Strings.Common_RestartNow}" Margin="8,0,0,0" Click="OnRestartForGpu" Visibility="Collapsed" />
                     </StackPanel>
                 </StackPanel>
             </StackPanel>

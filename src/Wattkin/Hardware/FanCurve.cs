@@ -110,7 +110,7 @@ public sealed class FanSpeeds
         {
             if (speeds is not { Length: Steps } || speeds.Any(s => s is < 0 or > Max))
             {
-                return $"The {name} fan needs {Steps} speeds between 0 and {Max}%.";
+                return string.Format(Strings.Fans_CurveSpeeds, name, Steps, Max);
             }
 
             if (unrestricted)
@@ -120,13 +120,13 @@ public sealed class FanSpeeds
 
             if (speeds.Zip(speeds.Skip(1)).Any(p => p.Second < p.First))
             {
-                return $"The {name} fan's speed can't drop as the temperature rises.";
+                return string.Format(Strings.Fans_SpeedDrops, name);
             }
 
             var floor = table is { } t ? Floor(t.Speeds[^1]) : 100;
             if (speeds[HottestStep] < floor)
             {
-                return $"The {name} fan must reach at least {floor}% at the hottest editable step, so the laptop can't overheat. To set it lower, allow any curve (experimental).";
+                return string.Format(Strings.Fans_CurveTooSlow, name, floor);
             }
         }
 

@@ -1,7 +1,8 @@
 <UserControl x:Class="Wattkin.UI.SimpleSettings"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:ui="clr-namespace:Wattkin.UI">
+             xmlns:ui="clr-namespace:Wattkin.UI"
+             xmlns:l="clr-namespace:Wattkin">
     <!-- The everyday settings, one control per row. Expert view has everything else. -->
     <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" CanContentScroll="False">
         <StackPanel MaxWidth="720" HorizontalAlignment="Center" Margin="28,60,28,28">
@@ -19,13 +20,13 @@
             </Border>
 
             <!-- Battery -->
-            <TextBlock Text="Battery" Style="{StaticResource Lc.GroupTitle}" />
+            <TextBlock Text="{x:Static l:Strings.Common_Battery}" Style="{StaticResource Lc.GroupTitle}" />
             <Border Style="{StaticResource Lc.Group}">
                 <StackPanel>
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Health" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_Health}" Style="{StaticResource Lc.RowTitle}" />
                             <TextBlock x:Name="HealthText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <TextBlock x:Name="HealthPercent" Grid.Column="1" FontFamily="{DynamicResource Lc.Display}" FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
@@ -48,7 +49,7 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Stop charging at" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_StopChargingAt}" Style="{StaticResource Lc.RowTitle}" />
                             <TextBlock x:Name="LimitText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <UniformGrid x:Name="LimitPanel" Grid.Column="1" Rows="1" Width="290" VerticalAlignment="Center" />
@@ -58,8 +59,8 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Charge to 100% once" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock Text="For a long day away. Goes back to your limit afterwards." Style="{StaticResource Lc.RowText}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_ChargeToFullOnce}" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Simple_FullOnceText}" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <CheckBox x:Name="FullOnceToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnFullOnce" />
                     </Grid>
@@ -67,13 +68,13 @@
             </Border>
 
             <!-- Performance -->
-            <TextBlock Text="Performance" Style="{StaticResource Lc.GroupTitle}" />
+            <TextBlock Text="{x:Static l:Strings.Simple_Performance}" Style="{StaticResource Lc.GroupTitle}" />
             <Border Style="{StaticResource Lc.Group}">
                 <StackPanel>
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="On the charger" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_OnTheCharger}" Style="{StaticResource Lc.RowTitle}" />
                             <TextBlock x:Name="AcText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <ComboBox x:Name="AcProfile" Grid.Column="1" Width="190" VerticalAlignment="Center" SelectionChanged="OnProfileChoice" />
@@ -82,7 +83,7 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="On battery" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_OnBattery}" Style="{StaticResource Lc.RowTitle}" />
                             <TextBlock x:Name="DcText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <ComboBox x:Name="DcProfile" Grid.Column="1" Width="190" VerticalAlignment="Center" SelectionChanged="OnProfileChoice" />
@@ -92,14 +93,14 @@
 
             <!-- Graphics: only where MSI's firmware switch exists -->
             <StackPanel x:Name="GraphicsGroup">
-                <TextBlock Text="Graphics" Style="{StaticResource Lc.GroupTitle}" />
+                <TextBlock Text="{x:Static l:Strings.Common_Graphics}" Style="{StaticResource Lc.GroupTitle}" />
                 <Border Style="{StaticResource Lc.Group}">
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock x:Name="GpuTitle" Text="NVIDIA graphics" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="GpuTitle" Text="{x:Static l:Strings.Simple_NvidiaGraphics}" Style="{StaticResource Lc.RowTitle}" />
                             <TextBlock x:Name="GpuText" Style="{StaticResource Lc.RowText}" />
-                            <Button x:Name="RestartButton" Style="{StaticResource Lc.LinkButton}" Content="Restart now" HorizontalAlignment="Left" Margin="0,4,0,0" Click="OnRestart" Visibility="Collapsed" />
+                            <Button x:Name="RestartButton" Style="{StaticResource Lc.LinkButton}" Content="{x:Static l:Strings.Common_RestartNow}" HorizontalAlignment="Left" Margin="0,4,0,0" Click="OnRestart" Visibility="Collapsed" />
                         </StackPanel>
                         <UniformGrid x:Name="GpuPanel" Grid.Column="1" Rows="1" Width="240" VerticalAlignment="Center" />
                     </Grid>
@@ -107,14 +108,14 @@
             </StackPanel>
 
             <!-- Keyboard -->
-            <TextBlock Text="Keyboard" Style="{StaticResource Lc.GroupTitle}" />
+            <TextBlock Text="{x:Static l:Strings.Simple_Keyboard}" Style="{StaticResource Lc.GroupTitle}" />
             <Border Style="{StaticResource Lc.Group}">
                 <StackPanel>
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Backlight" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock Text="The light under the keys." Style="{StaticResource Lc.RowText}" />
+                            <TextBlock Text="{x:Static l:Strings.Simple_Backlight}" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Simple_BacklightText}" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <UniformGrid x:Name="KeyboardPanel" Grid.Column="1" Rows="1" Width="240" VerticalAlignment="Center" />
                     </Grid>
@@ -124,8 +125,8 @@
                         <Grid Style="{StaticResource Lc.Row}">
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Colour" Style="{StaticResource Lc.RowTitle}" />
-                                <TextBlock Text="Kept by Wattkin: set again at startup and after sleep." Style="{StaticResource Lc.RowText}" />
+                                <TextBlock Text="{x:Static l:Strings.Common_Colour}" Style="{StaticResource Lc.RowTitle}" />
+                                <TextBlock Text="{x:Static l:Strings.Simple_ColourText}" Style="{StaticResource Lc.RowText}" />
                             </StackPanel>
                             <WrapPanel x:Name="KeyboardColorPanel" Grid.Column="1" Width="240" VerticalAlignment="Center" />
                         </Grid>
@@ -134,8 +135,8 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Turn off when not typing" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock x:Name="AutoOffText" Text="After about 10 seconds; any key brings it back." Style="{StaticResource Lc.RowText}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_TurnOffWhenNotTyping}" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock x:Name="AutoOffText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <!-- The delay: only where auto-off is Wattkin's own (USB light). -->
@@ -153,8 +154,8 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Start with Windows" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock Text="Runs at sign-in, with no UAC prompt." Style="{StaticResource Lc.RowText}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_StartWithWindows}" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Simple_StartText}" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <CheckBox x:Name="StartToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnStartWithWindows" />
                     </Grid>
@@ -162,7 +163,7 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="In the taskbar" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Simple_InTheTaskbar}" Style="{StaticResource Lc.RowTitle}" />
                             <TextBlock x:Name="TrayText" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <ComboBox x:Name="TrayChoice" Grid.Column="1" Width="190" VerticalAlignment="Center" SelectionChanged="OnTray" />
@@ -171,15 +172,24 @@
                     <Grid Style="{StaticResource Lc.Row}">
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Desktop widget" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock Text="A small panel with watts and battery time on the desktop." Style="{StaticResource Lc.RowText}" />
+                            <TextBlock Text="{x:Static l:Strings.Common_DesktopWidget}" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Simple_WidgetText}" Style="{StaticResource Lc.RowText}" />
                         </StackPanel>
                         <CheckBox x:Name="WidgetToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnWidget" />
+                    </Grid>
+                    <Border Style="{StaticResource Lc.Divider}" />
+                    <Grid Style="{StaticResource Lc.Row}">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{x:Static l:Strings.Common_Language}" Style="{StaticResource Lc.RowTitle}" />
+                            <TextBlock Text="{x:Static l:Strings.Language_Hint}" Style="{StaticResource Lc.RowText}" />
+                        </StackPanel>
+                        <ComboBox x:Name="LanguageChoice" Grid.Column="1" Width="230" VerticalAlignment="Center" SelectionChanged="OnLanguage" />
                     </Grid>
                 </StackPanel>
             </Border>
 
-            <Button Style="{StaticResource Lc.LinkButton}" Content="Expert view: every setting, sensors and diagnostics" HorizontalAlignment="Left" Margin="2,0,0,0" Click="OnExpert" />
+            <Button Style="{StaticResource Lc.LinkButton}" Content="{x:Static l:Strings.Simple_ExpertLink}" HorizontalAlignment="Left" Margin="2,0,0,0" Click="OnExpert" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

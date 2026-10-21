@@ -99,6 +99,17 @@ public partial class SettingsWindow : Window
         Simple.RefreshStartup(enabled);
     }
 
+    /// <summary>Opens where <paramref name="old"/> is, on the same page: it replaces it (in another language).</summary>
+    public void TakePlaceOf(SettingsWindow old)
+    {
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        var bounds = old.WindowState == WindowState.Normal ? new Rect(old.Left, old.Top, old.Width, old.Height) : old.RestoreBounds;
+        (Left, Top, Width, Height) = (bounds.Left, bounds.Top, bounds.Width, bounds.Height);
+        WindowState = old.WindowState == WindowState.Maximized ? WindowState.Maximized : WindowState.Normal;
+        SelectTab((old.Tabs.SelectedItem as TabItem)?.Tag as string);
+        Simple.KeepScrollOf(old.Simple);
+    }
+
     public void SelectTab(string? tag)
     {
         if (tag is null)
@@ -151,14 +162,15 @@ public partial class SettingsWindow : Window
 
     private void BuildChoices()
     {
-        string[] levels = ["Off", "Low", "Mid", "High"];
-        LowThreshold.Items.Add(Item("Off", 0));
+        var levels = Fmt.KeyboardLevels();
+        LowThreshold.Items.Add(Item(Strings.Profiles_ThresholdOff, 0));
         foreach (var value in new[] { 10, 15, 20, 25, 30, 40, 50 })
         {
-            LowThreshold.Items.Add(Item($"≤ {value}%", value));
+            LowThreshold.Items.Add(Item($"≤ {Fmt.Percent(value)}", value));
         }
 
         FillTrayDisplay(TrayDisplayChoice);
+        FillLanguages(LanguageChoice);
 
         for (var i = 0; i < levels.Length; i++)
         {
@@ -176,7 +188,7 @@ public partial class SettingsWindow : Window
 
         _kbColors = new ColorSwatches(KbColorPanel, "kbc");
 
-        foreach (var (text, force) in new[] { ("Profile", FanForce.None), ("Auto", FanForce.Auto), ("Silent", FanForce.Silent), ("Curve", FanForce.Curve), ("Full speed", FanForce.Full) })
+        foreach (var (text, force) in new[] { (Strings.Common_Profile, FanForce.None), (Strings.Fan_Auto, FanForce.Auto), (Strings.Fan_Silent, FanForce.Silent), (Strings.Debug_ForceCurve, FanForce.Curve), (Strings.Debug_ForceFull, FanForce.Full) })
         {
             var button = new RadioButton { Content = text, Style = (Style)FindResource("Lc.Segment"), GroupName = "fanforce", Tag = force };
             button.Checked += async (_, _) =>
@@ -190,7 +202,7 @@ public partial class SettingsWindow : Window
         }
 
         KbDelayHost.Child = _kbDelay.Control;
-        (string Text, KeyboardTimeout Value)[] timeouts = [("Always on", KeyboardTimeout.AlwaysOn), ("Auto-off", KeyboardTimeout.AutoOff), ("Auto-off on battery only", KeyboardTimeout.AutoOffOnBattery)];
+        (string Text, KeyboardTimeout Value)[] timeouts = [(Strings.Keyboard_AlwaysOn, KeyboardTimeout.AlwaysOn), (Strings.Keyboard_AutoOff, KeyboardTimeout.AutoOff), (Strings.Keyboard_AutoOffOnBattery, KeyboardTimeout.AutoOffOnBattery)];
         foreach (var (text, value) in timeouts)
         {
             var button = new RadioButton { Content = text, Style = (Style)FindResource("Lc.Segment"), GroupName = "kbt", Tag = value };
@@ -260,7 +272,7 @@ public partial class SettingsWindow : Window
             Select(DcProfile, s.BatteryProfile ?? "");
             Select(LowProfile, s.LowBatteryProfile ?? "");
             Select(LowThreshold, s.LowBatteryThreshold);
-            DcLabel.Text = s.LowBatteryThreshold > 0 ? $"On battery, above {s.LowBatteryThreshold}%" : "On battery";
+            DcLabel.Text = s.LowBatteryThreshold > 0 ? string.Format(Strings.Profiles_OnBatteryAbove, Fmt.Percent(s.LowBatteryThreshold)) : Strings.Common_OnBattery;
             LowProfile.IsEnabled = s.LowBatteryThreshold > 0;
 
             foreach (RadioButton b in KbTimeoutPanel.Children)
@@ -276,15 +288,16 @@ public partial class SettingsWindow : Window
             MuteLeds.IsChecked = s.SyncMuteLeds;
 
             Select(TrayDisplayChoice, s.TrayDisplay);
+            Select(LanguageChoice, s.Language);
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
             BatteryLogToggle.IsChecked = s.BatteryLogging;
             CalibrationFast.IsChecked = s.Calibration?.FastDischarge ?? false;
 
             Simple.Load();
             CalibrationHistory.Text = s.CalibrationHistory.Count == 0
-                ? "No calibrations yet."
-                : "Past runs:\n" + string.Join("\n", s.CalibrationHistory.Take(5).Select(r =>
-                    $"{r.StartedUtc.ToLocalTime():d MMM yyyy HH:mm}  {r.Phase}  {r.FullChargeBeforeMWh / 1000.0:0.0} Wh → {(r.FullChargeAfterMWh is { } a ? $"{a / 1000.0:0.0} Wh" : "?")}  {r.Outcome}"));
+                ? Strings.Battery_NoCalibrations
+                : Strings.Battery_PastRuns + "\n" + string.Join("\n", s.CalibrationHistory.Take(5).Select(r =>
+                    $"{r.StartedUtc.ToLocalTime():d MMM yyyy HH:mm}  {Fmt.PhaseName(r.Phase)}  {r.FullChargeBeforeMWh / 1000.0:0.0} Wh → {(r.FullChargeAfterMWh is { } a ? $"{a / 1000.0:0.0} Wh" : "?")}  {r.Outcome}"));
         }
         finally
         {
@@ -302,29 +315,29 @@ public partial class SettingsWindow : Window
         {
             DesignText.Text = $"{info.DesignedCapacityMWh / 1000.0:0.0} Wh";
             FullText.Text = $"{info.FullChargedCapacityMWh / 1000.0:0.0} Wh";
-            HealthText.Text = info.DesignedCapacityMWh > 0 ? $"{100.0 * info.FullChargedCapacityMWh / info.DesignedCapacityMWh:0.0}%" : "—";
-            CyclesText.Text = info.CycleCount > 0 ? info.CycleCount.ToString() : "not reported";
+            HealthText.Text = info.DesignedCapacityMWh > 0 ? Fmt.Percent(100.0 * info.FullChargedCapacityMWh / info.DesignedCapacityMWh, "0.0") : "—";
+            CyclesText.Text = info.CycleCount > 0 ? info.CycleCount.ToString() : Strings.Battery_CyclesNotReported;
             var p = s.Power;
-            BatteryDetails.Text = $"{info.Manufacturer ?? "?"} {info.DeviceName ?? ""} · {info.Chemistry} · now {Fmt.Percent(p.Percent, "0.0")} ({p.RemainingWh:0.0} Wh)"
+            BatteryDetails.Text = string.Format(Strings.Battery_Details, $"{info.Manufacturer ?? "?"} {info.DeviceName ?? ""}", info.Chemistry, Fmt.Percent(p.Percent, "0.0"), p.RemainingWh)
                 + (p.BatteryRateWatts switch
                 {
-                    > 0.05 and var r => $" · charging {r:0.0} W",
-                    < -0.05 and var r => $" · discharging {-r:0.0} W",
-                    not null => " · not charging",
+                    > 0.05 and var r => " · " + string.Format(Strings.Battery_DetailCharging, r),
+                    < -0.05 and var r => " · " + string.Format(Strings.Battery_DetailDischarging, -r),
+                    not null => " · " + Strings.Battery_DetailNotCharging,
                     _ => "",
                 })
-                + (s.BatteryTempC is { } bt ? $" · {bt:0}°C" : "");
+                + (s.BatteryTempC is { } bt ? $" · {Fmt.Temp(bt)}" : "");
         }
 
         RefreshCalibration();
         UpdateLive(s);
-        DgpuNow.Text = (s.Dgpu.Name ?? "NVIDIA GPU") + ": " + Fmt.Dgpu(s.Dgpu);
+        DgpuNow.Text = string.Format(Strings.Graphics_GpuState, s.Dgpu.Name ?? Strings.Common_NvidiaGpu, Fmt.Dgpu(s.Dgpu));
         DgpuExplain.Text = s.Dgpu.State switch
         {
-            DgpuState.RemovedByFirmware => "The firmware is in Integrated-only mode, so the RTX is powered off and invisible to Windows. Use 'Switch to Hybrid' below to get it back (needs a restart).",
-            DgpuState.DisabledInWindows => "Disabled in Windows. That stops it powering down properly, so it uses more power than when it's simply asleep.",
-            DgpuState.Sleeping => "Hybrid mode, idle: powered down, using practically no power. Apps that need it wake it, and it sleeps again afterwards.",
-            DgpuState.Active => "Hybrid mode and powered up. Something is using it or just used it. Its power isn't included in the CPU figure.",
+            DgpuState.RemovedByFirmware => Strings.Graphics_ExplainRemoved,
+            DgpuState.DisabledInWindows => Strings.Graphics_ExplainDisabled,
+            DgpuState.Sleeping => Strings.Graphics_ExplainSleeping,
+            DgpuState.Active => Strings.Graphics_ExplainActive,
             _ => "",
         };
         DisabledCard.Visibility = s.Dgpu.State == DgpuState.DisabledInWindows ? Visibility.Visible : Visibility.Collapsed;
@@ -337,15 +350,15 @@ public partial class SettingsWindow : Window
     {
         var settings = App.Current.Store.Current;
         DebugFansNow.Text = s.Sensors is { } sensors
-            ? $"Fan 1 {Fmt.Rpm(sensors.Fan1Rpm),7} rpm   Fan 2 {Fmt.Rpm(sensors.Fan2Rpm),7} rpm   CPU {Fmt.Temp(sensors.CpuTempC)}   GPU {Fmt.Temp(sensors.GpuTempC)}"
-            : Elevation.IsElevated ? "Reading…" : "Fan speeds need administrator rights.";
+            ? string.Format(Strings.Debug_FansNow, Fmt.Rpm(sensors.Fan1Rpm), Fmt.Rpm(sensors.Fan2Rpm), Fmt.Temp(sensors.CpuTempC), Fmt.Temp(sensors.GpuTempC))
+            : Elevation.IsElevated ? Strings.Common_Reading : Strings.Debug_FansNeedAdmin;
         DebugTopSpeed.Text = settings.FanTopSpeedMeasuredUtc is { } measured
-            ? $"Top speed {Fmt.Rpm(settings.Fan1MaxRpm)} / {Fmt.Rpm(settings.Fan2MaxRpm)} rpm, measured {measured.ToLocalTime():d MMM HH:mm}."
+            ? string.Format(Strings.Debug_TopSpeedMeasured, Fmt.Rpm(settings.Fan1MaxRpm), Fmt.Rpm(settings.Fan2MaxRpm), measured.ToLocalTime())
             : settings.Fan1MaxRpm is not null || settings.Fan2MaxRpm is not null
-                ? $"Top speed not measured yet. Fastest seen: {Fmt.Rpm(settings.Fan1MaxRpm)} / {Fmt.Rpm(settings.Fan2MaxRpm)} rpm."
-                : "Top speed not measured yet.";
+                ? string.Format(Strings.Debug_TopSpeedSeen, Fmt.Rpm(settings.Fan1MaxRpm), Fmt.Rpm(settings.Fan2MaxRpm))
+                : Strings.Debug_TopSpeedNotMeasured;
         ShowStatus(OnBatteryText, App.Current.Hardware.RunningFromBatteryUntilUtc is { } until
-            ? $"Running from the battery: {Math.Max(0, (until - DateTime.UtcNow).TotalSeconds):0} s left · {Fmt.Watts(s.Power.WattsNow)} {(s.Power.Source == PowerSource.BatteryMeasured ? "measured" : "(waiting for the battery to report)")}"
+            ? string.Format(s.Power.Source == PowerSource.BatteryMeasured ? Strings.Debug_RunningMeasured : Strings.Debug_RunningWaiting, Math.Max(0, (until - DateTime.UtcNow).TotalSeconds), Fmt.Watts(s.Power.WattsNow))
             : "");
     }
 
@@ -417,13 +430,13 @@ public partial class SettingsWindow : Window
 
     private async void OnMeasureFans(object sender, RoutedEventArgs e)
     {
-        ShowStatus(FanTestText, "Starting…");
+        ShowStatus(FanTestText, Strings.Common_Starting);
         ShowStatus(FanTestText, await App.Current.Hardware.MeasureFanTopSpeedAsync());
     }
 
     private async void OnCompareFans(object sender, RoutedEventArgs e)
     {
-        ShowStatus(FanTestText, "Starting…");
+        ShowStatus(FanTestText, Strings.Common_Starting);
         ShowStatus(FanTestText, await App.Current.Hardware.CompareFanModesAsync());
     }
 
@@ -448,36 +461,36 @@ public partial class SettingsWindow : Window
         TestLightsButton.IsEnabled = true;
     }
 
-    private void OnTestOsd(object sender, RoutedEventArgs e) => App.Current.ShowOsd("Test message from Wattkin");
+    private void OnTestOsd(object sender, RoutedEventArgs e) => App.Current.ShowOsd(Strings.Osd_TestMessage);
 
     private void UpdateLive(Snapshot s)
     {
         var sb = new StringBuilder();
         var p = s.Power;
-        sb.AppendLine($"Power      {Fmt.Watts(p.WattsNow)} now, {Fmt.Watts(p.AverageWatts)} average for time estimates · {Fmt.PowerHeadline(p)}");
-        sb.AppendLine($"           CPU package {Fmt.Watts(p.CpuPackageWatts)} · cores {Fmt.Watts(s.Cpu.CoresWatts)} · graphics {Fmt.Watts(s.Cpu.GraphicsWatts)}");
+        sb.AppendLine(string.Format(Strings.System_LivePower, Fmt.Watts(p.WattsNow), Fmt.Watts(p.AverageWatts), Fmt.PowerHeadline(p)));
+        sb.AppendLine(string.Format(Strings.System_LivePackage, Fmt.Watts(p.CpuPackageWatts), Fmt.Watts(s.Cpu.CoresWatts), Fmt.Watts(s.Cpu.GraphicsWatts)));
         if (App.Current.Monitor.Power.RestOfSystemWatts is { } rest)
         {
-            sb.AppendLine($"           learned rest-of-system draw {Fmt.Watts(rest)} ({App.Current.Monitor.Power.RestOfSystemSamples} on-battery samples)");
+            sb.AppendLine(string.Format(Strings.System_LiveRest, Fmt.Watts(rest), App.Current.Monitor.Power.RestOfSystemSamples));
         }
 
-        sb.AppendLine($"Battery    {Fmt.Percent(p.Percent, "0.0")} · {p.RemainingWh:0.00} / {p.FullWh:0.00} Wh · rate {p.BatteryRateWatts:+0.00;-0.00;0} W");
-        sb.AppendLine($"CPU        {s.Cpu.UsagePercent:0}% · avg {Fmt.GHz(s.Cpu.AverageMHz)} · fastest core {Fmt.GHz(s.Cpu.MaxCoreMHz)}"
-            + (s.Cpu.PerformanceCoreMHz is { } pc ? $" · P-cores {Fmt.GHz(pc)}" : "")
-            + (s.Cpu.EfficiencyCoreMHz is { } ec ? $" · E-cores {Fmt.GHz(ec)}" : ""));
-        sb.AppendLine($"Temps      CPU {Fmt.Temp(s.Sensors?.CpuTempC)} · GPU {Fmt.Temp(s.Sensors?.GpuTempC)} · ACPI zone {Fmt.Temp(s.ThermalZoneC)}");
-        sb.AppendLine($"Fans       {Fmt.Fans(s.Sensors?.Fan1Rpm, s.Sensors?.Fan2Rpm)}");
-        sb.AppendLine($"Memory     {Fmt.Bytes(s.Memory.UsedBytes)} / {Fmt.Bytes(s.Memory.TotalBytes)} ({s.Memory.LoadPercent}%) · committed {Fmt.Bytes(s.Memory.CommitUsedBytes)} / {Fmt.Bytes(s.Memory.CommitLimitBytes)}");
+        sb.AppendLine(string.Format(Strings.System_LiveBattery, Fmt.Percent(p.Percent, "0.0"), p.RemainingWh, p.FullWh, p.BatteryRateWatts));
+        sb.AppendLine(string.Format(Strings.System_LiveCpu, Fmt.Percent(s.Cpu.UsagePercent), Fmt.GHz(s.Cpu.AverageMHz), Fmt.GHz(s.Cpu.MaxCoreMHz))
+            + (s.Cpu.PerformanceCoreMHz is { } pc ? " · " + string.Format(Strings.System_LivePCores, Fmt.GHz(pc)) : "")
+            + (s.Cpu.EfficiencyCoreMHz is { } ec ? " · " + string.Format(Strings.System_LiveECores, Fmt.GHz(ec)) : ""));
+        sb.AppendLine(string.Format(Strings.System_LiveTemps, Fmt.Temp(s.Sensors?.CpuTempC), Fmt.Temp(s.Sensors?.GpuTempC), Fmt.Temp(s.ThermalZoneC)));
+        sb.AppendLine(string.Format(Strings.System_LiveFans, Fmt.Fans(s.Sensors?.Fan1Rpm, s.Sensors?.Fan2Rpm)));
+        sb.AppendLine(string.Format(Strings.System_LiveMemory, Fmt.Bytes(s.Memory.UsedBytes), Fmt.Bytes(s.Memory.TotalBytes), Fmt.Percent(s.Memory.LoadPercent), Fmt.Bytes(s.Memory.CommitUsedBytes), Fmt.Bytes(s.Memory.CommitLimitBytes)));
         foreach (var d in s.Disks)
         {
-            sb.AppendLine($"{d.Name,-10} read {Fmt.Rate(d.ReadBytesPerSec)} · write {Fmt.Rate(d.WriteBytesPerSec)} · {d.ActivePercent:0}% busy");
+            sb.AppendLine(string.Format(Strings.System_LiveDisk, d.Name, Fmt.Rate(d.ReadBytesPerSec), Fmt.Rate(d.WriteBytesPerSec), Fmt.Percent(d.ActivePercent)));
         }
 
-        sb.Append($"GPU        {Fmt.Dgpu(s.Dgpu)}");
+        sb.Append(string.Format(Strings.System_LiveGpu, Fmt.Dgpu(s.Dgpu)));
         LiveText.Text = sb.ToString();
         ProcessText.Text = s.TopProcesses.Count == 0
-            ? "Measuring…"
-            : string.Join("\n", s.TopProcesses.Take(8).Select(x => $"{(x.Processes > 1 ? $"{x.Name} ({x.Processes})" : x.Name),-34} {x.CpuPercent,5:0.0}%"));
+            ? Strings.Common_Measuring
+            : string.Join("\n", s.TopProcesses.Take(8).Select(x => $"{(x.Processes > 1 ? $"{x.Name} ({x.Processes})" : x.Name),-34} {Fmt.Percent(x.CpuPercent, "0.0"),7}"));
 
         // Static facts: rebuilt every 10 s at most (display-mode enumeration isn't free).
         if (DateTime.UtcNow - _infoUpdatedUtc < TimeSpan.FromSeconds(10))
@@ -489,13 +502,13 @@ public partial class SettingsWindow : Window
         var info = App.Current.Monitor.Info;
         var state = App.Current.Hardware.State;
         var battery = App.Current.Monitor.BatteryInfo;
-        InfoText.Text =
-            $"Model      {info?.Model}\n" +
-            $"BIOS       {info?.BiosVersion} · EC {state.EcFirmware ?? "(needs administrator)"} · MSI WMI {state.WmiVersion ?? "?"}\n" +
-            $"CPU        {info?.CpuName} · {info?.PerformanceThreads} P-threads + {info?.EfficiencyThreads} E-threads\n" +
-            $"Memory     {Fmt.Bytes(info?.InstalledMemoryBytes ?? 0)} {info?.MemoryType} · running {info?.MemoryConfiguredMTs} MT/s (rated {info?.MemoryRatedMTs}) · {info?.MemoryPart}\n" +
-            $"Battery    {battery?.Manufacturer} {battery?.DeviceName} · {battery?.Chemistry} · design {battery?.DesignedCapacityMWh / 1000.0:0.0} Wh\n" +
-            $"Display    {DisplayModes.CurrentRefreshRate()} Hz (available: {string.Join(", ", DisplayModes.SupportedRefreshRates())})";
+        InfoText.Text = string.Join("\n",
+            string.Format(Strings.System_InfoModel, info?.Model),
+            string.Format(Strings.System_InfoBios, info?.BiosVersion, state.EcFirmware ?? Strings.System_NeedsAdmin, state.WmiVersion ?? "?"),
+            string.Format(Strings.System_InfoCpu, info?.CpuName, info?.PerformanceThreads, info?.EfficiencyThreads),
+            string.Format(Strings.System_InfoMemory, Fmt.Bytes(info?.InstalledMemoryBytes ?? 0), info?.MemoryType, info?.MemoryConfiguredMTs, info?.MemoryRatedMTs, info?.MemoryPart),
+            string.Format(Strings.System_InfoBattery, $"{battery?.Manufacturer} {battery?.DeviceName}", battery?.Chemistry, battery?.DesignedCapacityMWh / 1000.0),
+            string.Format(Strings.System_InfoDisplay, DisplayModes.CurrentRefreshRate(), string.Join(", ", DisplayModes.SupportedRefreshRates())));
     }
 
     private void RefreshFromState()
@@ -506,8 +519,8 @@ public partial class SettingsWindow : Window
         {
             ChargeStatusText.Text = (state.ChargeStatus, state.EcChargeLimit) switch
             {
-                ({ Length: > 0 } status, { } ec) => $"{status} (controller set to {ec}%)",
-                (_, { } ec) => $"The laptop's controller is set to stop at {ec}%.",
+                ({ Length: > 0 } status, { } ec) => string.Format(Strings.Battery_StatusWithController, status, Fmt.Percent(ec)),
+                (_, { } ec) => string.Format(Strings.Battery_ControllerStopsAt, Fmt.Percent(ec)),
                 (var status, null) => status,
             };
             foreach (RadioButton b in KbLevelPanel.Children)
@@ -531,9 +544,7 @@ public partial class SettingsWindow : Window
             KbTimeoutPanel.IsEnabled = caps?.HasKeyboardTimeout != false;
             KbColorSection.Visibility = KbDelaySection.Visibility = caps?.HasKeyboardColor != false ? Visibility.Visible : Visibility.Collapsed;
             KbColorPanel.IsEnabled = KbDelaySection.IsEnabled = state.CanWrite;
-            KbTimeoutHint.Text = caps?.HasKeyboardColor == true
-                ? "The keyboard controller's own auto-off doesn't reach these keys, so Wattkin does it: the light goes off when the laptop's keyboard hasn't been used for the time above, and comes back on with its next key press. Another keyboard doesn't wake it. Wattkin only notices that a key was pressed, never which one. While Windows is locked the light stays on, so you can see the keys for your password."
-                : "Auto-off is built into the keyboard controller: the light goes off after about 10 seconds without typing and comes back on with a key press. The controller turns auto-off back on every boot, so Wattkin re-applies your choice at startup and after sleep.";
+            KbTimeoutHint.Text = caps?.HasKeyboardColor == true ? Strings.Keyboard_AutoOffHintUsb : Strings.Keyboard_AutoOffHintEc;
 
             // Calibration owns charging until it finishes or is cancelled.
             var chargeEditable = state.CanWrite && !App.Current.Hardware.IsCalibrating;
@@ -544,32 +555,30 @@ public partial class SettingsWindow : Window
 
             SupportText.Text = caps switch
             {
-                null => Elevation.IsElevated ? "Reading the laptop's firmware…" : "Hardware support: needs administrator rights to check.",
-                { Support: EcSupport.Verified } => $"Hardware support: verified on this firmware ({caps.MapSource}).",
-                { Support: EcSupport.Community } => $"Hardware support: msi-ec register map ({caps.MapSource}), sanity-checked on this laptop at startup. If anything misbehaves, please report it with a diagnostics report.",
-                { Support: EcSupport.Standard } => "Hardware support: MSI's standard layout (the registers MSI Center uses on all recent MSI laptops), sanity-checked on this laptop at startup. Please report how it works with a diagnostics report.",
-                _ => state.Problem ?? "Hardware support: monitoring only on this firmware.",
+                null => Elevation.IsElevated ? Strings.General_SupportReading : Strings.General_SupportNeedsAdmin,
+                { Support: EcSupport.Verified } => string.Format(Strings.General_SupportVerified, caps.MapSource),
+                { Support: EcSupport.Community } => string.Format(Strings.General_SupportCommunity, caps.MapSource),
+                { Support: EcSupport.Standard } => Strings.General_SupportStandard,
+                _ => state.Problem ?? Strings.General_SupportMonitoring,
             };
             if (state.Gpu is { } gpu)
             {
-                FirmwareMode.Text = $"Current: {Describe(gpu.Current)}" + (gpu.SwitchPending ? $" · switching to {Describe(gpu.Requested)} at the next full shutdown" : "");
+                FirmwareMode.Text = gpu.SwitchPending
+                    ? string.Format(Strings.Graphics_CurrentSwitching, Describe(gpu.Current), Describe(gpu.Requested))
+                    : string.Format(Strings.Graphics_Current, Describe(gpu.Current));
                 ModeHybrid.IsEnabled = state.Caps?.CanSwitchGpuMode == true && gpu.SwitchSupported && gpu.Requested != FirmwareGpuMode.Hybrid;
                 ModeIntegrated.IsEnabled = state.Caps?.CanSwitchGpuMode == true && gpu.SwitchSupported && gpu.IntegratedSupported && gpu.Requested != FirmwareGpuMode.Integrated;
             }
             else
             {
-                FirmwareMode.Text = state.GpuProblem ?? (Elevation.IsElevated ? "Reading…" : "Needs administrator rights.");
+                FirmwareMode.Text = state.GpuProblem ?? (Elevation.IsElevated ? Strings.Common_Reading : Strings.Common_NeedsAdmin);
                 ModeHybrid.IsEnabled = ModeIntegrated.IsEnabled = false;
             }
 
-            ElevationText.Text = Elevation.IsElevated
-                ? "Running as administrator: hardware controls are available."
-                : "Running without administrator rights: monitoring only.";
+            ElevationText.Text = Elevation.IsElevated ? Strings.General_Elevated : Strings.General_NotElevated;
             ElevateButton.Visibility = Elevation.IsElevated ? Visibility.Collapsed : Visibility.Visible;
-            MsiStatus.Text = state.MsiSoftwareRunning
-                ? "MSI Center components are running right now. They can overwrite Wattkin's settings."
-                : "No MSI Center components are running.";
-            AboutText.Text = $"Wattkin {typeof(App).Assembly.GetName().Version?.ToString(3)} · EC {state.EcFirmware ?? "?"} · settings: {Fmt.FriendlyPath(App.Current.Store.FilePath)}";
+            MsiStatus.Text = state.MsiSoftwareRunning ? Strings.General_MsiRunning : Strings.General_MsiNotRunning;
+            AboutText.Text = string.Format(Strings.General_AboutLine, typeof(App).Assembly.GetName().Version?.ToString(3), state.EcFirmware ?? "?", Fmt.FriendlyPath(App.Current.Store.FilePath));
         }
         finally
         {
@@ -584,9 +593,9 @@ public partial class SettingsWindow : Window
 
     private static string Describe(FirmwareGpuMode mode) => mode switch
     {
-        FirmwareGpuMode.Hybrid => "Hybrid (RTX available, sleeps when idle)",
-        FirmwareGpuMode.Integrated => "Integrated only (RTX powered off)",
-        _ => "Discrete only",
+        FirmwareGpuMode.Hybrid => Strings.Graphics_ModeHybrid,
+        FirmwareGpuMode.Integrated => Strings.Graphics_ModeIntegrated,
+        _ => Strings.Graphics_ModeDiscrete,
     };
 
     private void RefreshCalibration()
@@ -600,18 +609,21 @@ public partial class SettingsWindow : Window
             CalibrationStatus.Text = c.Message;
             var percent = c.Percent ?? 0;
             CalibrationBar.Value = c.Phase == CalibrationPhase.Discharging ? Math.Clamp((100 - percent) / (100 - c.TargetPercent) * 50 + 50, 50, 100) : Math.Clamp(percent / 2, 0, 50);
-            CalibrationEta.Text = $"Running for {Fmt.Duration(c.Elapsed)} · this step ~{Fmt.Duration(c.PhaseEta)} · finished in ~{Fmt.Duration(c.TotalEta)}";
+            CalibrationEta.Text = string.Format(Strings.Battery_CalibrationEta, Fmt.Duration(c.Elapsed), Fmt.Duration(c.PhaseEta), Fmt.Duration(c.TotalEta));
         }
         else if (running)
         {
-            CalibrationStatus.Text = "Starting…";
+            CalibrationStatus.Text = Strings.Common_Starting;
         }
         else
         {
-            CalibrationStatus.Text = state.Calibration?.Message ?? "Not running.";
+            CalibrationStatus.Text = state.Calibration?.Message ?? Strings.Battery_CalibrationNotRunning;
             CalibrationBar.Value = 0;
             CalibrationEta.Text = App.Current.Monitor.Latest is { } s && s.Power.FullWh is { } full
-                ? $"Rough time on this laptop: charging to full ~{Fmt.Duration(TimeSpan.FromHours(full * (1 - ((s.Power.Percent ?? 50) / 100)) / 30 * 1.25))}, then discharging ~{Fmt.Duration(TimeSpan.FromHours(full * 0.92 / 8))} (or ~{Fmt.Duration(TimeSpan.FromHours(full * 0.92 / 20))} with faster discharge)."
+                ? string.Format(Strings.Battery_CalibrationRough,
+                    Fmt.Duration(TimeSpan.FromHours(full * (1 - ((s.Power.Percent ?? 50) / 100)) / 30 * 1.25)),
+                    Fmt.Duration(TimeSpan.FromHours(full * 0.92 / 8)),
+                    Fmt.Duration(TimeSpan.FromHours(full * 0.92 / 20)))
                 : "";
         }
     }
@@ -650,7 +662,7 @@ public partial class SettingsWindow : Window
         CalibrationSuggestion.Visibility = advice is null ? Visibility.Collapsed : Visibility.Visible;
         if (advice is not null)
         {
-            CalibrationSuggestionText.Text = $"The battery reports {advice.NowWh:0.0} Wh, down from about {advice.TypicalWh:0} Wh in the last two months. A drop this quick is usually the gauge drifting, not real wear. A calibration re-measures it: a few hours with the charger plugged in.";
+            CalibrationSuggestionText.Text = string.Format(Strings.Battery_Suggestion, advice.NowWh, advice.TypicalWh);
         }
     }
 
@@ -685,11 +697,11 @@ public partial class SettingsWindow : Window
     {
         var stop = (int)Math.Round(StopSlider.Value);
         var resume = (int)Math.Round(ResumeSlider.Value);
-        StopValue.Text = $"{stop}%";
-        ResumeValue.Text = $"{resume}%";
+        StopValue.Text = Fmt.Percent(stop);
+        ResumeValue.Text = Fmt.Percent(resume);
         LimitExplain.Text = CustomResume.IsChecked == true && resume < ChargePolicy.MaxResumeFor(stop)
-            ? $"Charging stops at {stop}% and starts again below {resume}%. The controller's own gap is 10%, so Wattkin widens it to a {resume}–{stop}% band. If Wattkin isn't running, the controller keeps the last value it was given, which is never above {stop}%."
-            : $"Charging stops at {stop}% and starts again below {ChargePolicy.MaxResumeFor(stop)}%. The embedded controller does this by itself, even if Wattkin is closed or uninstalled.";
+            ? string.Format(Strings.Battery_LimitExplainBand, Fmt.Percent(stop), Fmt.Percent(resume), resume)
+            : string.Format(Strings.Battery_LimitExplain, Fmt.Percent(stop), Fmt.Percent(ChargePolicy.MaxResumeFor(stop)));
     }
 
     private async void OnApplyLimit(object sender, RoutedEventArgs e)
@@ -707,9 +719,7 @@ public partial class SettingsWindow : Window
     private void OnCalibrationStart(object sender, RoutedEventArgs e)
     {
         var fast = CalibrationFast.IsChecked == true;
-        if (MessageBox.Show(this,
-                "Calibration will:\n\n1. Charge the battery to 100%.\n2. Discharge it to about 8% while the charger stays plugged in.\n3. Hand back to your normal charge limit, which recharges it.\n\nKeep the charger connected the whole time. The laptop won't sleep while this runs. You can keep using it, and you can cancel any time.\n\nStart now?",
-                "Battery calibration", MessageBoxButton.OKCancel, MessageBoxImage.Information) != MessageBoxResult.OK)
+        if (MessageBox.Show(this, Strings.Calib_Confirm, Strings.Common_BatteryCalibration, MessageBoxButton.OKCancel, MessageBoxImage.Information) != MessageBoxResult.OK)
         {
             return;
         }
@@ -717,7 +727,7 @@ public partial class SettingsWindow : Window
         var error = App.Current.Hardware.StartCalibration(fast);
         if (error is not null)
         {
-            MessageBox.Show(this, error, "Battery calibration", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, error, Strings.Common_BatteryCalibration, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         RefreshCalibration();
@@ -725,7 +735,7 @@ public partial class SettingsWindow : Window
 
     private void OnCalibrationCancel(object sender, RoutedEventArgs e)
     {
-        if (MessageBox.Show(this, "Stop the calibration? Your normal charge limit takes over again.", "Battery calibration", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+        if (MessageBox.Show(this, Strings.Calib_ConfirmStop, Strings.Common_BatteryCalibration, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
         {
             App.Current.Hardware.CancelCalibration();
             RefreshCalibration();
@@ -763,7 +773,7 @@ public partial class SettingsWindow : Window
         }
 
         App.Current.Store.Update(WindowsPower.RestoreOriginals);
-        MessageBox.Show(this, "Processor turbo and max-state settings are back to what they were before Wattkin changed them.", "Wattkin");
+        MessageBox.Show(this, Strings.Profiles_RestoredWindows, "Wattkin");
     }
 
     // ---- keyboard & devices -------------------------------------------------------------------
@@ -798,7 +808,7 @@ public partial class SettingsWindow : Window
         var error = await App.Current.Hardware.ReEnableDgpuAsync();
         if (error is not null)
         {
-            MessageBox.Show(this, error, "NVIDIA GPU", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, error, Strings.Common_NvidiaGpu, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
     private async void OnModeHybrid(object sender, RoutedEventArgs e) => await SwitchModeSafe(FirmwareGpuMode.Hybrid);
@@ -815,7 +825,7 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             Log.Error("GPU mode switch failed", ex);
-            MessageBox.Show(this, $"The switch failed: {ex.Message}", "GPU mode", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, string.Format(Strings.Graphics_SwitchFailed, ex.Message), Strings.Common_GpuMode, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
@@ -826,9 +836,7 @@ public partial class SettingsWindow : Window
     private async Task SwitchMode(FirmwareGpuMode mode)
     {
         var description = Describe(mode);
-        if (MessageBox.Show(this,
-                $"Switch the GPU to {description}?\n\nThis is the same firmware switch MSI Center uses. It takes effect after the laptop fully shuts down and starts again.",
-                "GPU mode", MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
+        if (MessageBox.Show(this, string.Format(Strings.Graphics_ConfirmSwitch, description), Strings.Common_GpuMode, MessageBoxButton.OKCancel, MessageBoxImage.Question) != MessageBoxResult.OK)
         {
             return;
         }
@@ -836,13 +844,11 @@ public partial class SettingsWindow : Window
         var error = await App.Current.Hardware.RequestGpuModeAsync(mode);
         if (error is not null)
         {
-            MessageBox.Show(this, error, "GPU mode", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, error, Strings.Common_GpuMode, MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
-        if (MessageBox.Show(this,
-                "Switch armed. Shut down now to apply it?\n\nSave your work first. MSI's method powers the laptop off and normally starts it again by itself. If it stays off, press the power button.\n\nChoose No to apply it at your next full shutdown.",
-                "GPU mode", MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
+        if (MessageBox.Show(this, Strings.Graphics_SwitchArmed, Strings.Common_GpuMode, MessageBoxButton.YesNo, MessageBoxImage.Warning) == MessageBoxResult.Yes)
         {
             FirmwareGpuSwitch.ShutDownToApply();
         }
@@ -867,7 +873,7 @@ public partial class SettingsWindow : Window
         if (!Elevation.IsElevated)
         {
             await RefreshStartupTaskAsync();
-            if (MessageBox.Show(this, "Setting up start-with-Windows needs administrator rights. Restart Wattkin as administrator now?", "Wattkin", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            if (MessageBox.Show(this, Strings.General_StartupNeedsAdmin, "Wattkin", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
             {
                 App.Current.RestartElevated();
             }
@@ -880,7 +886,7 @@ public partial class SettingsWindow : Window
         StartWithWindows.IsEnabled = true;
         if (error is not null)
         {
-            MessageBox.Show(this, error, "Start with Windows", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, error, Strings.Common_StartWithWindows, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
 
         await RefreshStartupTaskAsync();
@@ -904,6 +910,14 @@ public partial class SettingsWindow : Window
         }
     }
 
+    private void OnLanguage(object sender, SelectionChangedEventArgs e)
+    {
+        if (!_loading && LanguageChoice.SelectedItem is ComboBoxItem item)
+        {
+            App.Current.SetLanguage(item.Tag as string);
+        }
+    }
+
     private void OnWidgetToggle(object sender, RoutedEventArgs e) => App.Current.SetWidgetVisible(WidgetToggle.IsChecked == true);
 
     private void OnElevate(object sender, RoutedEventArgs e) => App.Current.RestartElevated();
@@ -922,14 +936,14 @@ public partial class SettingsWindow : Window
 
     private async void OnDiagnostics(object sender, RoutedEventArgs e)
     {
-        var dialog = new Microsoft.Win32.SaveFileDialog { FileName = $"Wattkin-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.txt", Filter = "Text|*.txt" };
+        var dialog = new Microsoft.Win32.SaveFileDialog { FileName = $"Wattkin-diagnostics-{DateTime.Now:yyyyMMdd-HHmm}.txt", Filter = Strings.Debug_TextFilter };
         if (dialog.ShowDialog(this) != true)
         {
             return;
         }
 
         DiagnosticsButton.IsEnabled = false;
-        DiagnosticsButton.Content = "Reading the hardware…";
+        DiagnosticsButton.Content = Strings.Common_ReadingHardware;
         try
         {
             var path = dialog.FileName;
@@ -939,12 +953,12 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             Log.Error("Diagnostics failed", ex);
-            MessageBox.Show(this, ex.Message, "Diagnostics", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, ex.Message, Strings.Common_Diagnostics, MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         finally
         {
             DiagnosticsButton.IsEnabled = true;
-            DiagnosticsButton.Content = "Save diagnostics report";
+            DiagnosticsButton.Content = Strings.Debug_SaveReport;
         }
     }
 

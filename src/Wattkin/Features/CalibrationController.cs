@@ -73,17 +73,17 @@ internal sealed class CalibrationController : IDisposable
     {
         if (IsActive)
         {
-            return "A calibration is already running.";
+            return Strings.Calib_AlreadyRunning;
         }
 
         if (!latest.Power.OnAc)
         {
-            return "Plug in the charger first. It stays connected for the whole calibration.";
+            return Strings.Calib_PlugIn;
         }
 
         if (latest.Power.Percent is null)
         {
-            return "Battery level is not available.";
+            return Strings.Calib_NoLevel;
         }
 
         // Reset all run state before the record is published, so the next tick can't see a previous run.
@@ -110,7 +110,7 @@ internal sealed class CalibrationController : IDisposable
         return null;
     }
 
-    public void Cancel() => Finish(CalibrationPhase.Cancelled, "Cancelled. Your charge limit is back in charge.");
+    public void Cancel() => Finish(CalibrationPhase.Cancelled, Strings.Calib_Cancelled);
 
     public void SetFastDischarge(bool fast) => _store.Update(s =>
     {
@@ -136,7 +136,7 @@ internal sealed class CalibrationController : IDisposable
         var now = snapshot.TimestampUtc;
         if (now - record.StartedUtc > MaxDuration)
         {
-            return Finish(CalibrationPhase.Failed, "Stopped after 24 hours to be safe.");
+            return Finish(CalibrationPhase.Failed, Strings.Calib_TooLong);
         }
 
         if (snapshot.Power.Percent is not { } percent)
@@ -148,7 +148,7 @@ internal sealed class CalibrationController : IDisposable
             }
             else if (now - _percentUnknownSinceUtc > TimeSpan.FromMinutes(5))
             {
-                return Finish(CalibrationPhase.Failed, "The battery level couldn't be read for 5 minutes. Stopped to be safe.");
+                return Finish(CalibrationPhase.Failed, Strings.Calib_LevelUnknown);
             }
 
             return new ChargeTarget(100, simulatingNow && now - _percentUnknownSinceUtc < UnknownPercentLimit);
@@ -181,7 +181,7 @@ internal sealed class CalibrationController : IDisposable
                     }
                     else if (now - _acMissingSinceUtc > TimeSpan.FromSeconds(30))
                     {
-                        return Finish(CalibrationPhase.Failed, "The charger was unplugged while charging to 100%.");
+                        return Finish(CalibrationPhase.Failed, Strings.Calib_Unplugged);
                     }
 
                     break;
@@ -199,7 +199,7 @@ internal sealed class CalibrationController : IDisposable
                     {
                         if (++_topUpAttempts > MaxTopUpAttempts)
                         {
-                            return Finish(CalibrationPhase.Failed, $"The battery won't charge past {percent:0}%. Its controller may be holding it. Try again later.");
+                            return Finish(CalibrationPhase.Failed, string.Format(Strings.Calib_WontCharge, percent));
                         }
 
                         EnterPhase(CalibrationPhase.DrainingForTopUp);
@@ -207,7 +207,7 @@ internal sealed class CalibrationController : IDisposable
                     }
                     else if (now - _phaseStartedUtc > TimeSpan.FromMinutes(5))
                     {
-                        return Finish(CalibrationPhase.Failed, $"The battery is not charging at {percent:0}%.");
+                        return Finish(CalibrationPhase.Failed, string.Format(Strings.Calib_NotCharging, percent));
                     }
                 }
 
@@ -222,7 +222,7 @@ internal sealed class CalibrationController : IDisposable
                 }
                 else if (now - _lastPercentChangeUtc > StallLimit)
                 {
-                    return Finish(CalibrationPhase.Failed, "The battery level stopped falling for 20 minutes. Stopped to be safe.");
+                    return Finish(CalibrationPhase.Failed, Strings.Calib_Stalled);
                 }
                 else
                 {
@@ -243,12 +243,12 @@ internal sealed class CalibrationController : IDisposable
                             s.Calibration.FullChargeAfterMWh = after;
                         }
                     });
-                    return Finish(CalibrationPhase.Done, $"Done. It recharges to your {record.LimitBefore}% limit now. Windows updates the measured capacity during the next charge.");
+                    return Finish(CalibrationPhase.Done, string.Format(Strings.Calib_Done, record.LimitBefore));
                 }
 
                 if (now - _lastPercentChangeUtc > StallLimit)
                 {
-                    return Finish(CalibrationPhase.Failed, "The battery level stopped falling for 20 minutes. Stopped to be safe.");
+                    return Finish(CalibrationPhase.Failed, Strings.Calib_Stalled);
                 }
 
                 wanted = new ChargeTarget(100, true);
@@ -288,20 +288,17 @@ internal sealed class CalibrationController : IDisposable
         switch (phase)
         {
             case CalibrationPhase.ChargingToFull:
-                message = snapshot.Power.Charging
-                    ? $"Step 1 of 2: charging to 100% ({percent:0}%)"
-                    : $"Step 1 of 2: waiting for the battery to report full ({percent:0}%)";
+                message = string.Format(snapshot.Power.Charging ? Strings.Calib_Step1Charging : Strings.Calib_Step1Waiting, percent);
                 phaseEta = Hours((fullWh - remainingWh) / chargeW * 1.25);
                 future = fullDischarge;
                 break;
             case CalibrationPhase.DrainingForTopUp:
-                message = $"Step 1 of 2: the battery is too full to top up ({percent:0}%), so it's draining a little first";
+                message = string.Format(Strings.Calib_Step1TooFull, percent);
                 phaseEta = Hours((remainingWh - (fullWh * 0.84)) / drainW);
                 future = (Hours(fullWh * 0.16 / chargeW * 1.25) ?? TimeSpan.Zero) + fullDischarge;
                 break;
             default:
-                message = $"Step 2 of 2: discharging to {target:0}% while plugged in ({percent:0}%)"
-                    + (record.FastDischarge ? ", faster mode (extra CPU load)" : string.Empty);
+                message = string.Format(record.FastDischarge ? Strings.Calib_Step2Fast : Strings.Calib_Step2, target, percent);
                 phaseEta = Hours((remainingWh - (fullWh * target / 100)) / mainDischargeW);
                 break;
         }

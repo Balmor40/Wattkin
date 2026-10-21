@@ -13,16 +13,16 @@ namespace Wattkin.UI;
 /// </summary>
 internal sealed class ColorSwatches
 {
-    private static readonly (string Name, LightColor Color)[] Presets =
+    private static (string Name, LightColor Color)[] Presets =>
     [
-        ("White", LightColor.White),
-        ("Red", new(0xFF, 0x00, 0x00)),
-        ("Orange", new(0xFF, 0x50, 0x00)),
-        ("Yellow", new(0xFF, 0xFF, 0x00)),
-        ("Green", new(0x00, 0xFF, 0x00)),
-        ("Blue", new(0x00, 0x00, 0xFF)),
-        ("Purple", new(0x96, 0x00, 0xFF)),
-        ("Pink", new(0xFF, 0x00, 0xFF)),
+        (Strings.Colour_White, LightColor.White),
+        (Strings.Colour_Red, new(0xFF, 0x00, 0x00)),
+        (Strings.Colour_Orange, new(0xFF, 0x50, 0x00)),
+        (Strings.Colour_Yellow, new(0xFF, 0xFF, 0x00)),
+        (Strings.Colour_Green, new(0x00, 0xFF, 0x00)),
+        (Strings.Colour_Blue, new(0x00, 0x00, 0xFF)),
+        (Strings.Colour_Purple, new(0x96, 0x00, 0xFF)),
+        (Strings.Colour_Pink, new(0xFF, 0x00, 0xFF)),
     ];
 
     private static readonly Brush Rainbow = Freeze(new LinearGradientBrush(
@@ -52,7 +52,7 @@ internal sealed class ColorSwatches
         }
 
         // Click, not Checked: picking another colour again must open the picker again.
-        _other = Swatch(panel, group, Rainbow, "Another colour…");
+        _other = Swatch(panel, group, Rainbow, Strings.Colour_Other);
         _other.Click += async (_, _) =>
         {
             if (PickOther(panel, _shown) is { } color)
@@ -84,7 +84,7 @@ internal sealed class ColorSwatches
 
             _other.IsChecked = !preset;
             _other.Background = preset ? Rainbow : Fill(color);
-            _other.ToolTip = preset ? "Another colour…" : $"{color.Hex} (click for another colour)";
+            _other.ToolTip = preset ? Strings.Colour_Other : string.Format(Strings.Colour_Custom, color.Hex);
         }
         finally
         {

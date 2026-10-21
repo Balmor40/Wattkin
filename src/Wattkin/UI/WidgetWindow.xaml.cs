@@ -37,12 +37,12 @@ public partial class WidgetWindow : Window
     {
         var p = s.Power;
         Watts.Text = Fmt.WattsNumber(p.WattsNow);
-        Battery.Text = p.Percent is { } percent ? $"{percent:0}%{(p.Charging ? " ⚡" : "")}" : "";
+        Battery.Text = p.Percent is { } percent ? Fmt.Percent(percent) + (p.Charging ? " ⚡" : "") : "";
         Runtime.Text = p.Source switch
         {
-            PowerSource.BatteryMeasured => p.TimeToEmpty is { } t ? $"{Fmt.Duration(Fmt.Steady(t))} left" : "estimating…",
-            PowerSource.AcEstimated => p.Charging && p.TimeToTarget is { } c ? $"charging · {Fmt.Duration(c)} to limit" : $"plugged in · ≈{Fmt.Duration(Fmt.Steady(p.UnpluggedRuntimeEstimate))} on battery",
-            PowerSource.AcCpuOnly => "plugged in · CPU only",
+            PowerSource.BatteryMeasured => p.TimeToEmpty is { } t ? string.Format(Strings.Widget_TimeLeft, Fmt.Duration(Fmt.Steady(t))) : Strings.Widget_Estimating,
+            PowerSource.AcEstimated => p.Charging && p.TimeToTarget is { } c ? string.Format(Strings.Widget_ChargingToLimit, Fmt.Duration(c)) : string.Format(Strings.Widget_PluggedInEstimate, Fmt.Duration(Fmt.Steady(p.UnpluggedRuntimeEstimate))),
+            PowerSource.AcCpuOnly => Strings.Widget_PluggedInCpuOnly,
             _ => "",
         };
 
@@ -51,10 +51,10 @@ public partial class WidgetWindow : Window
             return;
         }
 
-        var temp = s.Sensors?.CpuTempC is { } ct ? $" · {ct}°C" : s.ThermalZoneC is { } tz ? $" · {tz:0}°C" : "";
-        Cpu.Text = $"CPU {s.Cpu.UsagePercent:0}% · {Fmt.GHz(s.Cpu.AverageMHz)}{temp}";
-        Ram.Text = $"RAM {s.Memory.LoadPercent}% · {Fmt.Bytes(s.Memory.UsedBytes)}";
-        Disk.Text = $"Disk ↓{Fmt.Rate(s.Disks.Sum(d => d.ReadBytesPerSec))} ↑{Fmt.Rate(s.Disks.Sum(d => d.WriteBytesPerSec))}";
+        var temp = s.Sensors?.CpuTempC is { } ct ? $" · {Fmt.Temp(ct)}" : s.ThermalZoneC is { } tz ? $" · {Fmt.Temp(tz)}" : "";
+        Cpu.Text = $"CPU {Fmt.Percent(s.Cpu.UsagePercent)} · {Fmt.GHz(s.Cpu.AverageMHz)}{temp}";
+        Ram.Text = $"RAM {Fmt.Percent(s.Memory.LoadPercent)} · {Fmt.Bytes(s.Memory.UsedBytes)}";
+        Disk.Text = string.Format(Strings.Widget_Disk, Fmt.Rate(s.Disks.Sum(d => d.ReadBytesPerSec)), Fmt.Rate(s.Disks.Sum(d => d.WriteBytesPerSec)));
         Gpu.Text = s.Dgpu.State is DgpuState.None ? "" : $"dGPU {Fmt.Dgpu(s.Dgpu).ToLowerInvariant()}";
     }
 

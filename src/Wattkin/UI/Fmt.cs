@@ -50,32 +50,35 @@ internal static class Fmt
 
         if (t.TotalMinutes < 1)
         {
-            return "<1 min";
+            return Strings.Unit_UnderAMinute;
         }
 
         if (t.TotalHours < 1)
         {
-            return $"{(int)t.TotalMinutes} min";
+            return string.Format(Strings.Unit_Minutes, (int)t.TotalMinutes);
         }
 
-        return t.Minutes == 0 ? $"{(int)t.TotalHours}h" : $"{(int)t.TotalHours}h {t.Minutes:00}m";
+        return t.Minutes == 0 ? string.Format(Strings.Unit_Hours, (int)t.TotalHours) : string.Format(Strings.Unit_HoursMinutes, (int)t.TotalHours, t.Minutes);
     }
 
     /// <summary>A short wait in seconds: "45 s", "1 min", "1 min 30 s".</summary>
     public static string Delay(int seconds) => (seconds / 60, seconds % 60) switch
     {
-        (0, var s) => $"{s} s",
-        (var m, 0) => $"{m} min",
-        (var m, var s) => $"{m} min {s} s",
+        (0, var s) => string.Format(Strings.Unit_Seconds, s),
+        (var m, 0) => string.Format(Strings.Unit_Minutes, m),
+        (var m, var s) => string.Format(Strings.Unit_MinutesSeconds, m, s),
     };
 
-    public static string Percent(double? value, string format = "0") => value is { } v ? v.ToString(format, C) + "%" : "—";
+    public static string Percent(double? value, string format = "0") => value is { } v ? string.Format(Strings.Unit_Percent, v.ToString(format, C)) : "—";
+
+    /// <summary>"80%" (French: "80 %").</summary>
+    public static string Percent(int value) => string.Format(Strings.Unit_Percent, value);
 
     public static string GHz(double mhz) => mhz <= 0 ? "—" : (mhz / 1000).ToString("0.00", C) + " GHz";
 
     public static string Bytes(double bytes)
     {
-        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var units = Strings.Unit_ByteUnits.Split(' ');
         var i = 0;
         while (bytes >= 1024 && i < units.Length - 1)
         {
@@ -88,14 +91,14 @@ internal static class Fmt
 
     public static string Rate(double bytesPerSecond) => Bytes(bytesPerSecond) + "/s";
 
-    public static string Temp(int? celsius) => celsius is { } c ? $"{c}°C" : "—";
+    public static string Temp(int? celsius) => celsius is { } c ? string.Format(Strings.Unit_Celsius, c) : "—";
 
-    public static string Temp(double? celsius) => celsius is { } c ? $"{c:0}°C" : "—";
+    public static string Temp(double? celsius) => celsius is { } c ? string.Format(Strings.Unit_Celsius, c.ToString("0", C)) : "—";
 
     public static string Rpm(int? rpm) => rpm switch
     {
         null => "—",
-        0 => "off",
+        0 => Strings.Fmt_FanOff,
         _ => rpm.Value.ToString("N0", C),
     };
 
@@ -103,15 +106,15 @@ internal static class Fmt
     public static string Fans(int? fan1, int? fan2) => (fan1, fan2) switch
     {
         (null, null) => "—",
-        (0, 0) => "off",
-        _ => $"{Rpm(fan1)} / {Rpm(fan2)} rpm",
+        (0, 0) => Strings.Fmt_FanOff,
+        _ => string.Format(Strings.Unit_FanPair, Rpm(fan1), Rpm(fan2)),
     };
 
     public static string PowerHeadline(PowerState p) => p.Source switch
     {
-        PowerSource.BatteryMeasured => "whole laptop, measured from the battery",
-        PowerSource.AcEstimated => "whole laptop, estimated (on charger)",
-        PowerSource.AcCpuOnly => "CPU only on the charger. Unplug for a few minutes once so Wattkin learns the rest",
+        PowerSource.BatteryMeasured => Strings.Fmt_HeadlineMeasured,
+        PowerSource.AcEstimated => Strings.Fmt_HeadlineEstimated,
+        PowerSource.AcCpuOnly => Strings.Fmt_HeadlineCpuOnly,
         _ => "",
     };
 
@@ -120,31 +123,39 @@ internal static class Fmt
     {
         if (p.Percent is null)
         {
-            return "No battery data";
+            return Strings.Fmt_NoBatteryData;
         }
 
         if (p.Source == PowerSource.BatteryMeasured)
         {
-            return p.TimeToEmpty is { } t ? $"{Duration(Steady(t, coarse))} left" : "Estimating…";
+            return p.TimeToEmpty is { } t ? string.Format(Strings.Fmt_TimeLeft, Duration(Steady(t, coarse))) : Strings.Fmt_Estimating;
         }
 
         if (p.Charging)
         {
-            return p.TimeToTarget is { } t ? $"Charging · {Duration(Steady(t, coarse))} to limit" : "Charging";
+            return p.TimeToTarget is { } t ? string.Format(Strings.Fmt_ChargingToLimit, Duration(Steady(t, coarse))) : Strings.Fmt_Charging;
         }
 
-        return string.IsNullOrEmpty(chargeStatus) ? "Plugged in" : chargeStatus;
+        return string.IsNullOrEmpty(chargeStatus) ? Strings.Fmt_PluggedIn : chargeStatus;
     }
 
     public static string Dgpu(DgpuStatus status) => status.State switch
     {
-        DgpuState.None => "No discrete GPU",
-        DgpuState.RemovedByFirmware => "Off (integrated-only mode)",
-        DgpuState.DisabledInWindows => "Disabled in Windows",
-        DgpuState.Sleeping => "Asleep",
-        DgpuState.Active => "Awake",
-        _ => "Unknown",
+        DgpuState.None => Strings.Fmt_DgpuNone,
+        DgpuState.RemovedByFirmware => Strings.Fmt_DgpuRemoved,
+        DgpuState.DisabledInWindows => Strings.Fmt_DgpuDisabled,
+        DgpuState.Sleeping => Strings.Fmt_DgpuAsleep,
+        DgpuState.Active => Strings.Fmt_DgpuAwake,
+        _ => Strings.Fmt_DgpuUnknown,
     };
+
+    /// <summary>Package power limits as the editor shows them: "PL1 15 W for 28 s · PL2 25 W" (<see cref="PackageLimits.Describe"/> is the log's).</summary>
+    public static string Limits(PackageLimits limits)
+    {
+        string Watts(bool enabled, double watts) => enabled ? $"{watts.ToString("0.#", C)} W" : Strings.Fmt_LimitOff;
+        var text = string.Format(Strings.Fmt_Limits, Watts(limits.Pl1Enabled, limits.Pl1Watts), limits.TurboSeconds.ToString("0.##", C), Watts(limits.Pl2Enabled, limits.Pl2Watts));
+        return limits.Locked ? string.Format(Strings.Fmt_LimitsLocked, text) : text;
+    }
 
     /// <summary>The parts that exist, as a meter bar's right-hand text: "4.5 W  ·  1.20 GHz  ·  46°C".</summary>
     public static string Join(params string?[] parts) =>
@@ -159,11 +170,11 @@ internal static class Fmt
         var parts = new List<string>();
         if (p.PowerLimits is { } limits)
         {
-            parts.Add($"CPU {limits.Pl1Watts} W, bursts {limits.Pl2Watts} W");
+            parts.Add(string.Format(Strings.Fmt_DetailManual, limits.Pl1Watts, limits.Pl2Watts));
         }
         else if (p.Performance is { } shift)
         {
-            parts.Add("CPU " + Shift(shift));
+            parts.Add(string.Format(Strings.Fmt_DetailShift, Shift(shift)));
         }
 
         if (FanWords(p) is { } fans)
@@ -173,17 +184,17 @@ internal static class Fmt
 
         if (p.CpuBoost is { } boost)
         {
-            parts.Add(boost ? "turbo on" : "turbo off");
+            parts.Add(boost ? Strings.Fmt_DetailTurboOn : Strings.Fmt_DetailTurboOff);
         }
 
         if (p.MaxCpuPercent is { } max)
         {
-            parts.Add($"CPU up to {max}%");
+            parts.Add(string.Format(Strings.Fmt_DetailMaxCpu, Percent(max)));
         }
 
         if (p.MaxFrequencyMHz is { } mhz)
         {
-            parts.Add(mhz == 0 ? "no clock cap" : $"up to {mhz / 1000.0:0.0#} GHz");
+            parts.Add(mhz == 0 ? Strings.Fmt_DetailNoClockCap : string.Format(Strings.Fmt_DetailClockCap, Gigahertz(mhz)));
         }
 
         if (p.EnergyPreference is { } epp)
@@ -193,25 +204,25 @@ internal static class Fmt
 
         if (p.RefreshRate is { } hz)
         {
-            parts.Add($"{hz} Hz screen");
+            parts.Add(string.Format(Strings.Fmt_ScreenHz, hz));
         }
 
         if (p.KeyboardLevel is { } level)
         {
-            parts.Add("keyboard " + (level switch { 0 => "off", 1 => "low", 2 => "mid", _ => "high" }));
+            parts.Add(string.Format(Strings.Fmt_DetailKeyboard, KeyboardLevel(level).ToLower(CultureInfo.CurrentCulture)));
         }
 
-        return parts.Count == 0 ? "leaves everything as it is" : string.Join("  ·  ", parts);
+        return parts.Count == 0 ? Strings.Fmt_LeavesEverything : string.Join("  ·  ", parts);
     }
 
     /// <summary>A profile's fan setting in a few words; null when it leaves the fans alone.</summary>
     public static string? FanWords(Settings.Profile p) => p switch
     {
-        { CoolerBoost: true } => "fans at full speed",
-        { Fan: FanMode.Auto } => "auto fans",
-        { Fan: FanMode.Silent } => "silent fans",
-        { Fan: FanMode.Custom, HasOwnCurve: true } => "own fan curve",
-        { Fan: FanMode.Custom } => "laptop's fan curve",
+        { CoolerBoost: true } => Strings.Fmt_FansFull,
+        { Fan: FanMode.Auto } => Strings.Fmt_FansAuto,
+        { Fan: FanMode.Silent } => Strings.Fmt_FansSilent,
+        { Fan: FanMode.Custom, HasOwnCurve: true } => Strings.Fmt_FansOwnCurve,
+        { Fan: FanMode.Custom } => Strings.Fmt_FansLaptopCurve,
         _ => null,
     };
 
@@ -221,16 +232,16 @@ internal static class Fmt
         var parts = new List<string>();
         if (p.PowerLimits is { } limits)
         {
-            parts.Add($"processor held to {limits.Pl1Watts} W");
+            parts.Add(string.Format(Strings.Fmt_SummaryManual, limits.Pl1Watts));
         }
         else if (p.Performance is { } shift)
         {
             parts.Add(shift switch
             {
-                ShiftMode.Eco => "lowest power",
-                ShiftMode.Sport => "higher power limits",
-                ShiftMode.Turbo => "highest power limits",
-                _ => "normal power",
+                ShiftMode.Eco => Strings.Fmt_SummaryEco,
+                ShiftMode.Sport => Strings.Fmt_SummarySport,
+                ShiftMode.Turbo => Strings.Fmt_SummaryExtreme,
+                _ => Strings.Fmt_SummaryBalanced,
             });
         }
 
@@ -244,43 +255,70 @@ internal static class Fmt
 
         if (p.CpuBoost == false)
         {
-            parts.Add("no turbo boost");
+            parts.Add(Strings.Fmt_SummaryNoTurbo);
         }
 
         if (p.MaxCpuPercent is { } max and < 100)
         {
-            parts.Add($"CPU capped at {max}%");
+            parts.Add(string.Format(Strings.Fmt_SummaryMaxCpu, Percent(max)));
         }
 
         if (p.MaxFrequencyMHz is { } mhz and > 0)
         {
-            parts.Add($"clock capped at {mhz / 1000.0:0.0#} GHz");
+            parts.Add(string.Format(Strings.Fmt_SummaryClockCap, Gigahertz(mhz)));
         }
 
         if (p.EnergyPreference is { } epp and >= 60)
         {
-            parts.Add("favours efficiency");
+            parts.Add(Strings.Fmt_SummaryEfficiency);
         }
 
         if (p.RefreshRate is { } hz)
         {
-            parts.Add($"{hz} Hz screen");
+            parts.Add(string.Format(Strings.Fmt_ScreenHz, hz));
         }
 
         if (p.KeyboardLevel is { } level)
         {
-            parts.Add($"keyboard light {(level == 0 ? "off" : "on")}");
+            parts.Add(level == 0 ? Strings.Fmt_SummaryKeyboardOff : Strings.Fmt_SummaryKeyboardOn);
         }
 
-        return parts.Count == 0 ? "leaves everything as it is" : string.Join(", ", parts);
+        return parts.Count == 0 ? Strings.Fmt_LeavesEverything : string.Join(", ", parts);
     }
+
+    /// <summary>A clock cap in MHz as the profile lists show it: "2.4 GHz", "1.85 GHz".</summary>
+    public static string Gigahertz(int mhz) => (mhz / 1000.0).ToString("0.0#", C) + " GHz";
 
     public static string Shift(ShiftMode? mode) => mode switch
     {
-        ShiftMode.Eco => "Eco",
-        ShiftMode.Balanced => "Balanced",
-        ShiftMode.Sport => "Sport",
-        ShiftMode.Turbo => "Extreme",
+        ShiftMode.Eco => Strings.Shift_Eco,
+        ShiftMode.Balanced => Strings.Shift_Balanced,
+        ShiftMode.Sport => Strings.Shift_Sport,
+        ShiftMode.Turbo => Strings.Shift_Extreme,
         _ => "—",
     };
+
+    /// <summary>A calibration's phase as the history lists it (settings keep <see cref="Features.CalibrationPhase"/> names).</summary>
+    public static string PhaseName(string? phase) => phase switch
+    {
+        nameof(Features.CalibrationPhase.ChargingToFull) => Strings.CalibPhase_ChargingToFull,
+        nameof(Features.CalibrationPhase.DrainingForTopUp) => Strings.CalibPhase_DrainingForTopUp,
+        nameof(Features.CalibrationPhase.Discharging) => Strings.CalibPhase_Discharging,
+        nameof(Features.CalibrationPhase.Done) => Strings.CalibPhase_Done,
+        nameof(Features.CalibrationPhase.Failed) => Strings.CalibPhase_Failed,
+        nameof(Features.CalibrationPhase.Cancelled) => Strings.CalibPhase_Cancelled,
+        _ => phase ?? "?",
+    };
+
+    /// <summary>The keyboard light's levels, 0–3: Off, Low, Mid, High.</summary>
+    public static string KeyboardLevel(int level) => level switch
+    {
+        0 => Strings.Common_LevelOff,
+        1 => Strings.Common_LevelLow,
+        2 => Strings.Common_LevelMid,
+        _ => Strings.Common_LevelHigh,
+    };
+
+    /// <summary>The keyboard light's levels in order, for the segment rows and lists.</summary>
+    public static string[] KeyboardLevels() => [.. Enumerable.Range(0, 4).Select(KeyboardLevel)];
 }

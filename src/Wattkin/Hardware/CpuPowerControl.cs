@@ -106,7 +106,7 @@ internal sealed class CpuPowerControl : IPowerLimitRegister, IDisposable
         if (msr.Execute("ioctl_read_msr", [MsrPowerUnit], 1) is not [var unit])
         {
             msr.Dispose();
-            error = "The processor's power units couldn't be read.";
+            error = Strings.Power_UnitsUnreadable;
             return null;
         }
 
