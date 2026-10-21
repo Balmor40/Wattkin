@@ -153,18 +153,25 @@ internal static class RenderPreview
                 Wait(TimeSpan.FromSeconds(2)); // the registers are read in the background
             }
 
-            // Fan profiles: a user one (Quiet, unless deleted) rather than the read-only laptop default.
-            if (tab.Tag is "fans" && App.Current.Store.Current.FanProfiles.FirstOrDefault() is { } fan)
-            {
-                Wait(TimeSpan.FromSeconds(2)); // the laptop's fan table is read in the background
-                ((ListBox)settings.FindName("FanProfileList")).SelectedItem = fan.Name;
-                Pump();
-            }
-
             Save(settings, Path.Combine(folder, $"settings-expert-{tab.Tag}-{theme}.png"));
         }
 
         settings.Close();
+
+        // The profile editor (the gear on a profile button), on the slot with a fan curve: Quiet.
+        var editor = new ProfileEditorWindow { ShowActivated = false, WindowStartupLocation = WindowStartupLocation.Manual, Left = -6000, Top = 0 };
+        editor.Edit(2);
+        editor.Show();
+        Wait(TimeSpan.FromSeconds(3)); // the laptop's fan table is read in the background
+        if (!Platform.Elevation.IsElevated && app.Store.Current.FactoryFanTable is { } table)
+        {
+            editor.PreviewTable(table);
+        }
+
+        editor.Height = 1500;
+        Pump();
+        Save(editor, Path.Combine(folder, $"profile-editor-{theme}.png"));
+        editor.Close();
     }
 
     private static void Wait(TimeSpan duration)

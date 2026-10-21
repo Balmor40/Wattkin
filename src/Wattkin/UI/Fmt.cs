@@ -148,23 +148,10 @@ internal static class Fmt
     /// <summary>Everything a profile sets, one item each: what the flyout shows under the profile buttons.</summary>
     public static string ProfileDetails(Settings.Profile p)
     {
-        var parts = new List<string>
-        {
-            "CPU " + (p.Performance switch { ShiftMode.Eco => "Eco", ShiftMode.Turbo => "Extreme", _ => "Balanced" }),
-        };
+        var parts = new List<string> { "CPU " + Shift(p.Performance) };
         if (FanWords(p) is { } fans)
         {
             parts.Add(fans);
-        }
-
-        if (p.WindowsMode != Settings.WindowsPowerMode.Unchanged)
-        {
-            parts.Add("Windows " + (p.WindowsMode switch
-            {
-                Settings.WindowsPowerMode.BestEfficiency => "best efficiency",
-                Settings.WindowsPowerMode.BestPerformance => "best performance",
-                _ => "balanced",
-            }));
         }
 
         if (p.CpuBoost is { } boost)
@@ -191,15 +178,13 @@ internal static class Fmt
     }
 
     /// <summary>A profile's fan setting in a few words; null when it leaves the fans alone.</summary>
-    private static string? FanWords(Settings.Profile p) => p switch
+    public static string? FanWords(Settings.Profile p) => p switch
     {
         { CoolerBoost: true } => "fans at full speed",
         { Fan: FanMode.Auto } => "auto fans",
         { Fan: FanMode.Silent } => "silent fans",
-        { Fan: FanMode.Custom, FanProfileName: null } => "laptop's fan curve",
-        { Fan: FanMode.Custom, FanProfileName: var name } when string.Equals(name, Settings.FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => "laptop's fan curve",
-        { Fan: FanMode.Custom, FanProfileName: var name } when string.Equals(name, Settings.FanProfile.Off, StringComparison.OrdinalIgnoreCase) => "fans off",
-        { Fan: FanMode.Custom, FanProfileName: var name } => $"{name} fans",
+        { Fan: FanMode.Custom, HasOwnCurve: true } => "own fan curve",
+        { Fan: FanMode.Custom } => "laptop's fan curve",
         _ => null,
     };
 
@@ -211,6 +196,7 @@ internal static class Fmt
             p.Performance switch
             {
                 ShiftMode.Eco => "lowest power",
+                ShiftMode.Sport => "higher power limits",
                 ShiftMode.Turbo => "highest power limits",
                 _ => "normal power",
             },
@@ -250,6 +236,7 @@ internal static class Fmt
     {
         ShiftMode.Eco => "Eco",
         ShiftMode.Balanced => "Balanced",
+        ShiftMode.Sport => "Sport",
         ShiftMode.Turbo => "Extreme",
         _ => "—",
     };

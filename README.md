@@ -31,11 +31,12 @@ The tray icon *is* the reading:
 
 ## About this fork
 
-This is a fork of [CoppingEthan/Wattkin](https://github.com/CoppingEthan/Wattkin) with three changes:
+This is a fork of [CoppingEthan/Wattkin](https://github.com/CoppingEthan/Wattkin) with these changes:
 
 - **No updater, no network.** The upstream app downloaded signed releases from the original repository and replaced itself, which would overwrite this fork's build. That code is gone: this build never talks to the network.
-- **Full fan tables on the MSI Stealth 15M A11UEK** (EC firmware `1563EMS1.115`): fan profiles set each step's speed, the temperature that moves the fan up to it and the temperature that moves it back down (hysteresis), like [YAMDCC](https://codeberg.org/Sparronator9999/YAMDCC). The register map comes from YAMDCC's configuration for this laptop.
-- **A hardware self-test** (`tools\selftest.ps1`) that checks every control on the laptop, then puts everything back.
+- **Full fan tables on the MSI Stealth 15M A11UEK** (EC firmware `1563EMS1.115`): each step's speed, the temperature that moves the fan up to it and the temperature that moves it back down (hysteresis), like [YAMDCC](https://codeberg.org/Sparronator9999/YAMDCC). The register map comes from YAMDCC's configuration for this laptop.
+- **Four profile buttons with a gear.** Click a profile to use it; the gear inside the button edits it: name, MSI power limits (Eco, Balanced, Sport, Extreme), turbo, maximum processor state, fans with a curve of its own, screen refresh rate and keyboard light. Optional rules switch profiles on the charger, on battery, and at a low-battery threshold.
+- **A hardware self-test** (`tools\selftest.ps1`) that checks every control on the laptop and puts everything back, and measures what each MSI power mode lets the processor draw (about PL2 and PL1).
 
 ## Install
 
@@ -54,8 +55,8 @@ You don't need MSI Center, and you never need to install it. If it's already on 
 - **Watts at a glance** - What the whole laptop is drawing right now, in the tray icon, a flyout and an optional desktop widget, with the battery time left.
 - **Charge limits** - Stop charging anywhere from 10% to 100%, charge to 100% once for a long day away, or bring the battery down to the limit while plugged in.
 - **Battery health** - Capacity, health and history, plus MSI's calibration for when the battery gauge drifts.
-- **Profiles** - CPU power, fans, Windows power mode, turbo, refresh rate and keyboard light, each set separately. Profiles switch by themselves when you plug in or unplug. On the Prestige 16 Studio, Quiet keeps the fans off until the CPU reaches 60°C.
-- **Fan profiles** - Make named fan curves, each fan's speed at each of the laptop's temperature steps, and pick one in any profile. Fans can also be set to full speed, or off (experimental). Safety rules keep the fans ahead of the heat unless you accept the experimental mode, if you'd rather let the laptop run hot and throttle.
+- **Profiles** - Four of them, each with its own CPU power limits, turbo and maximum processor state, fans, refresh rate and keyboard light; the gear on a profile button edits it. Profiles switch by themselves when you plug in or unplug, or when the battery runs low. On the Prestige 16 Studio, Quiet keeps the fans off until the CPU reaches 60°C.
+- **Fan curves** - Each profile can have its own curve: each fan's speed at each step (and, on the Stealth 15M, the temperatures that move it up and back down). Fans can also be set to full speed. Safety rules keep the fans ahead of the heat unless you accept the experimental mode, if you'd rather let the laptop run hot and throttle.
 - **Monitoring** - CPU, Intel graphics and RTX load and watts, temperatures, fans, RAM and disk.
 - **Keyboard and keys** - Backlight brightness and auto-off. The mic-mute key, the mute lights and the MSI keys keep working without MSI Center.
 - **NVIDIA GPU** - See whether the RTX is asleep or working, and switch between Hybrid and Integrated-only.
@@ -113,6 +114,7 @@ cd Wattkin
 
 1. **Read**: the firmware interface, the register map, the sensors, and the fan table read two ways (registers and MSI's own calls), which must agree. Nothing is written to the controller.
 2. **Write** (after a prompt, about 4 minutes, charger connected, laptop idle): each control is changed, checked and put back, including fan tables and their hysteresis. Every register it touches is saved first and restored at the end.
+3. **Power** (after a prompt, up to 8 minutes, charger connected): the processor runs flat out for 80 seconds in each MSI power mode; the report gives the peak (about PL2) and the level it settles at (about PL1). Reading or setting PL1/PL2 directly would need a kernel driver, which Wattkin doesn't use.
 
 Reports are saved in `%LOCALAPPDATA%\Wattkin\selftest`.
 

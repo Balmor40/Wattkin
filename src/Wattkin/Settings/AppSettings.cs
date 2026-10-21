@@ -19,73 +19,77 @@ public enum WindowsPowerMode
     BestPerformance,
 }
 
-/// <summary>A bundle of independent knobs. Null means "leave this alone".</summary>
+/// <summary>
+/// One of the four profile slots: a bundle of independent knobs, applied together. Null means "leave
+/// this alone". The slots keep their place (see <see cref="AppSettings.ProfileSlots"/>); their names
+/// and knobs are the user's, and each can be reset to <see cref="Default"/>.
+/// </summary>
 public sealed class Profile
 {
     public string Name { get; set; } = "Profile";
+
+    /// <summary>The firmware's CPU power limits (MSI's shift mode).</summary>
     public ShiftMode Performance { get; set; } = ShiftMode.Balanced;
-    /// <summary>Null = leave the fan mode alone (e.g. keep a custom curve set by MSI Center).</summary>
+
+    /// <summary>Null = leave the fan mode alone (e.g. keep a custom curve set by MSI Center). Written even when null, so that survives a restart.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
     public FanMode? Fan { get; set; } = FanMode.Auto;
+
     /// <summary>
-    /// With <see cref="FanMode.Custom"/>: the <see cref="FanProfile"/> to use, by name, or
-    /// <see cref="FanProfile.Off"/>; null = <see cref="FanProfile.LaptopDefault"/>.
+    /// With <see cref="FanMode.Custom"/>, on a laptop where Wattkin writes whole fan tables: this
+    /// profile's own table, temperatures included. Null (with <see cref="CurveSpeeds"/> null too): the
+    /// laptop's default curve.
     /// </summary>
-    public string? FanProfileName { get; set; }
+    public FanTable? CurveTable { get; set; }
+
+    /// <summary>
+    /// With <see cref="FanMode.Custom"/>, where only speeds can be set: this profile's speeds at the
+    /// laptop's temperature steps. Kept in step with <see cref="CurveTable"/>'s first six speeds.
+    /// </summary>
+    public FanSpeeds? CurveSpeeds { get; set; }
+
     /// <summary>Fans at full speed (MSI's Cooler Boost), whatever <see cref="Fan"/> says.</summary>
     public bool CoolerBoost { get; set; }
-    public WindowsPowerMode WindowsMode { get; set; } = WindowsPowerMode.Balanced;
+
     public bool? CpuBoost { get; set; }
     public int? MaxCpuPercent { get; set; }
     public int? RefreshRate { get; set; }
     public int? KeyboardLevel { get; set; }
 
-    public Profile Clone() => (Profile)MemberwiseClone();
+    /// <summary>Settings files before 1.3 named a shared fan profile here; <see cref="AppSettings.Normalize"/> turns it into this profile's own curve.</summary>
+    public string? FanProfileName { get; set; }
 
-    public static List<Profile> Defaults() =>
-    [
-        new()
-        {
-            Name = "Battery saver",
-            Performance = ShiftMode.Eco,
-            Fan = FanMode.Auto,
-            WindowsMode = WindowsPowerMode.BestEfficiency,
-            CpuBoost = false,
-        },
-        new()
-        {
-            Name = "Balanced",
-            Performance = ShiftMode.Balanced,
-            Fan = FanMode.Auto,
-            WindowsMode = WindowsPowerMode.Balanced,
-            CpuBoost = true,
-        },
-        new()
-        {
-            // The controller's own fan table: on the Prestige 16 Studio it keeps the fans off up to 60°C
-            // (Auto ran them at ~3,000–3,600 rpm at 45°C, off at 42°C). Laptops without a usable
-            // table get Silent instead (see HardwareService.ApplyFans).
-            Name = "Quiet",
-            Performance = ShiftMode.Balanced,
-            Fan = FanMode.Custom,
-            WindowsMode = WindowsPowerMode.Balanced,
-            CpuBoost = true,
-        },
-        new()
-        {
-            Name = "Performance",
-            Performance = ShiftMode.Turbo,
-            Fan = FanMode.Auto,
-            WindowsMode = WindowsPowerMode.BestPerformance,
-            CpuBoost = true,
-        },
-    ];
+    /// <summary>The profile has a curve of its own (else Custom means the laptop's default curve).</summary>
+    [JsonIgnore]
+    public bool HasOwnCurve => CurveTable is not null || CurveSpeeds is not null;
+
+    public Profile Clone()
+    {
+        var copy = (Profile)MemberwiseClone();
+        copy.CurveTable = CurveTable?.Clone();
+        copy.CurveSpeeds = CurveSpeeds?.Clone();
+        return copy;
+    }
+
+    /// <summary>What slot <paramref name="slot"/> (0–3) holds out of the box, and after a reset.</summary>
+    public static Profile Default(int slot) => slot switch
+    {
+        0 => new() { Name = "Battery saver", Performance = ShiftMode.Eco, Fan = FanMode.Auto, CpuBoost = false },
+        1 => new() { Name = "Balanced", Performance = ShiftMode.Balanced, Fan = FanMode.Auto, CpuBoost = true },
+
+        // The controller's own fan table: on the Prestige 16 Studio it keeps the fans off up to 60°C
+        // (Auto ran them at ~3,000–3,600 rpm at 45°C, off at 42°C). Laptops without a usable
+        // table get Silent instead (see HardwareService.ApplyFans).
+        2 => new() { Name = "Quiet", Performance = ShiftMode.Balanced, Fan = FanMode.Custom, CpuBoost = true },
+        _ => new() { Name = "Performance", Performance = ShiftMode.Turbo, Fan = FanMode.Auto, CpuBoost = true },
+    };
+
+    public static List<Profile> Defaults() => [.. Enumerable.Range(0, AppSettings.ProfileSlots).Select(Default)];
 }
 
 /// <summary>
-/// A named fan curve, made in Settings › Fan profiles and picked by name in a profile's Fans setting.
-/// Two names are built in and can't be used: <see cref="LaptopDefault"/> (the curve the laptop came
-/// with, read from its controller) and <see cref="Off"/> (fans off until the firmware's fixed hottest
-/// step, experimental).
+/// A named fan curve shared between profiles, as settings files before 1.3 kept them. Only read, by
+/// <see cref="AppSettings.Normalize"/>, which copies each one into the profiles that used it.
 /// </summary>
 public sealed class FanProfile
 {
@@ -94,26 +98,9 @@ public sealed class FanProfile
 
     public string Name { get; set; } = "Fan profile";
     public FanSpeeds Speeds { get; set; } = new();
-
-    /// <summary>
-    /// The whole table, step and drop-back temperatures included, on a laptop where Wattkin writes it
-    /// (<see cref="EmbeddedController.HasFullFanTable"/>). <see cref="Speeds"/> then holds its first six
-    /// speeds, so the profile still works where only speeds can be set. Null: speeds only.
-    /// </summary>
     public FanTable? Table { get; set; }
 
-    public FanProfile Clone() => new() { Name = Name, Speeds = Speeds.Clone(), Table = Table?.Clone() };
-
-    public static bool IsBuiltIn(string? name) =>
-        string.Equals(name, LaptopDefault, StringComparison.OrdinalIgnoreCase) || string.Equals(name, Off, StringComparison.OrdinalIgnoreCase);
-
     public static FanSpeeds OffSpeeds() => new() { Cpu = new int[FanSpeeds.Steps], Gpu = new int[FanSpeeds.Steps] };
-
-    public static List<FanProfile> Defaults() =>
-    [
-        new() { Name = "Quiet", Speeds = FanSpeeds.Quiet() },
-        new() { Name = "Cool", Speeds = FanSpeeds.Cool() },
-    ];
 }
 
 public sealed class CalibrationRecord
@@ -141,19 +128,27 @@ public sealed class AppSettings
     public List<CalibrationRecord> CalibrationHistory { get; set; } = [];
     public bool BatteryLogging { get; set; } = true;
 
-    // Profiles
+    // Profiles: always four slots (see Normalize).
+    public const int ProfileSlots = 4;
     public List<Profile> Profiles { get; set; } = Profile.Defaults();
     /// <summary>Which changes to the built-in profiles this file has had (see <see cref="Normalize"/>).</summary>
     public int ProfilesVersion { get; set; }
     public string ActiveProfile { get; set; } = "Balanced";
     /// <summary>Whether the charger was connected when <see cref="ActiveProfile"/> was applied (null: unknown).</summary>
     public bool? ActiveProfileOnAc { get; set; }
+
+    // Automatic switching: each rule names a profile, or null to leave the profile alone. Nulls are
+    // written to the file, so "leave alone" survives a restart instead of coming back as the default.
     public bool AutoSwitchProfiles { get; set; } = true;
-    public string AcProfile { get; set; } = "Balanced";
-    public string BatteryProfile { get; set; } = "Balanced";
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? AcProfile { get; set; } = "Balanced";
+    /// <summary>On battery, above <see cref="LowBatteryThreshold"/>.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? BatteryProfile { get; set; } = "Balanced";
     /// <summary>On battery, switch to <see cref="LowBatteryProfile"/> at or below this %. 0 = off.</summary>
     public int LowBatteryThreshold { get; set; } = 30;
-    public string LowBatteryProfile { get; set; } = "Battery saver";
+    [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+    public string? LowBatteryProfile { get; set; } = "Battery saver";
 
     // Keyboard, LEDs, hotkeys
     public int? KeyboardLevel { get; set; }
@@ -181,12 +176,14 @@ public sealed class AppSettings
     public DateTime? FanTopSpeedMeasuredUtc { get; set; }
     public int FanTopSpeedAttempts { get; set; }
 
-    // Fan curves: the user's named fan profiles; the laptop's own speeds, kept the first time they're
-    // read (fan profiles overwrite the controller's copy); and whether the user accepted the
-    // experimental mode (curves that let the laptop run hot, and "Off").
-    public List<FanProfile> FanProfiles { get; set; } = FanProfile.Defaults();
+    // Fan curves: each profile holds its own (Profile.CurveTable / CurveSpeeds). The laptop's own speeds
+    // are kept the first time they're read (curves overwrite the controller's copy), and whether the
+    // user accepted the experimental mode (curves that let the laptop run hot).
     public FanSpeeds? FactoryFanCurve { get; set; }
     public bool UnrestrictedFanCurves { get; set; }
+
+    /// <summary>Settings files before 1.3 kept shared fan curves here; <see cref="Normalize"/> copies them into the profiles that used them.</summary>
+    public List<FanProfile>? FanProfiles { get; set; }
 
     /// <summary>
     /// The controller's whole fan table the first time Wattkin read it, on a laptop where it writes
@@ -222,71 +219,62 @@ public sealed class AppSettings
     public Profile? FindProfile(string? name) =>
         Profiles.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>FanProfiles, like Profiles, is only ever replaced, never mutated in place.</summary>
-    public FanProfile? FindFanProfile(string? name) =>
-        FanProfiles.FirstOrDefault(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
-
     /// <summary>
     /// The fan speeds a profile's fan choice stands for (null: hand the controller back the table it
-    /// holds), and whether they may break the safety rules (only after the user accepted the
-    /// experimental mode). "Off" without that acceptance comes back restricted, so it's refused.
+    /// holds), and whether they may break the safety rules: only a curve of the profile's own, after
+    /// the user accepted the experimental mode. The laptop's own curve always keeps the rules.
     /// </summary>
-    public (FanSpeeds? Speeds, bool Unrestricted) ResolveFanCurve(Profile profile) => profile.FanProfileName switch
-    {
-        null => (FactoryFanCurve, false),
-        var name when string.Equals(name, FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => (FactoryFanCurve, false),
-        var name when string.Equals(name, FanProfile.Off, StringComparison.OrdinalIgnoreCase) => (FanProfile.OffSpeeds(), UnrestrictedFanCurves),
-        var name => FindFanProfile(name) is { } fan ? (fan.Speeds, UnrestrictedFanCurves) : (FactoryFanCurve, false),
-    };
+    public (FanSpeeds? Speeds, bool Unrestricted) ResolveFanCurve(Profile profile) =>
+        profile.HasOwnCurve ? (profile.CurveSpeeds ?? profile.CurveTable!.ToSpeeds(), UnrestrictedFanCurves) : (FactoryFanCurve, false);
 
     /// <summary>
-    /// Where the laptop takes whole fan tables: the table a profile's fan choice stands for. A
-    /// speeds-only fan profile runs at the laptop's own temperatures. Null when no table of the laptop's
-    /// is known yet (the speeds-only path is used then). Whether it may break the safety rules is
-    /// <see cref="ResolveFanCurve"/>'s answer.
+    /// Where the laptop takes whole fan tables: the table a profile's fan choice stands for. Speeds
+    /// without a table run at the laptop's own temperatures. Null when no table of the laptop's is known
+    /// yet (the speeds-only path is used then).
     /// </summary>
-    public FanTable? ResolveFanTable(Profile profile) => profile.FanProfileName switch
-    {
-        null => FactoryFanTable,
-        var name when string.Equals(name, FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => FactoryFanTable,
-        var name when string.Equals(name, FanProfile.Off, StringComparison.OrdinalIgnoreCase) => FactoryFanTable is { } off ? FanTable.Off(off) : null,
-        var name => FindFanProfile(name) is { } fan ? fan.Table ?? FactoryFanTable?.WithSpeeds(fan.Speeds) : FactoryFanTable,
-    };
+    public FanTable? ResolveFanTable(Profile profile) =>
+        profile.CurveTable ?? (profile.CurveSpeeds is { } speeds ? FactoryFanTable?.WithSpeeds(speeds) : FactoryFanTable);
 
     /// <summary>
-    /// Quiet and Cool as shipped suit the Prestige 16 Studio's fan table. On a laptop whose table can't
-    /// take them (the Katana GF66 12UG's tops out at 75%), copies nobody has edited are rebuilt from the
-    /// laptop's own curve. Returns the names rebuilt.
+    /// The profile the automatic rules pick for this power state (on the charger; on battery above the
+    /// threshold; at or below it), or null when the matching rule leaves the profile alone.
     /// </summary>
-    public List<string> FitDefaultFanProfiles(FanCurves laptop)
+    public string? AutoProfile(bool onAc, double? percent) =>
+        !AutoSwitchProfiles ? null
+        : onAc ? AcProfile
+        : LowBatteryThreshold > 0 && percent is { } p && p <= LowBatteryThreshold ? LowBatteryProfile
+        : BatteryProfile;
+
+    /// <summary>Puts <paramref name="profile"/> in slot <paramref name="slot"/>; the rules and the active profile follow a new name. Returns the name it got.</summary>
+    public string ReplaceProfile(int slot, Profile profile)
     {
-        var rebuilt = new List<string>();
-        FanProfiles = [.. FanProfiles.Select(f =>
+        var oldName = Profiles[slot].Name;
+        profile.Name = UniqueName(profile.Name.Trim(), slot);
+        Profiles = [.. Profiles.Select((p, i) => i == slot ? profile : p)];
+        if (!string.Equals(oldName, profile.Name, StringComparison.Ordinal))
         {
-            (FanSpeeds? shipped, FanSpeeds? fitted) = f.Name switch
-            {
-                "Quiet" => (FanSpeeds.Quiet(), FanSpeeds.Quiet(laptop)),
-                "Cool" => (FanSpeeds.Cool(), FanSpeeds.Cool(laptop)),
-                _ => (null, null),
-            };
-            if (shipped is null || fitted is null || !f.Speeds.Cpu.SequenceEqual(shipped.Cpu) || !f.Speeds.Gpu.SequenceEqual(shipped.Gpu) || shipped.Fits(laptop))
-            {
-                return f;
-            }
+            string? Follow(string? name) => string.Equals(name, oldName, StringComparison.OrdinalIgnoreCase) ? profile.Name : name;
+            ActiveProfile = Follow(ActiveProfile)!;
+            AcProfile = Follow(AcProfile);
+            BatteryProfile = Follow(BatteryProfile);
+            LowBatteryProfile = Follow(LowBatteryProfile);
+        }
 
-            rebuilt.Add(f.Name);
-            return new FanProfile { Name = f.Name, Speeds = fitted };
-        })];
-        return rebuilt;
+        return profile.Name;
     }
 
-    /// <summary>A fan profile was renamed (or deleted, <paramref name="newName"/> null): profiles that used it follow.</summary>
-    public void RenameFanProfile(string oldName, string? newName)
+    /// <summary><paramref name="name"/>, or "name 2", "name 3"… if another slot has it.</summary>
+    public string UniqueName(string name, int slot)
     {
-        foreach (var p in Profiles.Where(p => string.Equals(p.FanProfileName, oldName, StringComparison.OrdinalIgnoreCase)))
+        var taken = Profiles.Where((_, i) => i != slot).Select(p => p.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var baseName = name.Length == 0 ? Profile.Default(slot).Name : name;
+        var unique = baseName;
+        for (var i = 2; taken.Contains(unique); i++)
         {
-            p.FanProfileName = newName;
+            unique = $"{baseName} {i}";
         }
+
+        return unique;
     }
 
     /// <summary>
@@ -295,61 +283,32 @@ public sealed class AppSettings
     /// </summary>
     public void Normalize()
     {
-        Profiles = Profiles is { Count: > 0 } ? [.. Profiles.Where(p => p is not null && !string.IsNullOrWhiteSpace(p.Name))] : Profile.Defaults();
-        if (Profiles.Count == 0)
+        // Exactly four slots: unreadable entries are dropped, extra ones (older versions could add
+        // profiles) ignored, and missing slots get their defaults. Names stay unique.
+        var kept = (Profiles ?? []).Where(p => p is not null && !string.IsNullOrWhiteSpace(p.Name)).ToList();
+        if (kept.Count > ProfileSlots)
         {
-            Profiles = Profile.Defaults();
+            Log.Warn($"Only {ProfileSlots} profiles are kept; ignored: {string.Join(", ", kept.Skip(ProfileSlots).Select(p => p.Name))}.");
         }
 
-        foreach (var p in Profiles)
+        Profiles = [.. kept.Take(ProfileSlots)];
+        for (var slot = Profiles.Count; slot < ProfileSlots; slot++)
         {
-            if (!Enum.IsDefined(p.Performance))
-            {
-                p.Performance = ShiftMode.Balanced;
-            }
-
-            if (p.Fan is { } f && !Enum.IsDefined(f))
-            {
-                p.Fan = FanMode.Auto;
-            }
-
-            if (!Enum.IsDefined(p.WindowsMode))
-            {
-                p.WindowsMode = WindowsPowerMode.Unchanged;
-            }
-
-            p.MaxCpuPercent = p.MaxCpuPercent is { } m ? Math.Clamp(m, 5, 100) : null;
-            p.KeyboardLevel = p.KeyboardLevel is { } k ? Math.Clamp(k, 0, 3) : null;
-            p.RefreshRate = p.RefreshRate is > 0 and < 1000 ? p.RefreshRate : null;
+            Profiles = [.. Profiles, Profile.Default(slot)];
         }
 
-        // A malformed fan profile never reaches the controller: it's dropped, and profiles that used it
-        // fall back to the laptop's default curve. Built-in names and repeats can't be used.
+        // A repeated name gets a number; the earlier slot (the user's own, before filled-in defaults) keeps it.
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        FanProfiles = [.. (FanProfiles ?? []).Where(f => f is { Speeds: not null } && !string.IsNullOrWhiteSpace(f.Name)
-            && !FanProfile.IsBuiltIn(f.Name) && f.Speeds.Problem(unrestricted: true) is null && seen.Add(f.Name))];
         foreach (var p in Profiles)
         {
-            if (p.FanProfileName is { } name && !FanProfile.IsBuiltIn(name) && FindFanProfile(name) is null)
+            var baseName = p.Name.Trim();
+            var name = baseName;
+            for (var i = 2; !seen.Add(name); i++)
             {
-                p.FanProfileName = null;
+                name = $"{baseName} {i}";
             }
-        }
 
-        if (FactoryFanCurve?.Problem(unrestricted: true) is not null)
-        {
-            FactoryFanCurve = null;
-        }
-
-        // A whole table that breaks the hard rules is dropped too: its fan profile keeps its speeds.
-        foreach (var f in FanProfiles.Where(f => f.Table?.Problem(unrestricted: true) is not null))
-        {
-            f.Table = null;
-        }
-
-        if (FactoryFanTable?.Problem(unrestricted: true) is not null)
-        {
-            FactoryFanTable = null;
+            p.Name = name;
         }
 
         // 1: Quiet moved from Silent to the fan curve. Only a Quiet still on the old built-in fan
@@ -362,6 +321,70 @@ public sealed class AppSettings
             }
 
             ProfilesVersion = 1;
+        }
+
+        // 2: shared fan profiles became each profile's own curve. "Laptop default" (or a name that's
+        // gone) is the laptop's curve; "Off" all speeds off.
+        if (ProfilesVersion < 2)
+        {
+            foreach (var p in Profiles.Where(p => p.FanProfileName is not null))
+            {
+                if (string.Equals(p.FanProfileName, FanProfile.Off, StringComparison.OrdinalIgnoreCase))
+                {
+                    p.CurveSpeeds = FanProfile.OffSpeeds();
+                    p.CurveTable = FactoryFanTable is { } factory ? FanTable.Off(factory) : null;
+                }
+                else if (FanProfiles?.FirstOrDefault(f => f is not null && string.Equals(f.Name, p.FanProfileName, StringComparison.OrdinalIgnoreCase)) is { } shared)
+                {
+                    p.CurveSpeeds = shared.Speeds;
+                    p.CurveTable = shared.Table;
+                }
+            }
+
+            ProfilesVersion = 2;
+        }
+
+        FanProfiles = null;
+        foreach (var p in Profiles)
+        {
+            p.FanProfileName = null;
+            if (!Enum.IsDefined(p.Performance))
+            {
+                p.Performance = ShiftMode.Balanced;
+            }
+
+            if (p.Fan is { } f && !Enum.IsDefined(f))
+            {
+                p.Fan = FanMode.Auto;
+            }
+
+            p.MaxCpuPercent = p.MaxCpuPercent is { } m ? Math.Clamp(m, 5, 100) : null;
+            p.KeyboardLevel = p.KeyboardLevel is { } k ? Math.Clamp(k, 0, 3) : null;
+            p.RefreshRate = p.RefreshRate is > 0 and < 1000 ? p.RefreshRate : null;
+
+            // A malformed curve never reaches the controller: dropped, so the profile falls back to the
+            // laptop's curve (or, for a table, to its speeds at the laptop's temperatures).
+            if (p.CurveTable?.Problem(unrestricted: true) is not null)
+            {
+                p.CurveTable = null;
+            }
+
+            if (p.CurveSpeeds?.Problem(unrestricted: true) is not null)
+            {
+                p.CurveSpeeds = null;
+            }
+
+            p.CurveSpeeds ??= p.CurveTable?.ToSpeeds();
+        }
+
+        if (FactoryFanCurve?.Problem(unrestricted: true) is not null)
+        {
+            FactoryFanCurve = null;
+        }
+
+        if (FactoryFanTable?.Problem(unrestricted: true) is not null)
+        {
+            FactoryFanTable = null;
         }
 
         ChargeLimit = Math.Clamp(ChargeLimit, 10, 100);
@@ -377,10 +400,12 @@ public sealed class AppSettings
         CalibrationHistory ??= [];
         OriginalPowerSettings ??= [];
         OriginalPowerModes ??= [];
-        ActiveProfile ??= Profiles[0].Name;
-        AcProfile ??= ActiveProfile;
-        BatteryProfile ??= ActiveProfile;
-        LowBatteryProfile ??= ActiveProfile;
+        ActiveProfile = FindProfile(ActiveProfile)?.Name ?? Profiles[0].Name;
+
+        // A rule naming a profile that's gone leaves the profile alone.
+        AcProfile = FindProfile(AcProfile)?.Name;
+        BatteryProfile = FindProfile(BatteryProfile)?.Name;
+        LowBatteryProfile = FindProfile(LowBatteryProfile)?.Name;
         if (LearnedRestOfSystemWatts is { } w && (!double.IsFinite(w) || w is < 0 or > 60))
         {
             LearnedRestOfSystemWatts = null;

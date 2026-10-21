@@ -116,8 +116,7 @@ public sealed partial class HardwareService
 
     /// <summary>
     /// First time the laptop's fan table is readable: keep its factory speeds, so "Factory" can always
-    /// be restored (custom curves overwrite the controller's copy; uninstalling writes these back), and
-    /// fit the shipped fan profiles to it.
+    /// be restored (custom curves overwrite the controller's copy; uninstalling writes these back).
     /// </summary>
     private void CaptureFactoryFanCurve(EmbeddedController ec)
     {
@@ -134,17 +133,8 @@ public sealed partial class HardwareService
         }
 
         var factory = FanSpeeds.From(curves);
-        List<string> rebuilt = [];
-        _store.Update(s =>
-        {
-            s.FactoryFanCurve = factory;
-            rebuilt = s.FitDefaultFanProfiles(curves);
-        });
+        _store.Update(s => s.FactoryFanCurve = factory);
         Log.Info($"Factory fan curve saved (fan mode now {ec.GetFanMode()}): CPU {string.Join("/", factory.Cpu)}, GPU {string.Join("/", factory.Gpu)}, top {curves.Cpu.Speeds[^1]}/{curves.Gpu.Speeds[^1]}%.");
-        if (rebuilt.Count > 0)
-        {
-            Log.Info($"Fan profiles fitted to this laptop's table: {string.Join(", ", rebuilt)}.");
-        }
     }
 
     /// <summary>The laptop's fan tables now, for the profile editor; null without hardware access.</summary>

@@ -1,13 +1,14 @@
 # Hardware self-test for the MSI Stealth 15M A11UEK (EC 1563EMS1.115): first read-only checks, then
-# (after you confirm) write tests that change one setting at a time and put everything back.
+# (after you confirm) write tests that change one setting at a time and put everything back, then
+# (after another prompt) the power each MSI performance mode allows (about PL2 and PL1), under full load.
 #   .\build.ps1                 # builds .\dist\Wattkin.exe
-#   powershell -ExecutionPolicy Bypass -File .\tools\selftest.ps1   # read, then write after a prompt (-Stage read|write|all)
+#   powershell -ExecutionPolicy Bypass -File .\tools\selftest.ps1   # all of it, with prompts (-Stage read|write|power|all)
 # (-ExecutionPolicy Bypass because Windows blocks scripts by default; it applies to this run only.)
 # Close any running Wattkin first; the script offers to stop YAMDCC: two programs writing the embedded
 # controller at once would spoil the results. Asks for administrator rights once (UAC).
 # Reports go to %LOCALAPPDATA%\Wattkin\selftest; every controller write is in %LOCALAPPDATA%\Wattkin\logs\wattkin.log.
 param(
-    [ValidateSet('read', 'write', 'all')][string]$Stage = 'all',
+    [ValidateSet('read', 'write', 'power', 'all')][string]$Stage = 'all',
     [string]$Exe = (Join-Path $PSScriptRoot '..\dist\Wattkin.exe'),
     [switch]$Elevated
 )
@@ -75,17 +76,25 @@ if ($Stage -in 'read', 'all') {
     if ($code -eq 2) { Finish 2 }
 }
 
-if ($Stage -in 'write', 'all') {
-    if ($Stage -eq 'all') {
-        Write-Host ''
-        Write-Host 'The write tests change one setting at a time (battery limit, performance and fan modes, keyboard'
-        Write-Host 'light, mute lights, webcam, Cooler Boost, running from the battery, fan tables) and put each one back.'
-        Write-Host 'Keep the charger connected and the laptop idle: it takes about 4 minutes, and the fans will be loud for a moment.'
-        if ((Read-Host 'Run the write tests? [y/N]') -notmatch '^(y|yes|o|oui)$') { Finish $code }
-    }
+function Confirm-Stage([string]$Question, [string[]]$Explanation) {
+    if ($Stage -ne 'all') { return $true }
+    Write-Host ''
+    $Explanation | ForEach-Object { Write-Host $_ }
+    return (Read-Host "$Question [y/N]") -match '^(y|yes|o|oui)$'
+}
 
-    $write = Run-Stage 'write'
-    $code = [Math]::Max($code, $write)
+if ($Stage -in 'write', 'all' -and (Confirm-Stage 'Run the write tests?' @(
+        'The write tests change one setting at a time (battery limit, performance and fan modes, keyboard',
+        'light, mute lights, webcam, Cooler Boost, running from the battery, fan tables) and put each one back.',
+        'Keep the charger connected and the laptop idle: it takes about 4 minutes, and the fans will be loud for a moment.'))) {
+    $code = [Math]::Max($code, (Run-Stage 'write'))
+}
+
+if ($Stage -in 'power', 'all' -and (Confirm-Stage 'Measure the power limits?' @(
+        'The power test loads the processor fully, about 80 seconds per MSI performance mode, with a pause',
+        'in between: up to 8 minutes. The laptop gets hot and the fans loud. Keep the charger connected and',
+        'close heavy apps. Turbo and the maximum processor state are lifted while it runs, then put back.'))) {
+    $code = [Math]::Max($code, (Run-Stage 'power'))
 }
 
 Finish $code

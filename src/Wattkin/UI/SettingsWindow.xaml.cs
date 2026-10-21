@@ -2,12 +2,14 @@ using System.Diagnostics;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Documents;
 using System.Windows.Interop;
 using Wattkin.Features;
 using Wattkin.Hardware;
 using Wattkin.Monitoring;
 using Wattkin.Platform;
 using Wattkin.Settings;
+using static Wattkin.UI.Choices;
 
 namespace Wattkin.UI;
 
@@ -15,14 +17,11 @@ public partial class SettingsWindow : Window
 {
     private bool _loading;
     private bool _expert;
-    private Profile? _editing;
     private IReadOnlyList<CapacityPoint> _history = [];
 
     public SettingsWindow()
     {
         InitializeComponent();
-        FanEditor.Changed += UpdateFanProblem;
-        TableEditor.Changed += UpdateFanProblem;
         Simple.ExpertRequested += () => SetView(expert: true, save: true);
         SourceInitialized += (_, _) => WindowEffects.SetDarkTitleBar(new WindowInteropHelper(this).Handle);
         var app = App.Current;
@@ -59,7 +58,6 @@ public partial class SettingsWindow : Window
         }
 
         _ = LoadHistoryAsync();
-        _ = LoadFanProfilesAsync();
         _ = RefreshStartupTaskAsync();
         app.Hardware.SafeRefreshStateAsync();
     }
@@ -149,71 +147,9 @@ public partial class SettingsWindow : Window
 
     // ---- choices -----------------------------------------------------------------------------
 
-    private static ComboBoxItem Item(string text, object? tag) => new() { Content = text, Tag = tag };
-
-    /// <summary>Selects the item for a value; a value the list doesn't offer is added, so saving can't silently erase it.</summary>
-    private static void Select(ComboBox box, object? tag)
-    {
-        foreach (ComboBoxItem item in box.Items)
-        {
-            if (Equals(item.Tag, tag))
-            {
-                box.SelectedItem = item;
-                return;
-            }
-        }
-
-        if (tag is null)
-        {
-            box.SelectedIndex = 0;
-            return;
-        }
-
-        var extra = Item(tag switch { int hz when box.Name == "PRefresh" => $"{hz} Hz (not available right now)", int v => $"{v}%", _ => tag.ToString() ?? "?" }, tag);
-        box.Items.Add(extra);
-        box.SelectedItem = extra;
-    }
-
-    private static T? TagOf<T>(ComboBox box) => box.SelectedItem is ComboBoxItem { Tag: T value } ? value : default;
-
     private void BuildChoices()
     {
-        PShift.Items.Add(Item("Eco: lowest power (MSI \"Super Battery\")", ShiftMode.Eco));
-        PShift.Items.Add(Item("Balanced (MSI \"Balanced\" / \"Silent\")", ShiftMode.Balanced));
-        PShift.Items.Add(Item("Extreme: highest power limits", ShiftMode.Turbo));
-
-        // PFan: built from the fan profiles in LoadSettings (RebuildFanChoices).
-
-        PWindows.Items.Add(Item("Unchanged", WindowsPowerMode.Unchanged));
-        PWindows.Items.Add(Item("Best power efficiency", WindowsPowerMode.BestEfficiency));
-        PWindows.Items.Add(Item("Balanced", WindowsPowerMode.Balanced));
-        PWindows.Items.Add(Item("Best performance", WindowsPowerMode.BestPerformance));
-
-        PCpuBoost.Items.Add(Item("Unchanged", null));
-        PCpuBoost.Items.Add(Item("On", true));
-        PCpuBoost.Items.Add(Item("Off: caps at base clock, big battery saver", false));
-
-        PMaxCpu.Items.Add(Item("Unchanged", null));
-        foreach (var value in new[] { 100, 99, 90, 80, 70, 50 })
-        {
-            PMaxCpu.Items.Add(Item(value == 99 ? "99% (also disables turbo)" : $"{value}%", (int?)value));
-        }
-
-        PRefresh.Items.Add(Item("Unchanged", null));
-        foreach (var hz in DisplayModes.SupportedRefreshRates())
-        {
-            PRefresh.Items.Add(Item($"{hz} Hz", (int?)hz));
-        }
-
-        PKeyboard.Items.Add(Item("Unchanged", null));
         string[] levels = ["Off", "Low", "Mid", "High"];
-        for (var i = 0; i < levels.Length; i++)
-        {
-            PKeyboard.Items.Add(Item(levels[i], (int?)i));
-        }
-
-
-
         LowThreshold.Items.Add(Item("Off", 0));
         foreach (var value in new[] { 10, 15, 20, 25, 30, 40, 50 })
         {
@@ -265,7 +201,24 @@ public partial class SettingsWindow : Window
     private string _profileNames = "";
     private bool _limitEdited;
 
-    /// <param name="full">Also reload the charge-limit sliders and the profile editor (opening, or after the user saved).</param>
+    /// <summary>One line per profile under the buttons: everything it sets, its fans included.</summary>
+    private void ShowProfileSummaries(AppSettings s)
+    {
+        ProfileButtonsPanel.Refresh(s, App.Current.Hardware.State);
+        ProfileSummaries.Children.Clear();
+        foreach (var p in s.Profiles)
+        {
+            var line = new TextBlock { TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 2, 0, 2), FontSize = 12 };
+            line.SetResourceReference(TextBlock.ForegroundProperty, "Lc.SubText");
+            var name = new Run(p.Name) { FontWeight = FontWeights.SemiBold };
+            name.SetResourceReference(TextElement.ForegroundProperty, "Lc.Text");
+            line.Inlines.Add(name);
+            line.Inlines.Add(new Run("   " + Fmt.ProfileDetails(p)));
+            ProfileSummaries.Children.Add(line);
+        }
+    }
+
+    /// <param name="full">Also reload the charge-limit sliders (opening, or after the user saved).</param>
     private void LoadSettings(bool full)
     {
         _loading = true;
@@ -284,31 +237,24 @@ public partial class SettingsWindow : Window
             FullOnce.IsChecked = s.FullChargeOnce;
             Drain.IsChecked = s.DrainToLimit;
 
-            RebuildFanChoices(s); // before the profile list, whose selection picks one of these
-            FanUnrestricted.IsChecked = s.UnrestrictedFanCurves;
             var names = string.Join("|", s.Profiles.Select(p => p.Name));
             if (full || names != _profileNames)
             {
                 _profileNames = names;
-                var selected = (ProfileList.SelectedItem as string) ?? s.ActiveProfile;
-                ProfileList.ItemsSource = s.Profiles.Select(p => p.Name).ToList();
-                ProfileList.SelectedItem = s.Profiles.Any(p => p.Name == selected) ? selected : s.Profiles.FirstOrDefault()?.Name;
-
                 foreach (var box in new[] { AcProfile, DcProfile, LowProfile })
                 {
-                    box.Items.Clear();
-                    foreach (var p in s.Profiles)
-                    {
-                        box.Items.Add(Item(p.Name, p.Name));
-                    }
+                    FillProfiles(box, s.Profiles.Select(p => p.Name));
                 }
             }
 
+            ShowProfileSummaries(s);
             AutoSwitch.IsChecked = s.AutoSwitchProfiles;
-            Select(AcProfile, s.AcProfile);
-            Select(DcProfile, s.BatteryProfile);
-            Select(LowProfile, s.LowBatteryProfile);
+            Select(AcProfile, s.AcProfile ?? "");
+            Select(DcProfile, s.BatteryProfile ?? "");
+            Select(LowProfile, s.LowBatteryProfile ?? "");
             Select(LowThreshold, s.LowBatteryThreshold);
+            DcLabel.Text = s.LowBatteryThreshold > 0 ? $"On battery, above {s.LowBatteryThreshold}%" : "On battery";
+            LowProfile.IsEnabled = s.LowBatteryThreshold > 0;
 
             foreach (RadioButton b in KbTimeoutPanel.Children)
             {
@@ -565,6 +511,8 @@ public partial class SettingsWindow : Window
                 b.IsEnabled = state.CanWrite;
             }
 
+            ProfileButtonsPanel.Refresh(App.Current.Store.Current, state);
+
             WebcamToggle.IsChecked = state.Webcam;
             WebcamToggle.IsEnabled = state.CanWrite;
             // Null = this model has no EC webcam switch (EC 0x2F bit1 clear), or not connected yet.
@@ -775,432 +723,6 @@ public partial class SettingsWindow : Window
 
     private async void OnRefreshHistory(object sender, RoutedEventArgs e) => await LoadHistoryAsync();
 
-    // ---- profile handlers ---------------------------------------------------------------------
-
-    private void OnProfileSelected(object sender, SelectionChangedEventArgs e)
-    {
-        _editing = App.Current.Store.Current.FindProfile(ProfileList.SelectedItem as string);
-        if (_editing is null)
-        {
-            return;
-        }
-
-        _selectingProfile = true;
-        try
-        {
-            PName.Text = _editing.Name;
-            Select(PShift, _editing.Performance);
-            Select(PFan, FanChoice(_editing));
-            _fanChoice = FanChoice(_editing);
-            Select(PWindows, _editing.WindowsMode);
-            Select(PCpuBoost, _editing.CpuBoost);
-            Select(PMaxCpu, _editing.MaxCpuPercent);
-            Select(PRefresh, _editing.RefreshRate);
-            Select(PKeyboard, _editing.KeyboardLevel);
-        }
-        finally
-        {
-            _selectingProfile = false;
-        }
-    }
-
-    // ---- a profile's fans: one choice ------------------------------------------------------------
-
-    private bool _selectingProfile;
-    private string? _fanChoice;
-    private string _fanChoicesKey = "";
-
-    /// <summary>A profile's fan setting as one choice: "auto", "silent", "default", "fan:{name}", "full", "off" or "unchanged".</summary>
-    private static string FanChoice(Profile p) => p switch
-    {
-        { CoolerBoost: true } => "full",
-        { Fan: null } => "unchanged",
-        { Fan: FanMode.Auto } => "auto",
-        { Fan: FanMode.Silent } => "silent",
-        { FanProfileName: null } => "default",
-        { FanProfileName: var n } when string.Equals(n, FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => "default",
-        { FanProfileName: var n } when string.Equals(n, FanProfile.Off, StringComparison.OrdinalIgnoreCase) => "off",
-        { FanProfileName: var n } => "fan:" + n,
-    };
-
-    private static void ApplyFanChoice(Profile p, string? choice)
-    {
-        p.CoolerBoost = choice == "full";
-        (p.Fan, p.FanProfileName) = choice switch
-        {
-            "unchanged" => ((FanMode?)null, (string?)null),
-            "auto" or "full" => (FanMode.Auto, null), // full speed is Cooler Boost on top of Auto
-            "silent" => (FanMode.Silent, null),
-            "default" => (FanMode.Custom, null),
-            "off" => (FanMode.Custom, FanProfile.Off),
-            { } c when c.StartsWith("fan:", StringComparison.Ordinal) => (FanMode.Custom, c[4..]),
-            _ => (p.Fan, p.FanProfileName),
-        };
-    }
-
-    /// <summary>The Fans dropdown: the firmware's modes, the laptop's own curve, every fan profile, full speed and off.</summary>
-    private void RebuildFanChoices(AppSettings s)
-    {
-        var key = string.Join("|", s.FanProfiles.Select(f => f.Name));
-        if (key == _fanChoicesKey && PFan.Items.Count > 0)
-        {
-            return;
-        }
-
-        _fanChoicesKey = key;
-        var selected = TagOf<string>(PFan);
-        PFan.Items.Clear();
-        PFan.Items.Add(Item("Auto (the laptop decides)", "auto"));
-        PFan.Items.Add(Item("Silent (the laptop decides, quieter)", "silent"));
-        PFan.Items.Add(Item($"{FanProfile.LaptopDefault} curve", "default"));
-        foreach (var fan in s.FanProfiles)
-        {
-            PFan.Items.Add(Item($"Fan profile: {fan.Name}", "fan:" + fan.Name));
-        }
-
-        PFan.Items.Add(Item("Full speed", "full"));
-        PFan.Items.Add(Item("Off (experimental)", "off"));
-        PFan.Items.Add(Item("Unchanged", "unchanged"));
-
-        // A renamed fan profile is a new choice: take it from the profile being edited, which followed the rename.
-        _selectingProfile = true;
-        Select(PFan, _editing is { } editing ? FanChoice(editing) : selected ?? "auto");
-        _selectingProfile = false;
-    }
-
-    /// <summary>"Off" needs the experimental warning accepted first; declining puts the old choice back.</summary>
-    private void OnProfileFanChanged(object sender, SelectionChangedEventArgs e)
-    {
-        var choice = TagOf<string>(PFan);
-        if (!_selectingProfile && !_loading && choice == "off" && !ConfirmExperimental())
-        {
-            _selectingProfile = true;
-            Select(PFan, _fanChoice ?? "auto");
-            _selectingProfile = false;
-            return;
-        }
-
-        _fanChoice = choice;
-    }
-
-    /// <summary>The experimental warning. True when the user accepts (remembered) or already had.</summary>
-    private bool ConfirmExperimental()
-    {
-        if (App.Current.Store.Current.UnrestrictedFanCurves)
-        {
-            return true;
-        }
-
-        if (MessageBox.Show(this,
-                "This is experimental.\n\nNormally Wattkin makes sure the fans reach full speed before the laptop gets hot. Allowing this lets you choose Off, and fan profiles that let the laptop run hot enough to slow itself down (thermal throttling). The firmware still runs the fans flat out at its hottest step (95°C on the Prestige 16 Studio).\n\nKeep an eye on your temperatures in the flyout.",
-                "Fans", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
-        {
-            return false;
-        }
-
-        App.Current.Store.Update(s => s.UnrestrictedFanCurves = true);
-        Log.Info("Fans: the user accepted the experimental mode (fan profiles that let the laptop run hot, and Off).");
-        return true;
-    }
-
-    // ---- Fan profiles tab ---------------------------------------------------------------------------
-
-    private FanCurves? _firmwareCurves;
-    private FanTable? _firmwareTable; // set where the laptop takes whole tables: temperatures are edited too
-    private FanProfile? _editingFan; // null while the built-in "Laptop default" is shown
-
-    private bool FullTables => _firmwareTable is not null;
-
-    /// <summary>The laptop's fan table gives the editor its real temperature steps; read once per window.</summary>
-    private async Task LoadFanProfilesAsync()
-    {
-        (_firmwareCurves, _firmwareTable) = await Task.Run(() => (App.Current.Hardware.ReadFanCurves(), App.Current.Hardware.ReadFullFanTable()));
-        RefreshFanProfileList();
-    }
-
-    private FanSpeeds Factory() => FullTables ? FactoryTable().ToSpeeds() : App.Current.Store.Current.FactoryFanCurve?.Clone() ?? FanSpeeds.From(_firmwareCurves!);
-
-    private FanTable FactoryTable() => App.Current.Store.Current.FactoryFanTable?.Clone() ?? _firmwareTable!.Clone();
-
-    /// <summary>A fan profile's whole table; one made with speeds only runs at the laptop's temperatures.</summary>
-    private FanTable TableOf(FanProfile fan) => fan.Table?.Clone() ?? FactoryTable().WithSpeeds(fan.Speeds);
-
-    private void RefreshFanProfileList(string? select = null)
-    {
-        var settings = App.Current.Store.Current;
-        List<string> names = [FanProfile.LaptopDefault, .. settings.FanProfiles.Select(f => f.Name)];
-        var wanted = select ?? FanProfileList.SelectedItem as string ?? FanProfile.LaptopDefault;
-        FanProfileList.ItemsSource = names;
-        FanProfileList.SelectedItem = names.FirstOrDefault(n => string.Equals(n, wanted, StringComparison.OrdinalIgnoreCase)) ?? FanProfile.LaptopDefault;
-        FanUnrestricted.IsChecked = settings.UnrestrictedFanCurves;
-    }
-
-    private void OnFanProfileSelected(object? sender, SelectionChangedEventArgs? e)
-    {
-        if (FanProfileList.SelectedItem is not string name)
-        {
-            return;
-        }
-
-        _editingFan = App.Current.Store.Current.FindFanProfile(name);
-        var builtIn = _editingFan is null;
-        FanTitle.Text = name;
-        FanNameRow.Visibility = FanSaveButtons.Visibility = builtIn ? Visibility.Collapsed : Visibility.Visible;
-        FanDeleteButton.IsEnabled = !builtIn;
-        if (_firmwareCurves is null && _firmwareTable is null)
-        {
-            FanEditorPanel.Visibility = Visibility.Collapsed;
-            FanNewButton.IsEnabled = FanDuplicateButton.IsEnabled = false;
-            FanIntro.Text = "Fan profiles need administrator rights and an MSI laptop whose fan table Wattkin can read.";
-            return;
-        }
-
-        FanEditorPanel.Visibility = Visibility.Visible;
-        FanNewButton.IsEnabled = FanDuplicateButton.IsEnabled = true;
-        FanIntro.Text = builtIn
-            ? FullTables
-                ? "The table the controller held when Wattkin first read it (if YAMDCC ran before, its table). It can't be changed here: duplicate it to make your own."
-                : "The curve your laptop came with. It can't be changed here: duplicate it to make your own."
-            : FullTables
-                ? "Each fan's speed at each step, the temperature that starts the step and the one under which the fan drops back. Choose this fan profile for a profile in Profiles › Fans."
-                : "Each fan's speed at each of the laptop's temperature steps. Choose this fan profile for a profile in Profiles › Fans.";
-        FanName.Text = name;
-        FanEditor.Visibility = FullTables ? Visibility.Collapsed : Visibility.Visible;
-        TableEditor.Visibility = FullTables ? Visibility.Visible : Visibility.Collapsed;
-        if (FullTables)
-        {
-            TableEditor.Show(builtIn ? FactoryTable() : TableOf(_editingFan!));
-            TableEditor.IsEnabled = !builtIn;
-        }
-        else
-        {
-            FanEditor.Show(_firmwareCurves!, builtIn ? Factory() : _editingFan!.Speeds);
-            FanEditor.IsEnabled = !builtIn;
-        }
-
-        UpdateFanProblem();
-    }
-
-    /// <summary>Problems are shown as you drag.</summary>
-    private void UpdateFanProblem()
-    {
-        var unrestricted = App.Current.Store.Current.UnrestrictedFanCurves;
-        var problem = _editingFan is null ? null : FullTables ? TableEditor.Problem(unrestricted) : FanEditor.Problem(unrestricted);
-        FanProblem.Text = problem ?? "";
-        FanProblem.Visibility = problem is null ? Visibility.Collapsed : Visibility.Visible;
-    }
-
-    private void OnFanProfileNew(object sender, RoutedEventArgs e) =>
-        AddFanProfile(UniqueFanName("My fan profile"), Factory(), FullTables ? FactoryTable() : null);
-
-    private void OnFanProfileDuplicate(object sender, RoutedEventArgs e) =>
-        AddFanProfile(UniqueFanName((FanProfileList.SelectedItem as string ?? "Fan profile") + " copy"), _editingFan?.Speeds.Clone() ?? Factory(),
-            FullTables ? _editingFan is { } fan ? TableOf(fan) : FactoryTable() : _editingFan?.Table?.Clone());
-
-    private void AddFanProfile(string name, FanSpeeds speeds, FanTable? table)
-    {
-        var fan = new FanProfile { Name = name, Speeds = table?.ToSpeeds() ?? speeds, Table = table };
-        App.Current.Store.Update(s => s.FanProfiles = [.. s.FanProfiles, fan]);
-        RefreshFanProfileList(select: name);
-    }
-
-    private async void OnFanProfileDelete(object sender, RoutedEventArgs e)
-    {
-        if (_editingFan is not { } fan
-            || MessageBox.Show(this, $"Delete the fan profile \"{fan.Name}\"? Profiles that use it go back to the laptop default curve.", "Fan profiles", MessageBoxButton.OKCancel) != MessageBoxResult.OK)
-        {
-            return;
-        }
-
-        var inUse = UsedByActiveProfile(fan.Name);
-        App.Current.Store.Update(s =>
-        {
-            s.FanProfiles = [.. s.FanProfiles.Where(f => f != fan)];
-            s.RenameFanProfile(fan.Name, null);
-        });
-        RefreshFanProfileList(select: FanProfile.LaptopDefault);
-        if (inUse)
-        {
-            await App.Current.Hardware.ApplyProfileAsync(App.Current.Store.Current.ActiveProfile);
-        }
-    }
-
-    private async void OnFanProfileSave(object sender, RoutedEventArgs e)
-    {
-        if (_editingFan is not { } fan)
-        {
-            return;
-        }
-
-        var settings = App.Current.Store.Current;
-        var name = FanName.Text.Trim();
-        var problem = name.Length == 0 ? "Give the fan profile a name."
-            : FanProfile.IsBuiltIn(name) ? $"\"{name}\" is built in: choose another name."
-            : !string.Equals(name, fan.Name, StringComparison.OrdinalIgnoreCase) && settings.FindFanProfile(name) is not null ? "A fan profile with that name already exists."
-            : FullTables ? TableEditor.Problem(settings.UnrestrictedFanCurves) : FanEditor.Problem(settings.UnrestrictedFanCurves);
-        if (problem is not null)
-        {
-            MessageBox.Show(this, problem, "Fan profiles");
-            return;
-        }
-
-        // Speeds-only editing keeps a whole table's temperatures, so the two never disagree.
-        var saved = FullTables
-            ? new FanProfile { Name = name, Speeds = TableEditor.Value.ToSpeeds(), Table = TableEditor.Value }
-            : new FanProfile { Name = name, Speeds = FanEditor.Value, Table = fan.Table?.WithSpeeds(FanEditor.Value) };
-        var inUse = UsedByActiveProfile(fan.Name);
-        App.Current.Store.Update(s =>
-        {
-            s.FanProfiles = [.. s.FanProfiles.Select(f => f == fan ? saved : f)];
-            if (!string.Equals(fan.Name, name, StringComparison.Ordinal))
-            {
-                s.RenameFanProfile(fan.Name, name);
-            }
-        });
-        RefreshFanProfileList(select: name);
-
-        // In use right now: the laptop gets the new curve straight away.
-        if (inUse)
-        {
-            await App.Current.Hardware.ApplyProfileAsync(App.Current.Store.Current.ActiveProfile);
-        }
-    }
-
-    private void OnFanProfileRevert(object sender, RoutedEventArgs e) => OnFanProfileSelected(null, null);
-
-    private void OnFanUnrestricted(object sender, RoutedEventArgs e)
-    {
-        if (FanUnrestricted.IsChecked == true)
-        {
-            FanUnrestricted.IsChecked = ConfirmExperimental();
-        }
-        else
-        {
-            App.Current.Store.Update(s => s.UnrestrictedFanCurves = false);
-            Log.Info("Fans: back to the safety rules (profiles set to Off use Silent instead).");
-        }
-
-        UpdateFanProblem();
-    }
-
-    private static bool UsedByActiveProfile(string fanProfile) =>
-        App.Current.Store.Current is var s && s.FindProfile(s.ActiveProfile) is { Fan: FanMode.Custom, CoolerBoost: false } active
-        && string.Equals(active.FanProfileName, fanProfile, StringComparison.OrdinalIgnoreCase);
-
-    private static string UniqueFanName(string baseName)
-    {
-        var settings = App.Current.Store.Current;
-        var name = baseName;
-        for (var i = 2; settings.FindFanProfile(name) is not null || FanProfile.IsBuiltIn(name); i++)
-        {
-            name = $"{baseName} {i}";
-        }
-
-        return name;
-    }
-
-    private string? SaveProfile()
-    {
-        if (_editing is null)
-        {
-            return null;
-        }
-
-        var oldName = _editing.Name;
-        var newName = string.IsNullOrWhiteSpace(PName.Text) ? oldName : PName.Text.Trim();
-        var settings = App.Current.Store.Current;
-        if (!string.Equals(newName, oldName, StringComparison.OrdinalIgnoreCase) && settings.FindProfile(newName) is not null)
-        {
-            MessageBox.Show(this, "A profile with that name already exists.", "Profiles");
-            return null;
-        }
-
-        var editing = _editing;
-        var fanChoice = TagOf<string>(PFan);
-        App.Current.Store.Update(s =>
-        {
-            editing.Name = newName;
-            editing.Performance = TagOf<ShiftMode>(PShift);
-            ApplyFanChoice(editing, fanChoice);
-            editing.WindowsMode = TagOf<WindowsPowerMode>(PWindows);
-            editing.CpuBoost = (PCpuBoost.SelectedItem as ComboBoxItem)?.Tag as bool?;
-            editing.MaxCpuPercent = (PMaxCpu.SelectedItem as ComboBoxItem)?.Tag as int?;
-            editing.RefreshRate = (PRefresh.SelectedItem as ComboBoxItem)?.Tag as int?;
-            editing.KeyboardLevel = (PKeyboard.SelectedItem as ComboBoxItem)?.Tag as int?;
-
-            Rename(s, oldName, newName);
-        });
-        LoadSettings(full: true);
-        ProfileList.SelectedItem = newName;
-        return newName;
-    }
-
-    private static void Rename(AppSettings s, string oldName, string newName)
-    {
-        if (s.ActiveProfile == oldName) s.ActiveProfile = newName;
-        if (s.AcProfile == oldName) s.AcProfile = newName;
-        if (s.BatteryProfile == oldName) s.BatteryProfile = newName;
-        if (s.LowBatteryProfile == oldName) s.LowBatteryProfile = newName;
-    }
-
-    private void OnProfileSave(object sender, RoutedEventArgs e) => SaveProfile();
-
-    private async void OnProfileApply(object sender, RoutedEventArgs e)
-    {
-        if (SaveProfile() is { } name)
-        {
-            await App.Current.Hardware.ApplyProfileAsync(name);
-        }
-    }
-
-    private void OnProfileNew(object sender, RoutedEventArgs e) => AddProfile(new Profile { Name = UniqueName("New profile") });
-
-    private void OnProfileDuplicate(object sender, RoutedEventArgs e)
-    {
-        if (_editing is not null)
-        {
-            var copy = _editing.Clone();
-            copy.Name = UniqueName(_editing.Name + " copy");
-            AddProfile(copy);
-        }
-    }
-
-    private void AddProfile(Profile profile)
-    {
-        App.Current.Store.Update(s => s.Profiles = [.. s.Profiles, profile]);
-        LoadSettings(full: true);
-        ProfileList.SelectedItem = profile.Name;
-    }
-
-    private void OnProfileDelete(object sender, RoutedEventArgs e)
-    {
-        var settings = App.Current.Store.Current;
-        if (_editing is null || settings.Profiles.Count <= 1)
-        {
-            return;
-        }
-
-        var name = _editing.Name;
-        App.Current.Store.Update(s =>
-        {
-            s.Profiles = [.. s.Profiles.Where(p => p.Name != name)];
-            Rename(s, name, s.Profiles[0].Name);
-        });
-        LoadSettings(full: true);
-    }
-
-    private static string UniqueName(string baseName)
-    {
-        var settings = App.Current.Store.Current;
-        var name = baseName;
-        for (var i = 2; settings.FindProfile(name) is not null; i++)
-        {
-            name = $"{baseName} {i}";
-        }
-
-        return name;
-    }
-
     private void OnAutoChanged(object sender, RoutedEventArgs e)
     {
         if (_loading)
@@ -1211,9 +733,9 @@ public partial class SettingsWindow : Window
         App.Current.Store.Update(s =>
         {
             s.AutoSwitchProfiles = AutoSwitch.IsChecked == true;
-            s.AcProfile = TagOf<string>(AcProfile) ?? s.AcProfile;
-            s.BatteryProfile = TagOf<string>(DcProfile) ?? s.BatteryProfile;
-            s.LowBatteryProfile = TagOf<string>(LowProfile) ?? s.LowBatteryProfile;
+            s.AcProfile = ProfileOf(AcProfile);
+            s.BatteryProfile = ProfileOf(DcProfile);
+            s.LowBatteryProfile = ProfileOf(LowProfile);
             s.LowBatteryThreshold = TagOf<int>(LowThreshold);
         });
     }

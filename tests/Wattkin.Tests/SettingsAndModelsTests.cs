@@ -20,54 +20,113 @@ public sealed class SettingsAndModelsTests : IDisposable
     }
 
     [Fact]
-    public void ADamagedFanProfileNeverReachesTheController()
+    public void SharedFanProfilesFromOlderVersionsBecomeEachProfilesOwnCurve()
     {
+        // The shape of a 1.2 settings file: shared fan profiles picked by name, Windows power modes.
         Directory.CreateDirectory(_dir);
         File.WriteAllText(Path.Combine(_dir, "settings.json"), """
             { "ProfilesVersion": 1,
-              "Profiles": [ { "Name": "Mine", "Fan": "Custom", "FanProfileName": "Broken" } ],
+              "Profiles": [
+                { "Name": "Battery saver", "Performance": "Eco", "Fan": "Auto", "WindowsMode": "BestEfficiency", "CpuBoost": false },
+                { "Name": "Mine", "Fan": "Custom", "FanProfileName": "fine" },
+                { "Name": "Broken one", "Fan": "Custom", "FanProfileName": "Broken" },
+                { "Name": "Hot", "Fan": "Custom", "FanProfileName": "Off" } ],
               "FanProfiles": [
                 { "Name": "Broken", "Speeds": { "Cpu": [0, 500], "Gpu": [] } },
-                { "Name": "Off", "Speeds": { "Cpu": [0, 0, 0, 0, 0, 0], "Gpu": [0, 0, 0, 0, 0, 0] } },
-                { "Name": "Fine", "Speeds": { "Cpu": [0, 0, 40, 55, 75, 100], "Gpu": [0, 40, 60, 80, 100, 100] } },
-                { "Name": "fine", "Speeds": { "Cpu": [0, 0, 40, 55, 75, 100], "Gpu": [0, 40, 60, 80, 100, 100] } } ],
+                { "Name": "Fine", "Speeds": { "Cpu": [0, 0, 40, 55, 75, 100], "Gpu": [0, 40, 60, 80, 100, 100] } } ],
               "FactoryFanCurve": { "Cpu": [1], "Gpu": [1] } }
             """);
-        var settings = new SettingsStore(_dir).Current;
-        Assert.Equal(["Fine"], settings.FanProfiles.Select(f => f.Name)); // broken, built-in name and repeat dropped
-        Assert.Null(settings.FindProfile("Mine")!.FanProfileName);          // back to the laptop's own curve
+        var store = new SettingsStore(_dir);
+        var settings = store.Current;
+        Assert.Equal(2, settings.ProfilesVersion);
+        Assert.Null(settings.FanProfiles);
+        Assert.All(settings.Profiles, p => Assert.Null(p.FanProfileName));
+        Assert.Equal([0, 0, 40, 55, 75, 100], settings.FindProfile("Mine")!.CurveSpeeds!.Cpu); // names are case-insensitive
+        Assert.False(settings.FindProfile("Broken one")!.HasOwnCurve);                        // a broken curve: the laptop's
+        Assert.All(settings.FindProfile("Hot")!.CurveSpeeds!.Cpu, s => Assert.Equal(0, s));    // Off: all off
         Assert.Null(settings.FactoryFanCurve);
+
+        // Saved again, the file no longer names shared fan profiles or Windows power modes.
+        store.Update(_ => { });
+        var saved = File.ReadAllText(store.FilePath);
+        Assert.DoesNotContain("FanProfiles", saved);
+        Assert.DoesNotContain("FanProfileName", saved);
+        Assert.DoesNotContain("WindowsMode", saved);
     }
 
     [Fact]
-    public void EachFanChoiceStandsForTheRightSpeeds()
+    public void EachProfileUsesItsOwnCurveOrTheLaptops()
     {
         var factory = new FanSpeeds { Cpu = [0, 50, 55, 70, 80, 130], Gpu = [0, 60, 80, 130, 130, 130] };
-        var settings = new AppSettings { FactoryFanCurve = factory, FanProfiles = FanProfile.Defaults() };
-        FanSpeeds? Speeds(string? name) => settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom, FanProfileName = name }).Speeds;
+        var settings = new AppSettings { FactoryFanCurve = factory };
+        Assert.Same(factory, settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom }).Speeds);
+        Assert.False(settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom }).Unrestricted); // the laptop's curve keeps the rules
 
-        Assert.Same(factory, Speeds(null));
-        Assert.Same(factory, Speeds(FanProfile.LaptopDefault));
-        Assert.Same(factory, Speeds("Deleted since"));
-        Assert.Equal(FanSpeeds.Quiet().Cpu, Speeds("quiet")!.Cpu); // names are case-insensitive
-
-        // Off: refused by the safety rules until the user accepts the experimental mode.
-        var (off, unrestricted) = settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom, FanProfileName = FanProfile.Off });
-        Assert.All(off!.Cpu.Concat(off.Gpu), s => Assert.Equal(0, s));
-        Assert.NotNull(off.Problem(unrestricted));
+        // Its own curve: all off is refused by the safety rules until the user accepts the experimental mode.
+        var off = new Profile { Fan = FanMode.Custom, CurveSpeeds = FanProfile.OffSpeeds() };
+        var (speeds, unrestricted) = settings.ResolveFanCurve(off);
+        Assert.All(speeds!.Cpu.Concat(speeds.Gpu), s => Assert.Equal(0, s));
+        Assert.NotNull(speeds.Problem(unrestricted));
         settings.UnrestrictedFanCurves = true;
-        (off, unrestricted) = settings.ResolveFanCurve(new Profile { Fan = FanMode.Custom, FanProfileName = FanProfile.Off });
-        Assert.Null(off!.Problem(unrestricted));
+        (speeds, unrestricted) = settings.ResolveFanCurve(off);
+        Assert.Null(speeds!.Problem(unrestricted));
     }
 
     [Fact]
-    public void ProfilesFollowARenamedOrDeletedFanProfile()
+    public void ThereAreAlwaysFourProfilesWithDistinctNames()
     {
-        var settings = new AppSettings { Profiles = [new Profile { Name = "A", Fan = FanMode.Custom, FanProfileName = "Quiet" }] };
-        settings.RenameFanProfile("Quiet", "Whisper");
-        Assert.Equal("Whisper", settings.FindProfile("A")!.FanProfileName);
-        settings.RenameFanProfile("whisper", null);
-        Assert.Null(settings.FindProfile("A")!.FanProfileName);
+        var s = new AppSettings { Profiles = [new Profile { Name = "Mine" }, new Profile { Name = "mine " }] };
+        s.Normalize();
+        Assert.Equal(["Mine", "mine 2", "Quiet", "Performance"], s.Profiles.Select(p => p.Name)); // missing slots get their defaults
+
+        // More than four (older versions could add profiles): the first four are kept.
+        s.Profiles = [.. Enumerable.Range(1, 6).Select(i => new Profile { Name = $"P{i}" })];
+        s.Normalize();
+        Assert.Equal(["P1", "P2", "P3", "P4"], s.Profiles.Select(p => p.Name));
+        Assert.Equal("P1", s.ActiveProfile); // the active one was gone
+    }
+
+    [Fact]
+    public void RenamingOrResettingASlotCarriesTheRulesAlong()
+    {
+        var s = new AppSettings();
+        s.Normalize();
+        s.ActiveProfile = "Quiet";
+        s.AcProfile = "Quiet";
+        s.LowBatteryProfile = "Battery saver";
+
+        var renamed = s.Profiles[2].Clone();
+        renamed.Name = "Silence";
+        Assert.Equal("Silence", s.ReplaceProfile(2, renamed));
+        Assert.Equal("Silence", s.ActiveProfile);
+        Assert.Equal("Silence", s.AcProfile);
+        Assert.Equal("Battery saver", s.LowBatteryProfile);
+
+        // A name another slot has gets a number.
+        var clash = s.Profiles[2].Clone();
+        clash.Name = "balanced";
+        Assert.Equal("balanced 2", s.ReplaceProfile(2, clash));
+
+        // Reset: the slot's own default, name included.
+        Assert.Equal("Quiet", s.ReplaceProfile(2, Profile.Default(2)));
+        Assert.Equal("Quiet", s.AcProfile);
+        Assert.Equal(FanMode.Custom, s.Profiles[2].Fan);
+        Assert.False(s.Profiles[2].HasOwnCurve);
+    }
+
+    [Fact]
+    public void LeaveAsIsSurvivesARestart()
+    {
+        var store = new SettingsStore(_dir);
+        store.Update(s =>
+        {
+            s.AcProfile = null;
+            s.Profiles[3].Fan = null;
+        });
+        var reloaded = new SettingsStore(_dir).Current;
+        Assert.Null(reloaded.AcProfile);
+        Assert.Null(reloaded.Profiles[3].Fan);
+        Assert.Equal("Balanced", reloaded.BatteryProfile);
     }
 
     [Fact]
@@ -92,7 +151,7 @@ public sealed class SettingsAndModelsTests : IDisposable
         var settings = new SettingsStore(_dir).Current;
         Assert.Equal(FanMode.Custom, settings.FindProfile("Quiet")!.Fan);
         Assert.Equal(FanMode.Silent, settings.FindProfile("Balanced")!.Fan); // only Quiet
-        Assert.Equal(1, settings.ProfilesVersion);
+        Assert.Equal(2, settings.ProfilesVersion);
 
         // Already moved once: the user's later choice stays.
         File.WriteAllText(path, """{ "ProfilesVersion": 1, "Profiles": [ { "Name": "Quiet", "Fan": "Silent" } ] }""");
@@ -112,13 +171,40 @@ public sealed class SettingsAndModelsTests : IDisposable
         // Unplugged while Wattkin wasn't running: the battery profile, as if it happened live.
         Assert.Equal("Battery saver", HardwareService.StartupProfile(settings, onAc: false));
 
+        // ...or the low-battery one when it's that low.
+        settings.LowBatteryProfile = "Performance";
+        Assert.Equal("Performance", HardwareService.StartupProfile(settings, onAc: false, percent: 20));
+
         // Settings from before this was remembered: the charger profile, as before.
         settings.ActiveProfileOnAc = null;
         Assert.Equal("Balanced", HardwareService.StartupProfile(settings, onAc: true));
 
+        // A rule that leaves the profile alone keeps the picked one.
+        settings.AcProfile = null;
+        Assert.Equal("Quiet", HardwareService.StartupProfile(settings, onAc: true));
+
         // Without automatic switching, always the picked profile.
         settings.AutoSwitchProfiles = false;
         Assert.Equal("Quiet", HardwareService.StartupProfile(settings, onAc: false));
+    }
+
+    [Fact]
+    public void TheAutomaticRulesPickByPowerSourceAndBatteryLevel()
+    {
+        var s = new AppSettings { AcProfile = "Performance", BatteryProfile = "Balanced", LowBatteryProfile = "Battery saver", LowBatteryThreshold = 30 };
+        Assert.Equal("Performance", s.AutoProfile(onAc: true, percent: 10));
+        Assert.Equal("Balanced", s.AutoProfile(onAc: false, percent: 31));
+        Assert.Equal("Battery saver", s.AutoProfile(onAc: false, percent: 30));
+        Assert.Equal("Balanced", s.AutoProfile(onAc: false, percent: null)); // level unknown: not "low"
+
+        s.LowBatteryThreshold = 0; // no threshold: one battery rule
+        Assert.Equal("Balanced", s.AutoProfile(onAc: false, percent: 5));
+
+        s.BatteryProfile = null; // leave as is
+        Assert.Null(s.AutoProfile(onAc: false, percent: 50));
+
+        s.AutoSwitchProfiles = false;
+        Assert.Null(s.AutoProfile(onAc: true, percent: 50));
     }
 
     [Fact]

@@ -107,19 +107,15 @@ public partial class SimpleSettings : UserControl
                 _profileNames = names;
                 foreach (var box in new[] { AcProfile, DcProfile })
                 {
-                    box.Items.Clear();
-                    foreach (var p in s.Profiles)
-                    {
-                        box.Items.Add(new ComboBoxItem { Content = p.Name, Tag = p.Name });
-                    }
+                    Choices.FillProfiles(box, s.Profiles.Select(p => p.Name));
                 }
             }
 
-            Select(AcProfile, s.AcProfile);
-            Select(DcProfile, s.BatteryProfile);
+            Choices.Select(AcProfile, s.AcProfile ?? "");
+            Choices.Select(DcProfile, s.BatteryProfile ?? "");
             AcText.Text = Describe(s.FindProfile(s.AcProfile));
             DcText.Text = Describe(s.FindProfile(s.BatteryProfile))
-                + (s.AutoSwitchProfiles && s.LowBatteryThreshold > 0 ? $" Below {s.LowBatteryThreshold}% it switches to {s.LowBatteryProfile} by itself." : "");
+                + (s.AutoSwitchProfiles && s.LowBatteryThreshold > 0 && s.LowBatteryProfile is { } low ? $" At {s.LowBatteryThreshold}% or less it switches to {low} by itself." : "");
 
             AutoOffToggle.IsChecked = s.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
             TrayToggle.IsChecked = s.TrayShowsWatts;
@@ -131,19 +127,7 @@ public partial class SimpleSettings : UserControl
         }
     }
 
-    private static void Select(ComboBox box, string name)
-    {
-        foreach (ComboBoxItem item in box.Items)
-        {
-            if (string.Equals((string)item.Tag, name, StringComparison.OrdinalIgnoreCase))
-            {
-                box.SelectedItem = item;
-                return;
-            }
-        }
-    }
-
-    private static string Describe(Profile? p) => p is null ? "" : char.ToUpperInvariant(Fmt.ProfileSummary(p)[0]) + Fmt.ProfileSummary(p)[1..] + ".";
+    private static string Describe(Profile? p) => p is null ? "Keeps whichever profile is on." : char.ToUpperInvariant(Fmt.ProfileSummary(p)[0]) + Fmt.ProfileSummary(p)[1..] + ".";
 
     private static string LimitDescription(AppSettings s)
     {
@@ -312,7 +296,7 @@ public partial class SimpleSettings : UserControl
 
     private void OnProfileChoice(object sender, SelectionChangedEventArgs e)
     {
-        if (_loading || AcProfile.SelectedItem is not ComboBoxItem ac || DcProfile.SelectedItem is not ComboBoxItem dc)
+        if (_loading || AcProfile.SelectedItem is null || DcProfile.SelectedItem is null)
         {
             return;
         }
@@ -320,8 +304,8 @@ public partial class SimpleSettings : UserControl
         App.Current.Store.Update(s =>
         {
             s.AutoSwitchProfiles = true;
-            s.AcProfile = (string)ac.Tag;
-            s.BatteryProfile = (string)dc.Tag;
+            s.AcProfile = Choices.ProfileOf(AcProfile);
+            s.BatteryProfile = Choices.ProfileOf(DcProfile);
         });
     }
 

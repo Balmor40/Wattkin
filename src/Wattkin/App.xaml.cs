@@ -32,6 +32,7 @@ public partial class App : Application
     private FlyoutWindow? _flyout;
     private WidgetWindow? _widget;
     private SettingsWindow? _settings;
+    private ProfileEditorWindow? _profileEditor;
     private OsdWindow? _osd;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -446,6 +447,33 @@ public partial class App : Application
         if (_settings.WindowState == WindowState.Minimized)
         {
             _settings.WindowState = WindowState.Normal;
+        }
+    }
+
+    /// <summary>The gear on a profile button: one editor at a time, switched to this slot.</summary>
+    public void EditProfile(int slot)
+    {
+        _flyout?.HideFlyout();
+        if (_profileEditor is null)
+        {
+            _profileEditor = new ProfileEditorWindow();
+            _profileEditor.Closed += (_, _) =>
+            {
+                _profileEditor = null;
+                MemoryTrim.Soon();
+            };
+            _profileEditor.Edit(slot);
+            _profileEditor.Show();
+        }
+        else if (_profileEditor.Slot != slot)
+        {
+            _profileEditor.Edit(slot);
+        }
+
+        _profileEditor.Activate();
+        if (_profileEditor.WindowState == WindowState.Minimized)
+        {
+            _profileEditor.WindowState = WindowState.Normal;
         }
     }
 

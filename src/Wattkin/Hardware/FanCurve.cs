@@ -91,42 +91,6 @@ public sealed class FanSpeeds
 
     public static FanSpeeds From(FanCurves curves) => new() { Cpu = [.. curves.Cpu.Speeds.Take(Steps)], Gpu = [.. curves.Gpu.Speeds.Take(Steps)] };
 
-    /// <summary>Fans off until it's properly warm; full speed from the fifth step. Suits the Prestige 16 Studio's table.</summary>
-    public static FanSpeeds Quiet() => new() { Cpu = [0, 0, 40, 55, 75, 100], Gpu = [0, 40, 60, 80, 100, 100] };
-
-    /// <summary>Always spinning, and faster at every step. Suits the Prestige 16 Studio's table.</summary>
-    public static FanSpeeds Cool() => new() { Cpu = [40, 55, 65, 80, 100, 130], Gpu = [40, 60, 80, 100, 130, 130] };
-
-    /// <summary>
-    /// <see cref="Quiet()"/> built from a laptop's own curve: off at the two coolest steps, a quarter
-    /// slower than the laptop in between, and the laptop's own speed at the hottest editable step.
-    /// </summary>
-    public static FanSpeeds Quiet(FanCurves laptop) => new() { Cpu = QuietFrom(laptop.Cpu), Gpu = QuietFrom(laptop.Gpu) };
-
-    /// <summary><see cref="Cool()"/> built from a laptop's own curve: 15 points faster at every step, up to its top speed.</summary>
-    public static FanSpeeds Cool(FanCurves laptop) => new() { Cpu = CoolFrom(laptop.Cpu), Gpu = CoolFrom(laptop.Gpu) };
-
-    private static int[] QuietFrom(FanCurve laptop)
-    {
-        var speeds = new int[Steps];
-        for (var i = 2; i < HottestStep; i++)
-        {
-            speeds[i] = laptop.Speeds[i] * 3 / 4 / 5 * 5;
-        }
-
-        var top = laptop.Speeds[^1];
-        speeds[HottestStep] = Math.Min(top, Math.Max(laptop.Speeds[HottestStep], Floor(top)));
-        return speeds;
-    }
-
-    private static int[] CoolFrom(FanCurve laptop)
-    {
-        var top = laptop.Speeds[^1];
-        var speeds = laptop.Speeds.Take(Steps).Select(s => Math.Min(top, (s + 15 + 4) / 5 * 5)).ToArray();
-        speeds[HottestStep] = Math.Max(speeds[HottestStep], Floor(top));
-        return speeds;
-    }
-
     /// <summary>
     /// The slowest a fan may run at the hottest editable step: four fifths of the laptop's fixed top
     /// speed, at most 100%. That's 100% on the Prestige 16 Studio (top 130%), and 60% and 48% on the
@@ -168,8 +132,4 @@ public sealed class FanSpeeds
 
         return null;
     }
-
-    /// <summary>Usable on this laptop: passes the safety rules and never faster than a fan's fixed top step.</summary>
-    public bool Fits(FanCurves laptop) =>
-        Problem(unrestricted: false, laptop) is null && Cpu.All(s => s <= laptop.Cpu.Speeds[^1]) && Gpu.All(s => s <= laptop.Gpu.Speeds[^1]);
 }

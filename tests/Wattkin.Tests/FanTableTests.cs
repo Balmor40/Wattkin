@@ -168,20 +168,11 @@ public sealed class FanTableTests : IDisposable
     public void AProfilesFanChoiceStandsForAWholeTable()
     {
         var settings = new AppSettings { FactoryFanTable = HighPerf() };
-        settings.FanProfiles = [new FanProfile { Name = "Mine", Speeds = Romain().ToSpeeds(), Table = Romain() }, new FanProfile { Name = "Old", Speeds = FanSpeeds.Quiet() }];
-        var profile = new Profile { Fan = FanMode.Custom };
+        var quiet = new FanSpeeds { Cpu = [0, 0, 40, 55, 75, 100], Gpu = [0, 40, 60, 80, 100, 100] };
 
-        Assert.True(settings.ResolveFanTable(profile)!.SameAs(HighPerf()));
-        profile.FanProfileName = FanProfile.LaptopDefault;
-        Assert.True(settings.ResolveFanTable(profile)!.SameAs(HighPerf()));
-        profile.FanProfileName = FanProfile.Off;
-        Assert.True(settings.ResolveFanTable(profile)!.SameAs(FanTable.Off(HighPerf())));
-        profile.FanProfileName = "Mine";
-        Assert.True(settings.ResolveFanTable(profile)!.SameAs(Romain()));
-        profile.FanProfileName = "Old"; // made before whole tables: its speeds at the laptop's temperatures
-        Assert.True(settings.ResolveFanTable(profile)!.SameAs(HighPerf().WithSpeeds(FanSpeeds.Quiet())));
-        profile.FanProfileName = "Gone";
-        Assert.True(settings.ResolveFanTable(profile)!.SameAs(HighPerf()));
+        Assert.True(settings.ResolveFanTable(new Profile { Fan = FanMode.Custom })!.SameAs(HighPerf()));                          // the laptop's
+        Assert.True(settings.ResolveFanTable(new Profile { Fan = FanMode.Custom, CurveTable = Romain() })!.SameAs(Romain()));     // its own
+        Assert.True(settings.ResolveFanTable(new Profile { Fan = FanMode.Custom, CurveSpeeds = quiet })!.SameAs(HighPerf().WithSpeeds(quiet))); // speeds only: at the laptop's temperatures
 
         // No table of the laptop's yet: the speeds-only path decides.
         Assert.Null(new AppSettings().ResolveFanTable(new Profile { Fan = FanMode.Custom }));
@@ -196,14 +187,17 @@ public sealed class FanTableTests : IDisposable
         new SettingsStore(_dir).Update(s =>
         {
             s.FactoryFanTable = Romain();
-            s.FanProfiles = [new FanProfile { Name = "Mine", Speeds = HighPerf().ToSpeeds(), Table = HighPerf() }, new FanProfile { Name = "Broken", Speeds = HighPerf().ToSpeeds(), Table = broken }];
+            s.Profiles[1].CurveTable = HighPerf();
+            s.Profiles[2].CurveTable = broken;
+            s.Profiles[2].CurveSpeeds = broken.ToSpeeds();
         });
 
         var loaded = new SettingsStore(_dir).Current;
         Assert.True(loaded.FactoryFanTable!.SameAs(Romain()));
-        Assert.True(loaded.FindFanProfile("Mine")!.Table!.SameAs(HighPerf()));
-        Assert.Null(loaded.FindFanProfile("Broken")!.Table); // dropped, its speeds kept
-        Assert.Equal(HighPerf().ToSpeeds().Cpu, loaded.FindFanProfile("Broken")!.Speeds.Cpu);
+        Assert.True(loaded.Profiles[1].CurveTable!.SameAs(HighPerf()));
+        Assert.Equal(HighPerf().ToSpeeds().Cpu, loaded.Profiles[1].CurveSpeeds!.Cpu); // kept in step with the table
+        Assert.Null(loaded.Profiles[2].CurveTable);                                     // dropped, its speeds kept
+        Assert.Equal(HighPerf().ToSpeeds().Cpu, loaded.Profiles[2].CurveSpeeds!.Cpu);
     }
 
     [Fact]

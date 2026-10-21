@@ -34,8 +34,6 @@ public class FanCurveTests
         FanCurve.Parse(Bytes("00-57-64-37-3E-45-4C-52"), Bytes("1E-1E-1E-23-25-2D-3C-4B"))!,
         FanCurve.Parse(Bytes("00-52-63-37-3D-43-48-4D"), Bytes("00-00-00-14-19-21-32-3C"))!);
 
-    private static FanCurves Prestige() => new(FanCurve.Parse(CpuTemps, CpuSpeeds)!, FanCurve.Parse(GpuTemps, GpuSpeeds)!);
-
     [Fact]
     public void TablesThatCouldOverheatAreRejected()
     {
@@ -75,16 +73,7 @@ public class FanCurveTests
     }
 
     [Fact]
-    public void ThePresetsPassTheSafetyRules()
-    {
-        Assert.Null(FanSpeeds.Quiet().Problem(unrestricted: false));
-        Assert.Null(FanSpeeds.Cool().Problem(unrestricted: false));
-        Assert.True(FanSpeeds.Quiet().Fits(Prestige()));
-        Assert.True(FanSpeeds.Cool().Fits(Prestige()));
-    }
-
-    [Fact]
-    public void ALaptopWithASlowerTableKeepsItsOwnCurveAndGetsFittedPresets()
+    public void ALaptopWithASlowerTableKeepsItsOwnCurve()
     {
         var katana = Katana();
         Assert.Equal([55, 62, 69, 76, 82, 87], katana.Cpu.Temps);
@@ -102,32 +91,6 @@ public class FanCurveTests
         Assert.Null(own.Problem(unrestricted: false, katana));
         Assert.NotNull(own.Problem(unrestricted: false));
         Assert.NotNull(new FanSpeeds { Cpu = [0, 0, 20, 30, 40, 55], Gpu = own.Gpu }.Problem(unrestricted: false, katana));
-
-        // The Prestige presets are faster than its fixed top step; the fitted ones aren't.
-        Assert.False(FanSpeeds.Quiet().Fits(katana));
-        Assert.False(FanSpeeds.Cool().Fits(katana));
-        var quiet = FanSpeeds.Quiet(katana);
-        var cool = FanSpeeds.Cool(katana);
-        Assert.Equal([0, 0, 25, 25, 30, 60], quiet.Cpu);
-        Assert.Equal([0, 0, 15, 15, 20, 50], quiet.Gpu);
-        Assert.Equal([45, 45, 50, 55, 60, 75], cool.Cpu);
-        Assert.Equal([15, 15, 35, 40, 50, 60], cool.Gpu);
-        Assert.True(quiet.Fits(katana));
-        Assert.True(cool.Fits(katana));
-    }
-
-    [Fact]
-    public void OnlyUneditedShippedFanProfilesAreRefitted()
-    {
-        var prestige = new Wattkin.Settings.AppSettings();
-        Assert.Empty(prestige.FitDefaultFanProfiles(Prestige()));
-        Assert.Equal(FanSpeeds.Quiet().Cpu, prestige.FindFanProfile("Quiet")!.Speeds.Cpu);
-
-        var katana = new Wattkin.Settings.AppSettings();
-        katana.FanProfiles = [new() { Name = "Quiet", Speeds = new FanSpeeds { Cpu = [0, 0, 30, 30, 40, 60], Gpu = [0, 0, 20, 25, 33, 50] } }, .. katana.FanProfiles.Where(f => f.Name != "Quiet")];
-        Assert.Equal(["Cool"], katana.FitDefaultFanProfiles(Katana()));
-        Assert.Equal([0, 0, 30, 30, 40, 60], katana.FindFanProfile("Quiet")!.Speeds.Cpu); // edited: kept
-        Assert.Equal(FanSpeeds.Cool(Katana()).Gpu, katana.FindFanProfile("Cool")!.Speeds.Gpu);
     }
 
     [Fact]

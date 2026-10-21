@@ -6,6 +6,7 @@ using Wattkin.Features;
 using Wattkin.Hardware;
 using Wattkin.Monitoring;
 using Wattkin.Platform;
+using Wattkin.UI;
 
 namespace Wattkin;
 
@@ -23,6 +24,11 @@ namespace Wattkin;
 /// written back at the end, whatever happened. It refuses to run next to Wattkin, YAMDCC or MSI Center:
 /// two programs writing the controller would spoil the results.
 ///
+/// "power" measures what each of MSI's performance modes lets the processor draw: under full load, the
+/// peak (about PL2) and the level it settles at (about PL1), from Windows' RAPL energy counter, as
+/// reading the limits themselves would need a kernel driver. The power plan's turbo and maximum
+/// processor state are lifted for the measurement and put back.
+///
 /// Exit code: 0 everything passed, 1 something failed, 2 it couldn't run.
 /// </summary>
 public static class SelfTest
@@ -31,12 +37,17 @@ public static class SelfTest
 
     private const byte CpuFanTarget = 0x71;
     private const byte AbortTempC = 90;
+    private const int PowerAbortTempC = 98; // under full load the CPU gets hot by design; it throttles itself at 100°C
     private static readonly string[] OtherFanTools = ["yamdccsvc"];
 
     public static int Run(string? stage, string? path)
     {
-        var write = string.Equals(stage, "write", StringComparison.OrdinalIgnoreCase);
-        var name = write ? "write" : "read";
+        var name = stage?.ToLowerInvariant() switch
+        {
+            "write" => "write",
+            "power" => "power",
+            _ => "read",
+        };
         path = string.IsNullOrEmpty(path)
             ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Wattkin", $"selftest-{name}.txt")
             : path;
@@ -46,7 +57,12 @@ public static class SelfTest
         int code;
         try
         {
-            code = write ? RunWrite(report) : RunRead(report);
+            code = name switch
+            {
+                "write" => RunWrite(report),
+                "power" => RunPower(report),
+                _ => RunRead(report),
+            };
         }
         catch (Exception ex)
         {
@@ -59,7 +75,7 @@ public static class SelfTest
         File.WriteAllText(path, report.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         Log.Info($"Self-test ({name}) finished: {report.Summary}. Report: {path}");
 
-        if (!write && code != 2)
+        if (name == "read" && code != 2)
         {
             // The raw picture as well: every register, read only.
             Diagnostics.Run(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, Path.GetFileNameWithoutExtension(path) + "-diagnostics.txt"));
@@ -492,6 +508,195 @@ public static class SelfTest
 
         return (targets, temps);
     }
+
+    // ---- power limits -------------------------------------------------------------------------------
+
+    private static int RunPower(Report r)
+    {
+        if (!Preconditions(r, "power"))
+        {
+            return 2;
+        }
+
+        if (System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus != System.Windows.Forms.PowerLineStatus.Online)
+        {
+            r.Fail("Charger connected", "the limits are measured on the charger; plug it in");
+            return 2;
+        }
+
+        using var acpi = Open(r);
+        if (acpi is null)
+        {
+            return 2;
+        }
+
+        var ec = new EmbeddedController(acpi);
+        using var query = new PdhQuery();
+        var energy = query.Add(@"\Energy Meter(*)\Power");
+        if (!r.Check(ec.CanWrite, "Register map passed its sanity check") || !r.Check(energy is not null, "Processor energy counter (RAPL)") || WindowsPower.ReadProcessorPlan() is not { } plan)
+        {
+            r.Fail("Power limits", "can't measure here. Nothing was changed.");
+            return 2;
+        }
+
+        var saved = new Dictionary<byte, byte>();
+        foreach (var address in new byte[] { 0x98, 0xD4, 0xD2 })
+        {
+            if (acpi.ReadEc(address) is not { } value)
+            {
+                r.Fail("Saving the current settings", $"register 0x{address:X2} couldn't be read. Nothing was changed.");
+                return 2;
+            }
+
+            saved[address] = value;
+        }
+
+        r.Info("Power plan", $"turbo {(plan.BoostAc == 0 ? "off" : "on")} and maximum state {plan.MaxAc}% on the charger: set to on and 100% while measuring, then put back");
+        r.Info("Windows power mode", $"{WindowsPower.GetMode(onAc: true)} on the charger (left as it is)");
+        r.Info("Fans", "Auto while measuring (the firmware's own behaviour for each mode)");
+
+        var results = new List<string>();
+        try
+        {
+            WindowsPower.WriteProcessorPlan(WindowsPower.Unlimited(plan.Scheme));
+            ec.SetCoolerBoost(false);
+            ec.SetFanMode(FanMode.Auto);
+            List<ShiftMode> modes = [ShiftMode.Eco, ShiftMode.Balanced, .. ec.HasSportMode ? [ShiftMode.Sport] : Array.Empty<ShiftMode>(), ShiftMode.Turbo];
+            foreach (var mode in modes)
+            {
+                r.Section($"Power limits: {Fmt.Shift(mode)}");
+                if (!ec.SetShiftMode(mode) || ec.GetShiftMode() != mode)
+                {
+                    r.Fail($"{Fmt.Shift(mode)} mode", $"the controller didn't take it ({Hex(ec.ReadRegister(0xD2))})");
+                    continue;
+                }
+
+                var idle = CoolDown(ec, query, energy!);
+                var samples = Load(ec, query, energy!, TimeSpan.FromSeconds(80));
+                if (samples.Count < 20)
+                {
+                    r.Fail($"{Fmt.Shift(mode)} mode", "too few readings from the energy counter");
+                    continue;
+                }
+
+                var watts = samples.Select(s => s.Watts).ToList();
+                var peak = watts.Max();
+                var sustained = watts.TakeLast(15).Average();
+                var peakAt = watts.IndexOf(peak);
+                var boostSeconds = watts.Skip(peakAt).TakeWhile(w => w > (peak + sustained) / 2).Count();
+                var temps = samples.Where(s => s.TempC is not null).Select(s => s.TempC!.Value).ToList();
+                var hottestLate = samples.TakeLast(15).Where(s => s.TempC is not null).Select(s => s.TempC!.Value).DefaultIfEmpty(0).Max();
+                var line = $"peak {peak:0} W (about PL2) · settles at {sustained:0} W (about PL1) · boost about {boostSeconds} s · CPU up to {(temps.Count == 0 ? "?" : temps.Max().ToString(CultureInfo.InvariantCulture))}°C · {idle:0.0} W idle before";
+                r.Pass($"{Fmt.Shift(mode)} (0x{ec.ReadRegister(0xD2):X2})", line);
+                if (hottestLate >= 95)
+                {
+                    r.Warn($"{Fmt.Shift(mode)}: temperature-limited", $"the CPU reached {hottestLate}°C while settling, so it may have throttled below its PL1");
+                }
+
+                results.Add($"{Fmt.Shift(mode),-9} PL2 ≈ {peak,3:0} W   PL1 ≈ {sustained,3:0} W   boost ≈ {boostSeconds,2} s");
+            }
+        }
+        finally
+        {
+            r.Section("Putting everything back");
+            WindowsPower.WriteProcessorPlan(plan);
+            foreach (var (address, value) in saved)
+            {
+                for (var attempt = 0; attempt < 3 && acpi.ReadEc(address) != value; attempt++)
+                {
+                    acpi.WriteEc(address, value);
+                }
+            }
+
+            var back = WindowsPower.ReadProcessorPlan();
+            var wrong = saved.Where(kv => acpi.ReadEc(kv.Key) != kv.Value).Select(kv => $"0x{kv.Key:X2}").ToList();
+            r.Check(wrong.Count == 0 && back == plan, "Performance mode, fans and power plan back as they were", string.Join(" ", wrong) + (back == plan ? "" : " power plan differs"));
+        }
+
+        if (results.Count > 0)
+        {
+            r.Section("Summary (on the charger)");
+            foreach (var line in results)
+            {
+                r.Line(line);
+            }
+        }
+
+        return r.Failed > 0 ? 1 : 0;
+    }
+
+    /// <summary>Waits (up to a minute) for the processor to calm down between modes. Returns the package watts at the end.</summary>
+    private static double CoolDown(EmbeddedController ec, PdhQuery query, PdhCounter energy)
+    {
+        var clock = Stopwatch.StartNew();
+        query.Collect();
+        double watts = 0;
+        while (clock.Elapsed < TimeSpan.FromSeconds(60))
+        {
+            Thread.Sleep(1000);
+            query.Collect();
+            watts = PackageWatts(energy) ?? 0;
+            if (clock.Elapsed > TimeSpan.FromSeconds(10) && watts < 12 && ec.ReadSensors()?.CpuTempC is < 65)
+            {
+                break;
+            }
+        }
+
+        return watts;
+    }
+
+    /// <summary>Every logical processor busy for <paramref name="duration"/>; package watts and CPU temperature each second.</summary>
+    private static List<(double Watts, int? TempC)> Load(EmbeddedController ec, PdhQuery query, PdhCounter energy, TimeSpan duration)
+    {
+        var samples = new List<(double, int?)>();
+        using var stop = new CancellationTokenSource();
+        var workers = Enumerable.Range(0, Environment.ProcessorCount).Select(_ => new Thread(() => Spin(stop.Token)) { IsBackground = true, Priority = ThreadPriority.BelowNormal }).ToList();
+        workers.ForEach(t => t.Start());
+        try
+        {
+            query.Collect();
+            var clock = Stopwatch.StartNew();
+            while (clock.Elapsed < duration)
+            {
+                Thread.Sleep(1000);
+                query.Collect();
+                var temp = ec.ReadSensors()?.CpuTempC;
+                if (temp is >= PowerAbortTempC)
+                {
+                    throw new InvalidOperationException($"CPU at {temp}°C: stopping the load and putting everything back.");
+                }
+
+                if (PackageWatts(energy) is { } watts)
+                {
+                    samples.Add((watts, temp));
+                }
+            }
+        }
+        finally
+        {
+            stop.Cancel();
+            workers.ForEach(t => t.Join());
+        }
+
+        return samples;
+    }
+
+    private static void Spin(CancellationToken token)
+    {
+        var x = 1.0;
+        while (!token.IsCancellationRequested)
+        {
+            for (var i = 0; i < 200_000; i++)
+            {
+                x = Math.Sqrt(x + i) * 1.000001;
+            }
+        }
+
+        GC.KeepAlive(x);
+    }
+
+    private static double? PackageWatts(PdhCounter energy) =>
+        energy.Read().FirstOrDefault(kv => kv.Key.EndsWith("_pkg", StringComparison.OrdinalIgnoreCase)) is { Key: not null } kv ? kv.Value / 1000.0 : null;
 
     // ---- shared -------------------------------------------------------------------------------------
 

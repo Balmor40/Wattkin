@@ -97,7 +97,7 @@
         <Border x:Name="ControlsCard" Style="{StaticResource Lc.Card}">
             <StackPanel>
                 <TextBlock Text="Profile" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />
-                <UniformGrid x:Name="ProfilePanel" Rows="1" Margin="-2,0,-2,6" />
+                <ui:ProfileButtons x:Name="ProfilePanel" Margin="-2,0,-2,6" />
                 <TextBlock x:Name="ProfileDetails" Style="{StaticResource Lc.Hint}" Margin="0,0,0,12" />
 
                 <TextBlock Text="Charge limit" Style="{StaticResource Lc.Label}" Margin="0,0,0,6" />

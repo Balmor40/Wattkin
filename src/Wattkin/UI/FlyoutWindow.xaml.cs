@@ -12,7 +12,7 @@ public partial class FlyoutWindow : Window
 {
     private static readonly int[] LimitChoices = [60, 70, 80, 90, 100];
     private bool _updating;
-    private string _profilesKey = "";
+
     private DateTime _hiddenAtUtc;
 
     private Rect _anchorArea;
@@ -22,6 +22,7 @@ public partial class FlyoutWindow : Window
         InitializeComponent();
         SourceInitialized += (_, _) => WindowEffects.Apply(new WindowInteropHelper(this).Handle, toolWindow: true);
         Deactivated += (_, _) => HideFlyout();
+        ProfilePanel.Picked += profile => ProfileDetails.Text = Fmt.ProfileDetails(profile);
 
         // Alt+F4 hides instead of destroying the one flyout the app reuses.
         Closing += (_, e) =>
@@ -339,40 +340,9 @@ public partial class FlyoutWindow : Window
         _updating = true;
         try
         {
-            var key = string.Join("|", settings.Profiles.Select(p => p.Name));
-            if (key != _profilesKey)
-            {
-                _profilesKey = key;
-                ProfilePanel.Children.Clear();
-                // One row when every name fits; otherwise two rows, still filling the width.
-                var available = (ProfilePanel.ActualWidth > 0 ? ProfilePanel.ActualWidth : 330) / settings.Profiles.Count;
-                var dpi = System.Windows.Media.VisualTreeHelper.GetDpi(this).PixelsPerDip;
-                var widest = settings.Profiles.Max(p => new System.Windows.Media.FormattedText(p.Name, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, new System.Windows.Media.Typeface(FontFamily, FontStyles.Normal, FontWeights.Normal, FontStretches.Normal), 12, Foreground, dpi).Width);
-                ProfilePanel.Rows = widest + 24 <= available ? 1 : 2;
-                foreach (var profile in settings.Profiles)
-                {
-                    var name = profile.Name;
-                    var button = Segment(name, "profile", name);
-                    button.Margin = new Thickness(2, 0, 2, ProfilePanel.Rows > 1 ? 4 : 0);
-                    button.Checked += (_, _) => ProfileDetails.Text = Fmt.ProfileDetails(profile);
-                    button.Checked += async (_, _) =>
-                    {
-                        if (!_updating)
-                        {
-                            await app.Hardware.ApplyProfileAsync(name);
-                        }
-                    };
-                    ProfilePanel.Children.Add(button);
-                }
-            }
-
             // Until the EC has been read (needs admin) the real settings are unknown: highlight nothing.
             var known = state.Available && settings.HardwareAdopted;
-            foreach (RadioButton button in ProfilePanel.Children)
-            {
-                button.IsChecked = known && (string)button.Tag == settings.ActiveProfile;
-            }
-
+            ProfilePanel.Refresh(settings, state);
             ProfileDetails.Text = known && settings.FindProfile(settings.ActiveProfile) is { } active ? Fmt.ProfileDetails(active) : "";
             ProfileDetails.Visibility = ProfileDetails.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
 
@@ -387,11 +357,6 @@ public partial class FlyoutWindow : Window
             foreach (RadioButton button in KeyboardPanel.Children)
             {
                 button.IsChecked = state.KeyboardLevel == (int)button.Tag;
-                button.IsEnabled = state.CanWrite;
-            }
-
-            foreach (RadioButton button in ProfilePanel.Children)
-            {
                 button.IsEnabled = state.CanWrite;
             }
 

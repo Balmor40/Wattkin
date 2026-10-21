@@ -2,14 +2,19 @@ using Wattkin.Monitoring;
 
 namespace Wattkin.Hardware;
 
-/// <summary>EC performance mode (MSI "shift mode"). Mapped to each model's register values.</summary>
+/// <summary>
+/// EC performance mode (MSI "shift mode"): the firmware's CPU power limits. Mapped to each model's
+/// register values; from the lowest limits to the highest: Eco, Balanced, Sport, Turbo.
+/// </summary>
 public enum ShiftMode
 {
-    /// <summary>MSI "Super Battery".</summary>
+    /// <summary>MSI "Super Battery" (0xC2 on the standard layout).</summary>
     Eco,
-    /// <summary>MSI "Balanced" / "Silent" (msi-ec "comfort").</summary>
+    /// <summary>MSI "Balanced" / "Silent" (msi-ec "comfort", YAMDCC "Silent"; 0xC1).</summary>
     Balanced,
-    /// <summary>MSI "Extreme Performance".</summary>
+    /// <summary>MSI's "Sport" (msi-ec "sport", YAMDCC "Balanced"; 0xC0), between Balanced and Turbo.</summary>
+    Sport,
+    /// <summary>MSI "Extreme Performance" (0xC4).</summary>
     Turbo,
 }
 
@@ -211,9 +216,16 @@ public sealed class EmbeddedController : IEcSensorSource
     {
         ShiftMode.Eco => _model?.ShiftEco,
         ShiftMode.Balanced => _model?.ShiftBalanced,
+        ShiftMode.Sport => SportValue,
         ShiftMode.Turbo => _model?.ShiftTurbo ?? _model?.ShiftSport,
         _ => null,
     };
+
+    /// <summary>The map's sport value, else MSI's 0xC0 on its own layout. Not where sport stands in for a missing turbo.</summary>
+    private byte? SportValue => _model?.ShiftTurbo is null ? null : _model.ShiftSport ?? (UsesMsiLayout(_model) ? MsiSport : null);
+
+    /// <summary>The firmware has a Sport mode of its own, between Balanced and Turbo.</summary>
+    public bool HasSportMode => _shiftOk && SportValue is not null;
 
     public ShiftMode? GetShiftMode()
     {
@@ -222,12 +234,11 @@ public sealed class EmbeddedController : IEcSensorSource
             return null;
         }
 
-        // MSI's Sport (0xC0) has no Wattkin mode of its own; it counts as Balanced, so adopting the laptop's
-        // state picks the Balanced profile rather than Extreme.
         return value == _model.ShiftEco ? ShiftMode.Eco
             : value == _model.ShiftBalanced ? ShiftMode.Balanced
-            : value == _model.ShiftTurbo || value == _model.ShiftSport ? ShiftMode.Turbo
-            : UsesMsiLayout(_model) && value == MsiSport ? ShiftMode.Balanced
+            : value == _model.ShiftTurbo ? ShiftMode.Turbo
+            : value == SportValue ? ShiftMode.Sport
+            : value == _model.ShiftSport ? ShiftMode.Turbo // a map whose only fast mode is sport
             : null;
     }
 

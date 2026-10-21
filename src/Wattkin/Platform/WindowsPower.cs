@@ -4,9 +4,13 @@ using Wattkin.Settings;
 
 namespace Wattkin.Platform;
 
+/// <summary>The active power plan's processor boost mode and maximum state, on the charger and on battery.</summary>
+public readonly record struct ProcessorPlan(Guid Scheme, uint BoostAc, uint BoostDc, uint MaxAc, uint MaxDc);
+
 /// <summary>
-/// Windows power mode (Settings > Power) and processor power-plan knobs. Everything Wattkin changes is
-/// remembered first, keyed by power plan, so "Restore" and uninstall can put the user's values back.
+/// Processor power-plan knobs, and Windows' power mode (Settings > Power), which Wattkin only reads and
+/// puts back now (older versions set it from profiles). Everything Wattkin changes is remembered first,
+/// keyed by power plan, so "Restore" and uninstall can put the user's values back.
 /// </summary>
 public static class WindowsPower
 {
@@ -33,45 +37,24 @@ public static class WindowsPower
     private static readonly bool HasPerSourceModes =
         NativeLibrary.TryLoad("powrprof.dll", out var lib) && NativeLibrary.TryGetExport(lib, "PowerSetUserConfiguredACPowerMode", out _);
 
-    /// <summary>
-    /// Sets Windows' power mode for the current power source only (Windows 11 24H2 keeps separate
-    /// plugged-in and on-battery modes; the profile for the other source sets that one when it applies).
-    /// </summary>
-    public static void SetMode(WindowsPowerMode mode, bool onAc, AppSettings settings)
+    /// <summary>The active plan's processor settings as they are, for the self-test to put back; null if unreadable.</summary>
+    public static ProcessorPlan? ReadProcessorPlan() =>
+        TryActiveScheme(out var scheme) && Read(scheme, BoostMode) is { } boost && Read(scheme, MaxProcessorState) is { } max
+            ? new ProcessorPlan(scheme, boost.Ac, boost.Dc, max.Ac, max.Dc)
+            : null;
+
+    /// <summary>Writes a plan's processor settings as given (no originals recorded: the self-test puts its own snapshot back) and applies them.</summary>
+    public static void WriteProcessorPlan(ProcessorPlan plan)
     {
-        if (mode == WindowsPowerMode.Unchanged)
-        {
-            return;
-        }
-
-        var guid = mode switch
-        {
-            WindowsPowerMode.BestEfficiency => BestEfficiency,
-            WindowsPowerMode.BestPerformance => BestPerformance,
-            _ => Balanced,
-        };
-
-        var key = $"mode:{(onAc ? "ac" : "dc")}";
-        if (!settings.OriginalPowerModes.ContainsKey(key) && GetModeGuid(onAc) is { } original)
-        {
-            settings.OriginalPowerModes[key] = original;
-        }
-
-        uint status;
-        if (HasPerSourceModes)
-        {
-            status = onAc ? PowrProf.PowerSetUserConfiguredACPowerMode(guid) : PowrProf.PowerSetUserConfiguredDCPowerMode(guid);
-        }
-        else
-        {
-            status = PowrProf.PowerSetActiveOverlayScheme(guid);
-        }
-
-        if (status != 0)
-        {
-            Log.Warn($"Setting the Windows power mode failed (0x{status:X}).");
-        }
+        PowrProf.PowerWriteACValueIndex(IntPtr.Zero, plan.Scheme, ProcessorSubgroup, BoostMode, plan.BoostAc);
+        PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, plan.Scheme, ProcessorSubgroup, BoostMode, plan.BoostDc);
+        PowrProf.PowerWriteACValueIndex(IntPtr.Zero, plan.Scheme, ProcessorSubgroup, MaxProcessorState, plan.MaxAc);
+        PowrProf.PowerWriteDCValueIndex(IntPtr.Zero, plan.Scheme, ProcessorSubgroup, MaxProcessorState, plan.MaxDc);
+        PowrProf.PowerSetActiveScheme(IntPtr.Zero, plan.Scheme);
     }
+
+    /// <summary>Full speed: turbo on (aggressive) and no cap, on the charger and on battery.</summary>
+    public static ProcessorPlan Unlimited(Guid scheme) => new(scheme, BoostAggressive, BoostAggressive, 100, 100);
 
     public static WindowsPowerMode GetMode(bool onAc) => GetModeGuid(onAc) switch
     {

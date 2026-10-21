@@ -9,6 +9,7 @@ namespace Wattkin.UI;
 /// A whole fan table, for laptops where Wattkin writes the temperatures too (<see cref="FanTable"/>):
 /// for each fan a vertical slider per step for its speed, and under each step above the first the
 /// temperature that starts it and the one under which the fan drops back, as in YAMDCC's editor.
+/// Temperatures are steppers (− 45 +, the mouse wheel or the arrow keys), never free text.
 /// </summary>
 public sealed class FanTableEditor : StackPanel
 {
@@ -24,7 +25,7 @@ public sealed class FanTableEditor : StackPanel
         Children.Add(_gpu.Grid);
         var hint = new TextBlock
         {
-            Text = "A step starts when the temperature reaches \"Up at\" and ends when it falls below \"Down under\": the gap keeps the fan from hunting between two speeds. Speeds are MSI's percentages; Cooler Boost is full speed.",
+            Text = "A step starts when the temperature reaches \"Up at\" and ends when it falls below \"Down under\": the gap keeps the fan from hunting between two speeds. Change a temperature with − and +, the mouse wheel or the arrow keys. Speeds are MSI's percentages; Cooler Boost is full speed.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 10, 0, 0),
             FontSize = 11.5,
@@ -35,7 +36,7 @@ public sealed class FanTableEditor : StackPanel
 
     public event Action? Changed;
 
-    /// <summary>The table as set; a temperature box that isn't a number reads as -1 (see <see cref="Problem"/>).</summary>
+    /// <summary>The table as set.</summary>
     public FanTable Value => new() { Cpu = _cpu.Read(), Gpu = _gpu.Read() };
 
     public void Show(FanTable table)
@@ -53,8 +54,7 @@ public sealed class FanTableEditor : StackPanel
     }
 
     /// <summary>What's wrong with the table as set, or null (see <see cref="FanTable.Problem"/>).</summary>
-    public string? Problem(bool unrestricted) =>
-        _cpu.Unreadable || _gpu.Unreadable ? "Enter a whole number of °C in every temperature box." : Value.Problem(unrestricted);
+    public string? Problem(bool unrestricted) => Value.Problem(unrestricted);
 
     private void Build(Columns columns, FanSteps steps)
     {
@@ -116,26 +116,18 @@ public sealed class FanTableEditor : StackPanel
                 continue;
             }
 
-            columns.Up[i - 1] = Box(i - 1 < steps.Up.Length ? steps.Up[i - 1] : 0);
-            columns.Down[i - 1] = Box(i - 1 < steps.Down.Length ? steps.Down[i - 1] : 0);
+            columns.Up[i - 1] = Stepper(FanTable.MinTemp, FanTable.MaxTemp, i - 1 < steps.Up.Length ? steps.Up[i - 1] : FanTable.MinTemp);
+            columns.Down[i - 1] = Stepper(0, FanTable.MaxTemp, i - 1 < steps.Down.Length ? steps.Down[i - 1] : 0);
             Place(grid, columns.Up[i - 1], 3, i + 1);
             Place(grid, columns.Down[i - 1], 4, i + 1);
         }
     }
 
-    private TextBox Box(int value)
+    private NumberStepper Stepper(int minimum, int maximum, int value)
     {
-        var box = new TextBox
-        {
-            Text = value.ToString(CultureInfo.InvariantCulture),
-            Width = 48,
-            MaxLength = 3,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            HorizontalContentAlignment = HorizontalAlignment.Center,
-            Margin = new Thickness(0, 2, 0, 2),
-        };
-        box.TextChanged += (_, _) => Notify();
-        return box;
+        var stepper = new NumberStepper(minimum, maximum, value);
+        stepper.ValueChanged += Notify;
+        return stepper;
     }
 
     private void Notify()
@@ -181,19 +173,14 @@ public sealed class FanTableEditor : StackPanel
     {
         public Grid Grid { get; } = new();
         public Slider[] Speeds { get; } = new Slider[FanSteps.Count];
-        public TextBox[] Up { get; } = new TextBox[FanSteps.Thresholds];
-        public TextBox[] Down { get; } = new TextBox[FanSteps.Thresholds];
-
-        public bool Unreadable => Up.Concat(Down).Any(b => b is null || !int.TryParse(b.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out _));
+        public NumberStepper[] Up { get; } = new NumberStepper[FanSteps.Thresholds];
+        public NumberStepper[] Down { get; } = new NumberStepper[FanSteps.Thresholds];
 
         public FanSteps Read() => new()
         {
             Speeds = [.. Speeds.Select(s => (int)(s?.Value ?? 0))],
-            Up = [.. Up.Select(Number)],
-            Down = [.. Down.Select(Number)],
+            Up = [.. Up.Select(s => s?.Value ?? 0)],
+            Down = [.. Down.Select(s => s?.Value ?? 0)],
         };
-
-        private static int Number(TextBox? box) =>
-            box is not null && int.TryParse(box.Text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : -1;
     }
 }
