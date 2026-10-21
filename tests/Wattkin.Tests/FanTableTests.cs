@@ -34,6 +34,7 @@ public sealed class FanTableTests : IDisposable
     {
         var model = EcModels.Find("1563EMS1.115")!;
         Assert.Equal("Stealth 15M A11UEK (YAMDCC config)", model.Source);
+        Assert.True(model.VerifiedOnWindows); // the self-test passed on the laptop
         Assert.Same(FanTableMap.MsiClassic, model.FanTable);
         Assert.Equal((byte)0xD7, model.ChargeAddress);
         Assert.Equal((byte)0xD2, model.ShiftAddress);

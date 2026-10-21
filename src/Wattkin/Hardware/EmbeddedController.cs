@@ -51,6 +51,8 @@ public enum EcSupport
 ///
 /// The verified map (EC 1594EMS1.*, Prestige 16 Studio) was cross-checked three ways: MSI Center's call
 /// log on the laptop, MSI's decompiled code, and msi-ec CONF_G2_1 (tested on 1594EMS1.113, PR #797).
+/// The Stealth 15M A11UEK's (EC 1563EMS1.115) comes from YAMDCC's configuration and passed this fork's
+/// hardware self-test (<see cref="SelfTest"/>): every control, whole fan tables and their hysteresis.
 /// </summary>
 public sealed class EmbeddedController : IEcSensorSource
 {
@@ -62,7 +64,9 @@ public sealed class EmbeddedController : IEcSensorSource
     private const byte RegHostFlags = 0xD9;        // bit0 = vendor software present, bit1 = Fn lock
     private const byte RegCapabilities = 0x2F;     // bit1 = webcam switch supported, bit6 = GPU switch supported
 
-    private static readonly string[] VerifiedFirmwarePrefixes = ["1594EMS1."];
+    // The Prestige 16 Studio's family (upstream), and the Stealth 15M A11UEK's exact firmware (this fork's
+    // self-test passed every check on it, 2026-10-21; the rest of its msi-ec family keeps msi-ec's map).
+    private static readonly string[] VerifiedFirmwarePrefixes = ["1594EMS1.", "1563EMS1.115"];
 
     private readonly MsiAcpi _acpi;
     private readonly EcModel? _model;

@@ -42,7 +42,9 @@ public static class EcModels
         // the registers of YAMDCC's configuration for this laptop (CurrentConfig.xml on the owner's PC,
         // written by YAMDCC 1.2.2 at every start): MSI's standard WMI v2 layout, keyboard 0xD3 (0x80–0x83),
         // fan mode 0xD4 (0x0D / 0x1D / 0x8D), Cooler Boost 0x98 bit 7, battery 0xD7 (0x80–0xE4), shift
-        // mode 0xD2 (C2 / C1 / C0 / C4), and MSI's classic fan table with drop-back offsets.
+        // mode 0xD2 (C2 / C1 / C0 / C4), and MSI's classic fan table with drop-back offsets. Verified on
+        // the laptop with Wattkin's self-test on 2026-10-21 (WMI 2.8): every write read back, Cooler Boost
+        // and run-from-battery seen working, the fan target following the table, hysteresis included.
         new EcModel(
             Source: "Stealth 15M A11UEK (YAMDCC config)",
             Firmware: ["1563EMS1.115"],
@@ -55,7 +57,7 @@ public static class EcModels
             KeyboardStateAddress: 0xd3, KeyboardStateBase: 0x80, KeyboardMaxLevel: 3,
             KeyboardModeAddress: 0x2c, KeyboardAlwaysOnValue: 0x00, KeyboardAutoOffValue: 0x08,
             CpuTempAddress: 0x68, GpuTempAddress: 0x80,
-            VerifiedOnWindows: false,
+            VerifiedOnWindows: true,
             FanTable: FanTableMap.MsiClassic),
     ];
 

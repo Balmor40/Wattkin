@@ -83,7 +83,7 @@ You don't need MSI Center, and you never need to install it. If it's already on 
 
 | Laptops | What works |
 | --- | --- |
-| MSI Stealth 15M A11UEK (EC `1563EMS1.115`) | Everything, with whole fan tables (temperatures and hysteresis). Run the hardware self-test before relying on it |
+| MSI Stealth 15M A11UEK (EC `1563EMS1.115`) | Everything the laptop has (it has no GPU switch), with whole fan tables (temperatures and hysteresis). Passed the hardware self-test on the real laptop |
 | MSI Prestige 16 Studio A13VE | Everything, tested on the real laptop by the upstream author |
 | Other recent MSI laptops, including those known to the Linux [msi-ec](https://github.com/BeardOverflow/msi-ec) project | Everything the laptop supports, after a safety check at startup |
 | Older MSI laptops, the newest MSI laptops (firmware interface version 3), and other brands | Watts, battery and system readings, without hardware controls |
