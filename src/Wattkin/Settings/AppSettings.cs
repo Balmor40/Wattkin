@@ -158,10 +158,6 @@ public sealed class AppSettings
     // Settings window: the simple view hides the fine-grained controls (they keep their values).
     public bool ExpertView { get; set; }
 
-    // Updates from GitHub releases (signed); see Updater.
-    public bool AutoUpdate { get; set; } = true;
-    public DateTime? LastUpdateCheckUtc { get; set; }
-
     // Tray / widget
     public bool TrayShowsWatts { get; set; } = true;
     public bool WidgetEnabled { get; set; }

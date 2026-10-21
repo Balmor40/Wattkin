@@ -124,7 +124,6 @@ public partial class SimpleSettings : UserControl
             AutoOffToggle.IsChecked = s.KeyboardTimeout != KeyboardTimeout.AlwaysOn;
             TrayToggle.IsChecked = s.TrayShowsWatts;
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
-            UpdateToggle.IsChecked = s.AutoUpdate;
         }
         finally
         {
@@ -307,11 +306,6 @@ public partial class SimpleSettings : UserControl
         }
     }
 
-    public void RefreshUpdates(UpdateState? state)
-    {
-        UpdateText.Text = state is null ? "Checks GitHub once a day; updates are signed." : Updater.CanInstall ? state.Message : "Updates install into the copy in Program Files.";
-    }
-
     // ---- handlers -----------------------------------------------------------------------------
 
     private async void OnFullOnce(object sender, RoutedEventArgs e) => await App.Current.Hardware.SetFullChargeOnceAsync(FullOnceToggle.IsChecked == true);
@@ -337,8 +331,6 @@ public partial class SimpleSettings : UserControl
     private void OnTray(object sender, RoutedEventArgs e) => App.Current.Store.Update(s => s.TrayShowsWatts = TrayToggle.IsChecked == true);
 
     private void OnWidget(object sender, RoutedEventArgs e) => App.Current.SetWidgetVisible(WidgetToggle.IsChecked == true);
-
-    private void OnUpdates(object sender, RoutedEventArgs e) => App.Current.Store.Update(s => s.AutoUpdate = UpdateToggle.IsChecked == true);
 
     private async void OnStartWithWindows(object sender, RoutedEventArgs e)
     {

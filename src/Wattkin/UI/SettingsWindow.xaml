@@ -311,18 +311,6 @@
                             <Button x:Name="ElevateButton" Content="Restart as administrator" Click="OnElevate" HorizontalAlignment="Left" Margin="0,6,0,0" />
                         </StackPanel>
                     </Border>
-                    <Border Style="{StaticResource Lc.Card}">
-                        <StackPanel>
-                            <TextBlock Text="Updates" Style="{StaticResource Lc.Section}" />
-                            <CheckBox x:Name="AutoUpdateToggle" Content="Keep Wattkin up to date automatically" Click="OnAutoUpdate" />
-                            <TextBlock x:Name="UpdateStatus" Style="{StaticResource Lc.Value}" TextWrapping="Wrap" Margin="0,4,0,8" />
-                            <StackPanel Orientation="Horizontal">
-                                <Button x:Name="CheckUpdatesButton" Content="Check now" Click="OnCheckUpdates" Margin="0,0,8,0" />
-                                <Button x:Name="InstallUpdateButton" Content="Install now" Click="OnInstallUpdate" Visibility="Collapsed" />
-                            </StackPanel>
-                            <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,8,0,0" Text="Wattkin asks GitHub for its latest release once a day. Updates are signed, and one that doesn't check out is never installed. They install while Wattkin's windows are closed and not during a calibration." />
-                        </StackPanel>
-                    </Border>
                     <!-- Shown in the simple view only while MSI Center is still running. -->
                     <Border x:Name="MsiCard" Style="{StaticResource Lc.Card}">
                         <StackPanel>

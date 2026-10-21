@@ -1,20 +1,20 @@
 using System.Diagnostics;
 using Microsoft.Win32;
-using Wattkin.Features;
 using Wattkin.Settings;
 
 namespace Wattkin.Platform;
 
 /// <summary>
-/// Wattkin installs itself: one exe is the installer, the app and the update target. Installed means
+/// Wattkin installs itself: one exe is the installer and the app. Installed means
 /// %ProgramFiles%\Wattkin\Wattkin.exe (only administrators can change it, which matters because it
 /// runs as administrator at logon), a Start-menu shortcut, the logon task, and an entry in
-/// Settings › Apps whose uninstall runs "Wattkin.exe --uninstall".
+/// Settings › Apps whose uninstall runs "Wattkin.exe --uninstall". A newer build is installed by
+/// running it (or install.ps1): this fork never updates itself.
 /// </summary>
 internal static class Installation
 {
     private const string UninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Wattkin";
-    private const string RepositoryUrl = "https://github.com/CoppingEthan/Wattkin";
+    private const string RepositoryUrl = "https://github.com/Balmor40/Wattkin";
 
     public static string Folder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Wattkin");
     public static string Exe => Path.Combine(Folder, "Wattkin.exe");
@@ -28,7 +28,7 @@ internal static class Installation
     public static bool RunningInstalled => string.Equals(Environment.ProcessPath, Exe, StringComparison.OrdinalIgnoreCase);
 
     public static Version? InstalledVersion =>
-        IsInstalled && Releases.TryParseVersion(FileVersionInfo.GetVersionInfo(Exe).ProductVersion, out var v) ? v : null;
+        IsInstalled && AppVersion.TryParse(FileVersionInfo.GetVersionInfo(Exe).ProductVersion, out var v) ? v : null;
 
     /// <summary>
     /// Elevated. Copies this exe into Program Files and registers it. <paramref name="startWithWindows"/>
@@ -152,42 +152,7 @@ internal static class Installation
         ec.SetFanMode(global::Wattkin.Hardware.FanMode.Auto);
     }
 
-    /// <summary>
-    /// Elevated, from the installed copy. Writes a verified update next to the exe and swaps it in;
-    /// the caller then restarts. Returns an error message or null.
-    /// </summary>
-    public static string? StageUpdate(byte[] exe, Version version)
-    {
-        var staged = Exe + ".new";
-        try
-        {
-            File.WriteAllBytes(staged, exe);
-            if (!Releases.TryParseVersion(FileVersionInfo.GetVersionInfo(staged).ProductVersion, out var fileVersion) || fileVersion != Releases.Normalize(version))
-            {
-                File.Delete(staged);
-                return "The downloaded file's version doesn't match the release, so it wasn't installed.";
-            }
-
-            return Swap(staged);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            TryDelete(staged);
-            return $"Couldn't write the update: {ex.Message}";
-        }
-    }
-
-    /// <summary>Puts the previous exe back after an update that couldn't start.</summary>
-    public static void RollBack()
-    {
-        var old = Exe + ".old";
-        if (File.Exists(old))
-        {
-            File.Move(old, Exe, overwrite: true);
-        }
-    }
-
-    /// <summary>At startup of the installed copy: tidy up after an update and keep the Apps entry current.</summary>
+    /// <summary>At startup of the installed copy: tidy up after an install over a running copy and keep the Apps entry current.</summary>
     public static void AfterStart()
     {
         if (!RunningInstalled || !Elevation.IsElevated)
@@ -211,7 +176,7 @@ internal static class Installation
         }
     }
 
-    public static Version CurrentVersion => Releases.Normalize(typeof(Installation).Assembly.GetName().Version ?? new Version(0, 0, 0));
+    public static Version CurrentVersion => AppVersion.Normalize(typeof(Installation).Assembly.GetName().Version ?? new Version(0, 0, 0));
 
     /// <summary>Running exes can be renamed but not overwritten: move the old one aside, then the new one in.</summary>
     private static string? Swap(string staged)

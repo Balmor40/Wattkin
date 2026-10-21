@@ -33,10 +33,6 @@ public partial class App : Application
     private WidgetWindow? _widget;
     private SettingsWindow? _settings;
     private OsdWindow? _osd;
-    private Updater? _updater;
-
-    /// <summary>Null in screenshot/measurement copies.</summary>
-    internal Updater? Updates => _updater;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -129,11 +125,6 @@ public partial class App : Application
         SessionEnding += (_, _) => OnSessionEnding();
 
         Installation.AfterStart();
-        _updater = new Updater(Store, SafeToRestartForUpdate, RestartIntoUpdate);
-        if (e.Args.Contains("--updated"))
-        {
-            Dispatcher.BeginInvoke(() => ShowOsd($"Wattkin updated to {Installation.CurrentVersion.ToString(3)}"), System.Windows.Threading.DispatcherPriority.ApplicationIdle);
-        }
 
         if (Store.Current.WidgetEnabled)
         {
@@ -186,36 +177,6 @@ public partial class App : Application
             return 0;
         }
 
-        if (args.Contains("--update-from"))
-        {
-            // Maintainer test of the update path with a local signed build: the same signature and version
-            // checks and the same swap as an update from GitHub, then a restart into the new exe.
-            if (!Installation.RunningInstalled || !Elevation.IsElevated)
-            {
-                return 5;
-            }
-
-            var dir = Arg(args, "--update-from") ?? "";
-            var exe = File.ReadAllBytes(Path.Combine(dir, Releases.ExeAsset));
-            var signature = File.ReadAllText(Path.Combine(dir, Releases.SignatureAsset));
-            if (!Releases.TryParseVersion(System.Diagnostics.FileVersionInfo.GetVersionInfo(Path.Combine(dir, Releases.ExeAsset)).ProductVersion, out var version)
-                || !Releases.Verify(version, exe, signature))
-            {
-                Log.Warn("--update-from: the build's signature doesn't verify; nothing changed.");
-                return 3;
-            }
-
-            if (Installation.StageUpdate(exe, version) is { } stageError)
-            {
-                Log.Error(stageError);
-                return 4;
-            }
-
-            Installation.StopRunningCopy();
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Installation.Exe, "--elevated --startup --updated") { UseShellExecute = false });
-            return 0;
-        }
-
         if (args.Contains("--uninstall"))
         {
             if (!Elevation.IsElevated)
@@ -259,27 +220,6 @@ public partial class App : Application
 
         ApplyPalette();
         new InstallWindow().ShowDialog();
-    }
-
-    /// <summary>On the updater's thread: a restart now wouldn't interrupt a calibration or something on screen.</summary>
-    private bool SafeToRestartForUpdate() =>
-        !Hardware.IsCalibrating && Dispatcher.Invoke(() => _settings is null && _flyout?.IsVisible != true);
-
-    /// <summary>Starts the swapped-in exe (it waits for this one to exit), then exits.</summary>
-    private bool RestartIntoUpdate()
-    {
-        try
-        {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Installation.Exe, "--elevated --startup --updated") { UseShellExecute = false });
-        }
-        catch (System.ComponentModel.Win32Exception ex)
-        {
-            Log.Error("Starting the updated Wattkin failed", ex);
-            return false;
-        }
-
-        Dispatcher.BeginInvoke(ExitApp);
-        return true;
     }
 
     private static string? Arg(string[] args, string name)
@@ -594,7 +534,6 @@ public partial class App : Application
             SystemEvents.PowerModeChanged -= OnPowerModeChanged;
             SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         });
-        Step("updates", () => _updater?.Dispose());
         Step("hardware", Hardware.Dispose);
         Step("monitor", Monitor.Dispose);
         Step("tray", () => _tray?.Dispose());

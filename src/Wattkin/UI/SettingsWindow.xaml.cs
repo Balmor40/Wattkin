@@ -29,10 +29,6 @@ public partial class SettingsWindow : Window
         app.Hardware.FanTestChanged += OnFanTestChanged;
         app.Store.Changed += OnStoreChanged;
         app.Monitor.Demand(this, fast: true);
-        if (app.Updates is { } updates)
-        {
-            updates.Changed += OnUpdatesChanged;
-        }
 
         _registersTimer.Tick += async (_, _) => await RefreshRegistersAsync();
         Closed += (_, _) =>
@@ -42,10 +38,6 @@ public partial class SettingsWindow : Window
             app.Hardware.FanTestChanged -= OnFanTestChanged;
             app.Store.Changed -= OnStoreChanged;
             app.Monitor.Demand(this, fast: false);
-            if (app.Updates is { } updates)
-            {
-                updates.Changed -= OnUpdatesChanged;
-            }
         };
 
         BuildChoices();
@@ -65,7 +57,6 @@ public partial class SettingsWindow : Window
             Update(latest);
         }
 
-        RefreshUpdates();
         _ = LoadHistoryAsync();
         _ = LoadFanProfilesAsync();
         _ = RefreshStartupTaskAsync();
@@ -92,54 +83,6 @@ public partial class SettingsWindow : Window
         else
         {
             _registersTimer.Stop();
-        }
-    }
-
-    private void OnUpdatesChanged() => Dispatcher.BeginInvoke(RefreshUpdates);
-
-    private void RefreshUpdates()
-    {
-        if (App.Current.Updates is not { } updates)
-        {
-            UpdateStatus.Text = "";
-            CheckUpdatesButton.IsEnabled = false;
-            Simple.RefreshUpdates(null);
-            return;
-        }
-
-        var state = updates.State;
-        Simple.RefreshUpdates(state);
-        UpdateStatus.Text = Features.Updater.CanInstall ? state.Message : "Updates install into the copy in Program Files. Install Wattkin to get them.";
-        CheckUpdatesButton.IsEnabled = state.Phase is not (Features.UpdatePhase.Checking or Features.UpdatePhase.Installing);
-        InstallUpdateButton.Visibility = state.Available is not null && Features.Updater.CanInstall ? Visibility.Visible : Visibility.Collapsed;
-        InstallUpdateButton.IsEnabled = state.Phase != Features.UpdatePhase.Installing;
-        if (state.Available is { } release)
-        {
-            InstallUpdateButton.Content = $"Install {release.Version.ToString(3)} now";
-        }
-    }
-
-    private void OnAutoUpdate(object sender, RoutedEventArgs e)
-    {
-        if (!_loading)
-        {
-            App.Current.Store.Update(s => s.AutoUpdate = AutoUpdateToggle.IsChecked == true);
-        }
-    }
-
-    private async void OnCheckUpdates(object sender, RoutedEventArgs e)
-    {
-        if (App.Current.Updates is { } updates)
-        {
-            await updates.RunAsync(userAsked: true);
-        }
-    }
-
-    private async void OnInstallUpdate(object sender, RoutedEventArgs e)
-    {
-        if (App.Current.Updates is { } updates)
-        {
-            await updates.InstallNowAsync();
         }
     }
 
@@ -376,7 +319,6 @@ public partial class SettingsWindow : Window
             MuteLeds.IsChecked = s.SyncMuteLeds;
 
             TrayWatts.IsChecked = s.TrayShowsWatts;
-            AutoUpdateToggle.IsChecked = s.AutoUpdate;
             WidgetToggle.IsChecked = App.Current.IsWidgetVisible;
             BatteryLogToggle.IsChecked = s.BatteryLogging;
             CalibrationFast.IsChecked = s.Calibration?.FastDischarge ?? false;

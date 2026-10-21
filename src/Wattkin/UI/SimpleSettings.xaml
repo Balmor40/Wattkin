@@ -160,15 +160,6 @@
                         </StackPanel>
                         <CheckBox x:Name="WidgetToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnWidget" />
                     </Grid>
-                    <Border Style="{StaticResource Lc.Divider}" />
-                    <Grid Style="{StaticResource Lc.Row}">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="Update automatically" Style="{StaticResource Lc.RowTitle}" />
-                            <TextBlock x:Name="UpdateText" Style="{StaticResource Lc.RowText}" />
-                        </StackPanel>
-                        <CheckBox x:Name="UpdateToggle" Grid.Column="1" Style="{StaticResource Lc.Toggle}" Click="OnUpdates" />
-                    </Grid>
                 </StackPanel>
             </Border>
 
