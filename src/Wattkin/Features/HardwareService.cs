@@ -43,7 +43,8 @@ public sealed record EcCapabilities(
     bool HasKeyboardLight,
     bool HasKeyboardTimeout,
     int KeyboardMaxLevel,
-    bool HasFanCurves);
+    bool HasFanCurves,
+    bool HasFullFanTable = false);
 
 /// <summary>
 /// Owns the EC connection and everything that writes to hardware.
@@ -56,7 +57,7 @@ public sealed record EcCapabilities(
 /// </summary>
 public sealed partial class HardwareService : IDisposable
 {
-    private static readonly string[] MsiProcesses = ["MSI.CentralServer", "MSI_Central_Service", "MSIAPService", "OmApSvcBroker"];
+    internal static readonly string[] MsiProcesses = ["MSI.CentralServer", "MSI_Central_Service", "MSIAPService", "OmApSvcBroker"];
     private static readonly TimeSpan ActiveReconcile = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan IdleReconcile = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan ActiveWindow = TimeSpan.FromSeconds(60);
@@ -1006,7 +1007,7 @@ public sealed partial class HardwareService : IDisposable
             CalibrationView(),
             settings.ActiveProfile,
             _msiRunning,
-            new EcCapabilities(ec.Support, ec.MapSource, ec.CanSimulateUnplug, ec.CanSwitchGpuMode, ec.HasCoolerBoost, ec.HasKeyboardLight, ec.HasKeyboardTimeout, ec.KeyboardMaxLevel, ec.HasFanCurves));
+            new EcCapabilities(ec.Support, ec.MapSource, ec.CanSimulateUnplug, ec.CanSwitchGpuMode, ec.HasCoolerBoost, ec.HasKeyboardLight, ec.HasKeyboardTimeout, ec.KeyboardMaxLevel, ec.HasFanCurves, ec.HasFullFanTable));
         StateChanged?.Invoke();
     }
 

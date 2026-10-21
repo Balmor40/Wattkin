@@ -20,8 +20,9 @@ public enum FanMode
     Silent,
     /// <summary>
     /// The controller's own fan table (<see cref="FanCurve"/>), MSI Center's "advanced" mode. Wattkin
-    /// switches to it only when the table is sane, and never changes the table (it hands the same
-    /// bytes back, as MSI Center does before switching).
+    /// switches to it only with a table that passes the safety rules: a fan profile's speeds at the
+    /// firmware's temperature steps, or, where the map names the table's registers, a whole
+    /// <see cref="FanTable"/> with its own temperatures.
     /// </summary>
     Custom,
 }
@@ -41,7 +42,7 @@ public enum EcSupport
 /// <summary>
 /// Typed access to an MSI laptop's embedded controller.
 ///
-/// The register map comes from, in order: the verified map for this firmware family, msi-ec's per-model
+/// The register map comes from, in order: an override for this exact firmware or msi-ec's per-model
 /// map (<see cref="EcModels"/>), or MSI's standard WMI v2 layout (the addresses MSI Center itself uses
 /// on every WMI v2 notebook). Before any write is allowed, a sanity check reads the battery-limit and
 /// performance-mode registers and requires values that only make sense for that layout; anything
@@ -250,7 +251,8 @@ public sealed class EmbeddedController : IEcSensorSource
 
     /// <param name="curve">For <see cref="FanMode.Custom"/>: the speeds to use; null hands the controller back the table it holds.</param>
     /// <param name="unrestricted">The user accepted the experimental mode: curves that let the laptop run hot are allowed.</param>
-    public bool SetFanMode(FanMode mode, FanSpeeds? curve = null, bool unrestricted = false)
+    /// <param name="table">For <see cref="FanMode.Custom"/> where <see cref="HasFullFanTable"/>: the whole table, temperatures included; it takes the place of <paramref name="curve"/>.</param>
+    public bool SetFanMode(FanMode mode, FanSpeeds? curve = null, bool unrestricted = false, FanTable? table = null)
     {
         if (!_fanOk || _model?.FanModeAddress is not { } address)
         {
@@ -259,7 +261,8 @@ public sealed class EmbeddedController : IEcSensorSource
 
         if (mode == FanMode.Custom)
         {
-            return WriteFanTable(curve, unrestricted) && Write(() => _acpi.WriteEcBits(address, 0x90, 0x80, force: true));
+            var written = table is not null && HasFullFanTable ? WriteFullFanTable(table, unrestricted) : WriteFanTable(curve, unrestricted);
+            return written && Write(() => _acpi.WriteEcBits(address, 0x90, 0x80, force: true));
         }
 
         if (UsesMsiLayout(_model))
@@ -340,6 +343,88 @@ public sealed class EmbeddedController : IEcSensorSource
 
     /// <summary>The fan-curve mode, on MSI's standard layout (where the table's format is known).</summary>
     public bool HasFanCurves => CanWrite && _fanOk && UsesMsiLayout(_model);
+
+    /// <summary>
+    /// Whole fan tables, step temperatures and drop-back temperatures included, written register by
+    /// register: only on a map that names the table's registers (<see cref="EcModel.FanTable"/>).
+    /// </summary>
+    public bool HasFullFanTable => HasFanCurves && _model?.FanTable is not null;
+
+    /// <summary>Where the fan table lives, on a map that names it (the self-test saves and restores these registers).</summary>
+    public FanTableMap? FanTableMap => _model?.FanTable;
+
+    /// <summary>Both fans' whole tables from the controller's registers, or null. Reads only.</summary>
+    public FanTable? ReadFullFanTable()
+    {
+        if (_model?.FanTable is not { } map)
+        {
+            return null;
+        }
+
+        var cpu = map.Cpu.Decode(_acpi.ReadEc);
+        var gpu = map.Gpu.Decode(_acpi.ReadEc);
+        return cpu is not null && gpu is not null ? new FanTable { Cpu = cpu, Gpu = gpu } : null;
+    }
+
+    /// <summary>
+    /// Writes both fans' whole tables, register by register as YAMDCC does, only the bytes that differ;
+    /// selecting the curve mode (0xD4 bit 7) is the caller's step. Refused when the table breaks the
+    /// rules (<see cref="FanTable.Problem"/>, safety rules unless <paramref name="unrestricted"/>) or the
+    /// current one can't be read. The table is read back and must match; if it doesn't, the previous one
+    /// is written back and the fans go to Auto.
+    /// </summary>
+    public bool WriteFullFanTable(FanTable table, bool unrestricted = false)
+    {
+        if (!HasFullFanTable || _model?.FanTable is not { } map || _model.FanModeAddress is not { } address)
+        {
+            return false;
+        }
+
+        if (table.Problem(unrestricted) is { } problem)
+        {
+            Log.Warn($"Not using this fan table: {problem}");
+            return false;
+        }
+
+        if (ReadFullFanTable() is not { } before)
+        {
+            Log.Warn("Not using the fan table: the controller's table couldn't be read.");
+            return false;
+        }
+
+        if (before.SameAs(table))
+        {
+            return true;
+        }
+
+        if (!Write(() => WriteChanged(Encode(map, table))) || ReadFullFanTable() is not { } after || !after.SameAs(table))
+        {
+            Log.Error("The fan table read back differently; putting the previous one back and switching the fans to Auto.");
+            Write(() => WriteChanged(Encode(map, before)));
+            Write(() => _acpi.WriteEcBits(address, 0x90, 0x00, force: true));
+            return false;
+        }
+
+        Log.Info($"Fan table written to the controller{(unrestricted ? " (experimental: unrestricted)" : "")}: CPU {table.Cpu.Describe()}; GPU {table.Gpu.Describe()}.");
+        return true;
+    }
+
+    private static IEnumerable<(byte Address, byte Value)> Encode(FanTableMap map, FanTable table) => map.Cpu.Encode(table.Cpu).Concat(map.Gpu.Encode(table.Gpu));
+
+    /// <summary>Writes each byte the register doesn't already hold. False if any write failed.</summary>
+    private bool WriteChanged(IEnumerable<(byte Address, byte Value)> writes)
+    {
+        var ok = true;
+        foreach (var (address, value) in writes)
+        {
+            if (_acpi.ReadEc(address) != value)
+            {
+                ok &= _acpi.WriteEc(address, value);
+            }
+        }
+
+        return ok;
+    }
 
     /// <summary>Both fans' tables from the firmware, or null. Reads only.</summary>
     public FanCurves? ReadFanCurves()

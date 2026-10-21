@@ -148,6 +148,14 @@ public partial class App : Application
             return 0;
         }
 
+        if (args.Contains("--selftest"))
+        {
+            // --selftest read|write [report file]: the hardware self-test (tools\selftest.ps1 runs it).
+            var at = Array.IndexOf(args, "--selftest");
+            string? Next(int offset) => at + offset < args.Length && !args[at + offset].StartsWith("--", StringComparison.Ordinal) ? args[at + offset] : null;
+            return SelfTest.Run(Next(1) ?? "read", Next(2));
+        }
+
         if (args.Contains("--exit"))
         {
             return SingleInstance.RequestExit(InstanceName) ? 0 : 1;

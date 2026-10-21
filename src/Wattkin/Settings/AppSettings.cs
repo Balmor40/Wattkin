@@ -95,7 +95,14 @@ public sealed class FanProfile
     public string Name { get; set; } = "Fan profile";
     public FanSpeeds Speeds { get; set; } = new();
 
-    public FanProfile Clone() => new() { Name = Name, Speeds = Speeds.Clone() };
+    /// <summary>
+    /// The whole table, step and drop-back temperatures included, on a laptop where Wattkin writes it
+    /// (<see cref="EmbeddedController.HasFullFanTable"/>). <see cref="Speeds"/> then holds its first six
+    /// speeds, so the profile still works where only speeds can be set. Null: speeds only.
+    /// </summary>
+    public FanTable? Table { get; set; }
+
+    public FanProfile Clone() => new() { Name = Name, Speeds = Speeds.Clone(), Table = Table?.Clone() };
 
     public static bool IsBuiltIn(string? name) =>
         string.Equals(name, LaptopDefault, StringComparison.OrdinalIgnoreCase) || string.Equals(name, Off, StringComparison.OrdinalIgnoreCase);
@@ -181,6 +188,13 @@ public sealed class AppSettings
     public FanSpeeds? FactoryFanCurve { get; set; }
     public bool UnrestrictedFanCurves { get; set; }
 
+    /// <summary>
+    /// The controller's whole fan table the first time Wattkin read it, on a laptop where it writes
+    /// whole tables: "Laptop default", and what uninstalling puts back. If another tool (YAMDCC) had
+    /// written its own table before, that's the one kept.
+    /// </summary>
+    public FanTable? FactoryFanTable { get; set; }
+
     // The battery in the laptop (Windows' unique ID for it, and what it last held when full) and when a
     // different one was first seen: capacity history and calibration advice start again from then.
     public string? BatteryIdentity { get; set; }
@@ -223,6 +237,20 @@ public sealed class AppSettings
         var name when string.Equals(name, FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => (FactoryFanCurve, false),
         var name when string.Equals(name, FanProfile.Off, StringComparison.OrdinalIgnoreCase) => (FanProfile.OffSpeeds(), UnrestrictedFanCurves),
         var name => FindFanProfile(name) is { } fan ? (fan.Speeds, UnrestrictedFanCurves) : (FactoryFanCurve, false),
+    };
+
+    /// <summary>
+    /// Where the laptop takes whole fan tables: the table a profile's fan choice stands for. A
+    /// speeds-only fan profile runs at the laptop's own temperatures. Null when no table of the laptop's
+    /// is known yet (the speeds-only path is used then). Whether it may break the safety rules is
+    /// <see cref="ResolveFanCurve"/>'s answer.
+    /// </summary>
+    public FanTable? ResolveFanTable(Profile profile) => profile.FanProfileName switch
+    {
+        null => FactoryFanTable,
+        var name when string.Equals(name, FanProfile.LaptopDefault, StringComparison.OrdinalIgnoreCase) => FactoryFanTable,
+        var name when string.Equals(name, FanProfile.Off, StringComparison.OrdinalIgnoreCase) => FactoryFanTable is { } off ? FanTable.Off(off) : null,
+        var name => FindFanProfile(name) is { } fan ? fan.Table ?? FactoryFanTable?.WithSpeeds(fan.Speeds) : FactoryFanTable,
     };
 
     /// <summary>
@@ -311,6 +339,17 @@ public sealed class AppSettings
         if (FactoryFanCurve?.Problem(unrestricted: true) is not null)
         {
             FactoryFanCurve = null;
+        }
+
+        // A whole table that breaks the hard rules is dropped too: its fan profile keeps its speeds.
+        foreach (var f in FanProfiles.Where(f => f.Table?.Problem(unrestricted: true) is not null))
+        {
+            f.Table = null;
+        }
+
+        if (FactoryFanTable?.Problem(unrestricted: true) is not null)
+        {
+            FactoryFanTable = null;
         }
 
         // 1: Quiet moved from Silent to the fan curve. Only a Quiet still on the old built-in fan

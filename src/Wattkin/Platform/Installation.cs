@@ -144,7 +144,12 @@ internal static class Installation
         ec.SetSimulatedUnplug(false);
         ec.SetChargeLimit(100);
         ec.SetCoolerBoost(false);
-        if (new SettingsStore(readOnly: true).Current.FactoryFanCurve is { } factory && ec.HasFanCurves)
+        var settings = new SettingsStore(readOnly: true).Current;
+        if (settings.FactoryFanTable is { } table && ec.HasFullFanTable)
+        {
+            ec.WriteFullFanTable(table, unrestricted: true);
+        }
+        else if (settings.FactoryFanCurve is { } factory && ec.HasFanCurves)
         {
             ec.WriteFanTable(factory);
         }

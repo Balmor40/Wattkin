@@ -1,0 +1,749 @@
+using System.Diagnostics;
+using System.Globalization;
+using System.Text;
+using System.Xml;
+using Wattkin.Features;
+using Wattkin.Hardware;
+using Wattkin.Monitoring;
+using Wattkin.Platform;
+
+namespace Wattkin;
+
+/// <summary>
+/// Hardware self-test (Wattkin.exe --selftest read|write [file], or tools\selftest.ps1), written for the
+/// Stealth 15M A11UEK (EC 1563EMS1.115).
+///
+/// "read" never writes to the controller: firmware interface, register map and sanity check, sensors,
+/// and the fan table read two ways (registers, and MSI's own Get_Fan / Get_Temperature calls), which
+/// must agree. Like any first start of Wattkin it registers Wattkin's description of the firmware
+/// interface in WMI. A raw diagnostics report is saved next to it.
+///
+/// "write" changes one setting at a time, checks the controller took it (and, for the fans, that it
+/// acts on it, hysteresis included), and puts it back. Every register it can touch is saved first and
+/// written back at the end, whatever happened. It refuses to run next to Wattkin, YAMDCC or MSI Center:
+/// two programs writing the controller would spoil the results.
+///
+/// Exit code: 0 everything passed, 1 something failed, 2 it couldn't run.
+/// </summary>
+public static class SelfTest
+{
+    public const string ExpectedFirmware = "1563EMS1.115";
+
+    private const byte CpuFanTarget = 0x71;
+    private const byte AbortTempC = 90;
+    private static readonly string[] OtherFanTools = ["yamdccsvc"];
+
+    public static int Run(string? stage, string? path)
+    {
+        var write = string.Equals(stage, "write", StringComparison.OrdinalIgnoreCase);
+        var name = write ? "write" : "read";
+        path = string.IsNullOrEmpty(path)
+            ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Wattkin", $"selftest-{name}.txt")
+            : path;
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+
+        var report = new Report();
+        int code;
+        try
+        {
+            code = write ? RunWrite(report) : RunRead(report);
+        }
+        catch (Exception ex)
+        {
+            report.Fail("Self-test", $"stopped by an unexpected error: {ex}");
+            code = 1;
+        }
+
+        report.Line("");
+        report.Line($"Result: {report.Summary}");
+        File.WriteAllText(path, report.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
+        Log.Info($"Self-test ({name}) finished: {report.Summary}. Report: {path}");
+
+        if (!write && code != 2)
+        {
+            // The raw picture as well: every register, read only.
+            Diagnostics.Run(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, Path.GetFileNameWithoutExtension(path) + "-diagnostics.txt"));
+        }
+
+        return code;
+    }
+
+    // ---- read ---------------------------------------------------------------------------------------
+
+    private static int RunRead(Report r)
+    {
+        if (!Preconditions(r, "read"))
+        {
+            return 2;
+        }
+
+        using var acpi = Open(r);
+        if (acpi is null)
+        {
+            return 2;
+        }
+
+        var ec = new EmbeddedController(acpi);
+        Capabilities(r, acpi, ec);
+
+        r.Section("Registers (read only)");
+        foreach (var (address, meaning) in new (byte, string)[]
+        {
+            (0xD7, "battery limit"), (0xD2, "performance mode"), (0xD4, "fan mode"), (0x98, "Cooler Boost (bit 7)"),
+            (0xD3, "keyboard backlight"), (0x2C, "keyboard auto-off (bit 3), mic-mute light (bit 1)"), (0x2D, "mute light (bit 1)"),
+            (0x2E, "webcam (bit 1)"), (0x2F, "capabilities"), (0xBF, "run from battery (bit 0)"), (0xD9, "host flags, Fn lock (bit 1)"),
+            (0x68, "CPU temperature"), (0x71, "CPU fan target"), (0x80, "GPU temperature"), (0x89, "GPU fan target"),
+        })
+        {
+            r.Info($"0x{address:X2}", $"{Hex(ec.ReadRegister(address))}  {meaning}");
+        }
+
+        r.Section("Decoded");
+        r.Check(ec.GetChargeLimit() is not null, "Battery limit", $"{ec.GetChargeLimit()}%");
+        r.Check(ec.GetShiftMode() is not null, "Performance mode", $"{ec.GetShiftMode()}");
+        r.Check(ec.GetFanMode() is not null, "Fan mode", $"{ec.GetFanMode()}");
+        r.Check(ec.GetCoolerBoost() is not null, "Cooler Boost", $"{ec.GetCoolerBoost()}");
+        r.Check(ec.GetKeyboardLevel() is not null, "Keyboard backlight", $"level {ec.GetKeyboardLevel()}");
+        r.Check(ec.GetKeyboardAutoOff() is not null, "Keyboard auto-off", $"{ec.GetKeyboardAutoOff()}");
+        r.Info("Webcam", ec.WebcamSupported ? $"{ec.GetWebcam()}" : "switch not offered by the firmware");
+        r.Info("Fn lock", $"{ec.GetFnLock()}");
+
+        r.Section("Sensors (5 s)");
+        var samples = new List<EcSensors>();
+        for (var i = 0; i < 5; i++)
+        {
+            if (ec.ReadSensors() is { } s)
+            {
+                samples.Add(s);
+            }
+
+            Thread.Sleep(1000);
+        }
+
+        r.Info("Readings", string.Join(" · ", samples.Select(s => $"CPU {s.CpuTempC}°C GPU {s.GpuTempC}°C fans {s.Fan1Rpm}/{s.Fan2Rpm} rpm")));
+        r.Check(samples.Count > 0 && samples.All(s => s.CpuTempC is >= 20 and <= 100), "CPU temperature plausible");
+        r.Check(samples.Count > 0 && samples.All(s => s.Fan1Rpm is not null && s.Fan2Rpm is not null), "Fan speeds reported");
+        var register = ec.ReadRegister(0x68);
+        var call = samples.LastOrDefault()?.CpuTempC;
+        r.Check(register is { } reg && call is { } c && Math.Abs(reg - c) <= 3, "CPU temperature: MSI's call and register 0x68 agree", $"{call}°C / {register}°C");
+
+        r.Section("Fan table");
+        if (ec.ReadFullFanTable() is not { } table)
+        {
+            r.Fail("Whole fan table", "couldn't be read from the registers");
+            return r.Failed > 0 ? 1 : 0;
+        }
+
+        r.Info("CPU fan", table.Cpu.Describe());
+        r.Info("GPU fan", table.Gpu.Describe());
+        r.Check(table.Problem(unrestricted: true) is null, "Table is well formed", table.Problem(unrestricted: true) ?? "");
+        if (table.Problem(unrestricted: false) is { } unsafeTable)
+        {
+            r.Warn("Safety rules", $"the table in the controller now wouldn't pass them: {unsafeTable}");
+        }
+
+        CompareWithMsiCalls(r, acpi, table, "now");
+
+        if (YamdccTable(out var names) is { } yamdcc)
+        {
+            r.Info("YAMDCC", yamdcc.SameAs(table)
+                ? $"the controller holds the table YAMDCC writes ({names}): Wattkin will keep it as \"Laptop default\"."
+                : $"the controller's table differs from YAMDCC's ({names}): it looks like the firmware's own.");
+        }
+
+        return r.Failed > 0 ? 1 : 0;
+    }
+
+    /// <summary>The table read from the registers must be what MSI's own calls report (see <see cref="FanCurve.Parse"/>).</summary>
+    private static void CompareWithMsiCalls(Report r, MsiAcpi acpi, FanTable table, string when)
+    {
+        foreach (var (name, selector, steps) in new[] { ("CPU", (byte)1, table.Cpu), ("GPU", (byte)2, table.Gpu) })
+        {
+            var viaCalls = FanCurve.Parse(acpi.Get("Get_Temperature", selector), acpi.Get("Get_Fan", selector));
+            r.Check(viaCalls is not null && viaCalls.Speeds.SequenceEqual(steps.Speeds) && viaCalls.Temps.SequenceEqual(steps.Up),
+                $"{name} fan: registers and Get_Fan/Get_Temperature({selector}) agree ({when})",
+                viaCalls is null ? "the calls failed" : $"calls: {string.Join("/", viaCalls.Speeds)} from {string.Join("/", viaCalls.Temps)}°C");
+        }
+    }
+
+    // ---- write --------------------------------------------------------------------------------------
+
+    private static int RunWrite(Report r)
+    {
+        if (!Preconditions(r, "write"))
+        {
+            return 2;
+        }
+
+        using var acpi = Open(r);
+        if (acpi is null)
+        {
+            return 2;
+        }
+
+        var ec = new EmbeddedController(acpi);
+        Capabilities(r, acpi, ec);
+        if (!ec.CanWrite || !ec.HasFullFanTable || ec.FanTableMap is not { } map)
+        {
+            r.Fail("Write tests", "need a laptop whose controller Wattkin writes whole fan tables (the Stealth 15M A11UEK, EC 1563EMS1.115). Nothing was changed.");
+            return 2;
+        }
+
+        // Everything any test can touch, saved before the first write.
+        byte[] watched = [0xBF, 0x98, .. map.Cpu.Addresses, .. map.Gpu.Addresses, 0xD4, 0xD2, 0xD7, 0xD3, 0x2C, 0x2D, 0x2E];
+        var saved = new Dictionary<byte, byte>();
+        foreach (var address in watched)
+        {
+            if (acpi.ReadEc(address) is not { } value)
+            {
+                r.Fail("Saving the current settings", $"register 0x{address:X2} couldn't be read. Nothing was changed.");
+                return 2;
+            }
+
+            saved[address] = value;
+        }
+
+        r.Info("Saved", string.Join(" ", saved.Select(kv => $"{kv.Key:X2}={kv.Value:X2}")));
+        try
+        {
+            Step(r, ec, "Battery limit", () => TestChargeLimit(r, ec));
+            Put(acpi, saved, 0xD7);
+            Step(r, ec, "Performance modes", () => TestShiftModes(r, ec));
+            Put(acpi, saved, 0xD2);
+            Step(r, ec, "Fan modes", () => TestFanModes(r, ec));
+            Put(acpi, saved, 0xD4);
+            Step(r, ec, "Keyboard backlight", () => TestKeyboard(r, ec));
+            Put(acpi, saved, 0xD3, 0x2C);
+            Step(r, ec, "Mute lights", () => TestLeds(r, ec));
+            Put(acpi, saved, 0x2C, 0x2D);
+            Step(r, ec, "Webcam", () => TestWebcam(r, ec));
+            Put(acpi, saved, 0x2E);
+            Step(r, ec, "Cooler Boost", () => TestCoolerBoost(r, ec));
+            Put(acpi, saved, 0x98);
+            Step(r, ec, "Run from battery while plugged in", () => TestSimulatedUnplug(r, ec));
+            Put(acpi, saved, 0xBF);
+            Step(r, ec, "Fan table", () => TestFanTable(r, acpi, ec));
+            Step(r, ec, "The controller follows the table", () => TestFollowsTable(r, ec));
+        }
+        finally
+        {
+            Restore(r, acpi, saved);
+        }
+
+        return r.Failed > 0 ? 1 : 0;
+    }
+
+    private static void TestChargeLimit(Report r, EmbeddedController ec)
+    {
+        var before = ec.GetChargeLimit();
+        var target = before == 80 ? 75 : 80;
+        var ok = ec.SetChargeLimit(target) && ec.GetChargeLimitRaw() == EmbeddedController.EncodeChargeLimit(target);
+        r.Check(ok, "Battery limit written and read back", $"{before}% → {target}% (read {ec.GetChargeLimit()}%)");
+    }
+
+    private static void TestShiftModes(Report r, EmbeddedController ec)
+    {
+        foreach (var mode in new[] { ShiftMode.Eco, ShiftMode.Balanced, ShiftMode.Turbo })
+        {
+            var ok = ec.SetShiftMode(mode);
+            Thread.Sleep(500);
+            r.Check(ok && ec.GetShiftMode() == mode, $"Performance mode {mode}", $"read {ec.GetShiftMode()} ({Hex(ec.ReadRegister(0xD2))})");
+        }
+    }
+
+    private static void TestFanModes(Report r, EmbeddedController ec)
+    {
+        foreach (var mode in new[] { FanMode.Silent, FanMode.Auto })
+        {
+            var ok = ec.SetFanMode(mode);
+            Thread.Sleep(500);
+            r.Check(ok && ec.GetFanMode() == mode, $"Fan mode {mode}", $"read {ec.GetFanMode()} ({Hex(ec.ReadRegister(0xD4))})");
+        }
+    }
+
+    private static void TestKeyboard(Report r, EmbeddedController ec)
+    {
+        var levels = new List<string>();
+        var ok = true;
+        for (var level = 0; level <= ec.KeyboardMaxLevel; level++)
+        {
+            ok &= ec.SetKeyboardLevel(level);
+            Thread.Sleep(700);
+            var read = ec.GetKeyboardLevel();
+            ok &= read == level;
+            levels.Add($"{level}→{read}");
+        }
+
+        r.Check(ok, "Keyboard backlight levels (the keyboard went dark, then up to full)", string.Join(" ", levels));
+
+        var autoOff = ec.GetKeyboardAutoOff();
+        var toggled = autoOff is { } a && ec.SetKeyboardAutoOff(!a) && ec.GetKeyboardAutoOff() == !a;
+        r.Check(toggled, "Keyboard auto-off switched", $"{autoOff} → {ec.GetKeyboardAutoOff()} ({Hex(ec.ReadRegister(0x2C))})");
+    }
+
+    private static void TestLeds(Report r, EmbeddedController ec)
+    {
+        foreach (var (name, address, set) in new (string, byte, Func<bool, bool>)[] { ("Mute light", 0x2D, ec.SetMuteLed), ("Mic-mute light", 0x2C, ec.SetMicMuteLed) })
+        {
+            var on = set(true) && ec.ReadRegister(address) is { } lit && (lit & 0x02) != 0;
+            Thread.Sleep(700);
+            var off = set(false) && ec.ReadRegister(address) is { } dark && (dark & 0x02) == 0;
+            r.Check(on && off, $"{name} on, then off (watch the key's light)", $"0x{address:X2} = {Hex(ec.ReadRegister(address))}");
+        }
+    }
+
+    private static void TestWebcam(Report r, EmbeddedController ec)
+    {
+        if (!ec.WebcamSupported || ec.GetWebcam() is not { } before)
+        {
+            r.Skip("Webcam switch", "not offered by the firmware");
+            return;
+        }
+
+        var switched = ec.SetWebcam(!before) && ec.GetWebcam() == !before;
+        Thread.Sleep(1500);
+        var back = ec.SetWebcam(before) && ec.GetWebcam() == before;
+        r.Check(switched && back, "Webcam switched and back", $"{before} → {!before} → {ec.GetWebcam()}");
+    }
+
+    private static void TestCoolerBoost(Report r, EmbeddedController ec)
+    {
+        var before = AverageRpm(ec, 3);
+        var on = ec.SetCoolerBoost(true) && ec.GetCoolerBoost() == true;
+        var peak = before;
+        var clock = Stopwatch.StartNew();
+        while (clock.Elapsed < TimeSpan.FromSeconds(25) && peak < Math.Max(before + 1500, 4500))
+        {
+            Thread.Sleep(1000);
+            peak = Math.Max(peak, AverageRpm(ec, 1));
+        }
+
+        var off = ec.SetCoolerBoost(false) && ec.GetCoolerBoost() == false;
+        r.Check(on && off, "Cooler Boost on, then off");
+        r.Check(peak >= Math.Max(before + 1500, 4500), "Cooler Boost speeds the fans up (you heard them)", $"{before} → {peak} rpm (average of both fans)");
+    }
+
+    private static void TestSimulatedUnplug(Report r, EmbeddedController ec)
+    {
+        var power = System.Windows.Forms.SystemInformation.PowerStatus;
+        if (power.PowerLineStatus != System.Windows.Forms.PowerLineStatus.Online)
+        {
+            r.Skip("Run from battery while plugged in", "the charger isn't connected");
+            return;
+        }
+
+        if (power.BatteryLifePercent < 0.3f)
+        {
+            r.Skip("Run from battery while plugged in", "the battery is under 30%");
+            return;
+        }
+
+        var set = ec.SetSimulatedUnplug(true);
+        var onBattery = WaitFor(() => System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Offline, TimeSpan.FromSeconds(20));
+        var cleared = ec.SetSimulatedUnplug(false) && ec.GetSimulatedUnplug() == false;
+        var backOnAc = WaitFor(() => System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Online, TimeSpan.FromSeconds(20));
+        r.Check(set && onBattery, "Windows saw the laptop run from the battery with the charger connected");
+        r.Check(cleared && backOnAc, "Back on the charger");
+    }
+
+    /// <summary>A table unlike any real one, written, read back from the registers and through MSI's calls.</summary>
+    private static void TestFanTable(Report r, MsiAcpi acpi, EmbeddedController ec)
+    {
+        var test = new FanTable
+        {
+            Cpu = new FanSteps { Speeds = [0, 31, 46, 61, 76, 91, 111], Up = [51, 59, 67, 75, 83, 89], Down = [47, 54, 61, 68, 77, 85] },
+            Gpu = new FanSteps { Speeds = [0, 36, 51, 66, 81, 96, 116], Up = [53, 61, 69, 77, 85, 90], Down = [49, 55, 62, 70, 79, 86] },
+        };
+        var written = ec.WriteFullFanTable(test);
+        var back = ec.ReadFullFanTable();
+        r.Check(written && back is not null && back.SameAs(test), "Whole table written and read back (drop-back offsets included)",
+            back is null ? "couldn't read it back" : $"CPU {back.Cpu.Describe()}");
+        CompareWithMsiCalls(r, acpi, test, "after writing");
+
+        var unsafeTable = test.Clone();
+        unsafeTable.Cpu.Speeds[^1] = 40;
+        r.Check(!ec.WriteFullFanTable(unsafeTable) && ec.ReadFullFanTable()?.SameAs(test) == true, "A table that breaks the safety rules is refused, and nothing is written");
+    }
+
+    /// <summary>
+    /// In curve mode the controller's CPU fan target (0x71) must follow the table: the base speed while
+    /// the temperature is under the first step, a change of that speed, and the hysteresis: a step whose
+    /// start moves above the temperature holds until the temperature falls under its drop-back point.
+    /// The tables are built around today's CPU temperature; keep the laptop idle while this runs.
+    /// </summary>
+    private static void TestFollowsTable(Report r, EmbeddedController ec)
+    {
+        ec.SetCoolerBoost(false);
+        var samples = Enumerable.Range(0, 3).Select(_ => { Thread.Sleep(300); return ec.ReadSensors()?.CpuTempC; }).Where(t => t is not null).Select(t => t!.Value).ToList();
+        if (samples.Count == 0 || samples.Average() is < 31 or > 80)
+        {
+            r.Skip("Fan behaviour tests", $"need a CPU temperature between 31 and 80°C (now {(samples.Count == 0 ? "unknown" : $"{samples.Average():0}°C")})");
+            return;
+        }
+
+        var t = (int)Math.Round(samples.Average());
+        r.Info("Reference temperature", $"{t}°C (keep the laptop idle)");
+
+        FanTable Table(int[] cpuUp, int[] cpuDown, int[] cpuSpeeds) => new()
+        {
+            Cpu = new FanSteps { Speeds = cpuSpeeds, Up = cpuUp, Down = cpuDown },
+            Gpu = new FanSteps { Speeds = [40, 45, 50, 55, 60, 65, 80], Up = [t + 12, t + 14, t + 16, t + 18, t + 20, t + 22], Down = [t + 9, t + 11, t + 13, t + 15, t + 17, t + 19] },
+        };
+
+        int[] far = [t + 12, t + 14, t + 16, t + 18, t + 20, t + 22];
+        int[] farDown = [.. far.Select(u => u - 3)];
+
+        // Under the first step: the base speed.
+        var ok = ec.SetFanMode(FanMode.Custom, unrestricted: true, table: Table(far, farDown, [45, 50, 55, 60, 65, 70, 80]));
+        Expect(r, ec, ok, "Under the first step the CPU fan runs at the base speed", 45, TimeSpan.FromSeconds(25), t, below: far[0]);
+
+        ok = ec.SetFanMode(FanMode.Custom, unrestricted: true, table: Table(far, farDown, [30, 50, 55, 60, 65, 70, 80]));
+        Expect(r, ec, ok, "A new base speed is followed", 30, TimeSpan.FromSeconds(25), t, below: far[0]);
+
+        // Hysteresis: in step 1, then step 1 starts above the temperature but drops back far below it.
+        int[] up = [t - 8, .. far[1..]];
+        int[] down = [t - 11, .. farDown[1..]];
+        int[] speeds = [30, 60, 65, 70, 75, 80, 85];
+        ok = ec.SetFanMode(FanMode.Custom, unrestricted: true, table: Table(up, down, speeds));
+        Expect(r, ec, ok, "Over the first step the CPU fan steps up", 60, TimeSpan.FromSeconds(25), t, above: up[0]);
+
+        up[0] = t + 6;
+        down[0] = t - 10;
+        ok = ec.WriteFullFanTable(Table(up, down, speeds), unrestricted: true);
+        Hold(r, ec, ok, "Hysteresis: the step holds while the temperature stays above its drop-back point", 60, TimeSpan.FromSeconds(15), t, above: down[0], below: up[0]);
+
+        down[0] = t + 3;
+        ok = ec.WriteFullFanTable(Table(up, down, speeds), unrestricted: true);
+        Expect(r, ec, ok, "Under the drop-back point the CPU fan steps down", 30, TimeSpan.FromSeconds(25), t, below: down[0]);
+    }
+
+    /// <summary>Waits for the CPU fan target to reach <paramref name="expected"/>; a temperature outside the band makes the result inconclusive.</summary>
+    private static void Expect(Report r, EmbeddedController ec, bool written, string name, int expected, TimeSpan timeout, int reference, int? above = null, int? below = null)
+    {
+        if (!written)
+        {
+            r.Fail(name, "the table wasn't accepted");
+            return;
+        }
+
+        var (targets, temps) = Watch(ec, timeout, stopWhen: v => v is { } x && Math.Abs(x - expected) <= 1);
+        var reached = targets.LastOrDefault() is { } last && Math.Abs(last - expected) <= 1;
+        Judge(r, name, reached, expected, targets, temps, reference, above, below);
+    }
+
+    /// <summary>The CPU fan target must stay at <paramref name="expected"/> for the whole time.</summary>
+    private static void Hold(Report r, EmbeddedController ec, bool written, string name, int expected, TimeSpan duration, int reference, int? above = null, int? below = null)
+    {
+        if (!written)
+        {
+            r.Fail(name, "the table wasn't accepted");
+            return;
+        }
+
+        var (targets, temps) = Watch(ec, duration, stopWhen: _ => false);
+        var held = targets.Count > 0 && targets.All(v => v is { } x && Math.Abs(x - expected) <= 1);
+        Judge(r, name, held, expected, targets, temps, reference, above, below);
+    }
+
+    private static void Judge(Report r, string name, bool ok, int expected, List<int?> targets, List<int> temps, int reference, int? above, int? below)
+    {
+        var detail = $"expected {expected}%, target {string.Join(" ", targets.Select(v => v?.ToString(CultureInfo.InvariantCulture) ?? "?"))} · CPU {(temps.Count == 0 ? "?" : $"{temps.Min()}–{temps.Max()}")}°C (reference {reference}°C)";
+        var inBand = temps.Count > 0 && (above is not { } a || temps.Min() >= a) && (below is not { } b || temps.Max() < b);
+        if (ok)
+        {
+            r.Pass(name, detail);
+        }
+        else if (!inBand)
+        {
+            r.Warn(name, $"inconclusive: the temperature left the band the test needs. {detail}");
+        }
+        else
+        {
+            r.Fail(name, detail);
+        }
+    }
+
+    private static (List<int?> Targets, List<int> Temps) Watch(EmbeddedController ec, TimeSpan duration, Func<int?, bool> stopWhen)
+    {
+        var targets = new List<int?>();
+        var temps = new List<int>();
+        var clock = Stopwatch.StartNew();
+        while (clock.Elapsed < duration)
+        {
+            Thread.Sleep(1000);
+            var temp = ec.ReadSensors()?.CpuTempC;
+            if (temp is >= AbortTempC)
+            {
+                throw new InvalidOperationException($"CPU at {temp}°C: stopping the tests and putting everything back.");
+            }
+
+            if (temp is { } tc)
+            {
+                temps.Add(tc);
+            }
+
+            var target = ec.ReadRegister(CpuFanTarget) is { } v ? (int?)v : null;
+            targets.Add(target);
+            if (stopWhen(target))
+            {
+                break;
+            }
+        }
+
+        return (targets, temps);
+    }
+
+    // ---- shared -------------------------------------------------------------------------------------
+
+    private static bool Preconditions(Report r, string stage)
+    {
+        r.Line($"Wattkin self-test ({stage}) · {DateTime.Now:yyyy-MM-dd HH:mm:ss} · version {typeof(SelfTest).Assembly.GetName().Version?.ToString(3)}");
+        var info = StaticSystemInfo.Read(new CpuTopology());
+        r.Line($"Model: {info.Model} · BIOS {info.BiosVersion}");
+
+        r.Section("Before starting");
+        var ok = r.Check(Elevation.IsElevated, "Administrator rights", Elevation.IsElevated ? "" : "run tools\\selftest.ps1, which asks for them");
+        var others = Process.GetProcessesByName("Wattkin").Where(p => p.Id != Environment.ProcessId).ToList();
+        ok &= r.Check(others.Count == 0, "No other Wattkin running", others.Count == 0 ? "" : "close it first (Wattkin.exe --exit, or its tray menu)");
+        var tools = OtherFanTools.Concat(HardwareService.MsiProcesses).Where(n => Process.GetProcessesByName(n).Length > 0).ToList();
+        ok &= r.Check(tools.Count == 0, "YAMDCC and MSI Center stopped", tools.Count == 0 ? "" : $"still running: {string.Join(", ", tools)}. Stop the YAMDCC service (Stop-Service yamdccsvc) first.");
+        return ok;
+    }
+
+    private static MsiAcpi? Open(Report r)
+    {
+        r.Section("Firmware interface");
+        var acpi = MsiAcpi.TryOpen(out var error); // registers Wattkin's WMI description if it isn't yet
+        if (acpi is null)
+        {
+            r.Fail("Firmware interface", error ?? "not available");
+            return null;
+        }
+
+        r.Pass("Firmware interface opened", $"WMI {acpi.WmiMajor}.{acpi.WmiMinor} · EC '{acpi.EcFirmware}'");
+        r.Check(acpi.WmiMajor == 2, "Firmware interface version 2 (the one Wattkin controls)");
+        if (string.Equals(acpi.EcVersion, ExpectedFirmware, StringComparison.OrdinalIgnoreCase))
+        {
+            r.Pass("EC firmware", $"{acpi.EcVersion}, the Stealth 15M A11UEK's");
+        }
+        else
+        {
+            r.Warn("EC firmware", $"{acpi.EcVersion}, not the {ExpectedFirmware} these tests were written for");
+        }
+
+        return acpi;
+    }
+
+    private static void Capabilities(Report r, MsiAcpi acpi, EmbeddedController ec)
+    {
+        r.Check(ec.CanWrite, "Register map passed its sanity check", $"{ec.Support} · {ec.MapSource ?? "no map"}{(ec.Reason is { } why ? $" · {why}" : "")}");
+        r.Check(ec.HasFanCurves, "Fan curve mode available");
+        r.Check(ec.HasFullFanTable, "Whole fan tables, temperatures included");
+        r.Info("Also", $"Cooler Boost {ec.HasCoolerBoost} · keyboard light {ec.HasKeyboardLight} · keyboard auto-off {ec.HasKeyboardTimeout} · webcam switch {ec.WebcamSupported}");
+    }
+
+    /// <summary>One test; an error in it is reported and the next one still runs. Stops everything if the CPU is too hot.</summary>
+    private static void Step(Report r, EmbeddedController ec, string name, Action test)
+    {
+        r.Section(name);
+        if (ec.ReadSensors()?.CpuTempC is >= AbortTempC)
+        {
+            throw new InvalidOperationException($"CPU at {AbortTempC}°C or more: stopping the tests and putting everything back.");
+        }
+
+        try
+        {
+            test();
+        }
+        catch (Exception ex) when (ex is System.Management.ManagementException or System.Runtime.InteropServices.COMException or IOException)
+        {
+            r.Fail(name, $"error: {ex.Message}");
+        }
+    }
+
+    /// <summary>Writes back the saved value of each register that no longer holds it.</summary>
+    private static void Put(MsiAcpi acpi, Dictionary<byte, byte> saved, params byte[] addresses)
+    {
+        foreach (var address in addresses)
+        {
+            if (acpi.ReadEc(address) != saved[address])
+            {
+                acpi.WriteEc(address, saved[address]);
+            }
+        }
+    }
+
+    /// <summary>Everything back as it was (the order of <c>saved</c>: run-from-battery first, the table before the fan mode), then checked.</summary>
+    private static void Restore(Report r, MsiAcpi acpi, Dictionary<byte, byte> saved)
+    {
+        r.Section("Putting everything back");
+        foreach (var address in saved.Keys)
+        {
+            for (var attempt = 0; attempt < 3 && acpi.ReadEc(address) != saved[address]; attempt++)
+            {
+                acpi.WriteEc(address, saved[address]);
+            }
+        }
+
+        var wrong = saved.Where(kv => acpi.ReadEc(kv.Key) != kv.Value).Select(kv => $"0x{kv.Key:X2} is {Hex(acpi.ReadEc(kv.Key))}, was 0x{kv.Value:X2}").ToList();
+        r.Check(wrong.Count == 0, "Every register holds its value from before the tests", string.Join(" · ", wrong));
+    }
+
+    private static int AverageRpm(EmbeddedController ec, int seconds)
+    {
+        var readings = new List<int>();
+        for (var i = 0; i < seconds; i++)
+        {
+            if (ec.ReadSensors() is { } s)
+            {
+                readings.Add((FanTest.Plausible(s.Fan1Rpm) + FanTest.Plausible(s.Fan2Rpm)) / 2);
+            }
+
+            Thread.Sleep(1000);
+        }
+
+        return readings.Count == 0 ? 0 : (int)readings.Average();
+    }
+
+    private static bool WaitFor(Func<bool> condition, TimeSpan timeout)
+    {
+        var clock = Stopwatch.StartNew();
+        while (clock.Elapsed < timeout)
+        {
+            if (condition())
+            {
+                return true;
+            }
+
+            Thread.Sleep(500);
+        }
+
+        return condition();
+    }
+
+    /// <summary>The table YAMDCC writes at every start (its selected curve per fan), or null when there's no readable config.</summary>
+    internal static FanTable? YamdccTable(out string? names, string? file = null)
+    {
+        names = null;
+        file ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Sparronator9999", "YAMDCC", "CurrentConfig.xml");
+        try
+        {
+            if (!File.Exists(file))
+            {
+                return null;
+            }
+
+            var doc = new XmlDocument { XmlResolver = null };
+            using (var reader = XmlReader.Create(file, new XmlReaderSettings { DtdProcessing = DtdProcessing.Prohibit, XmlResolver = null }))
+            {
+                doc.Load(reader);
+            }
+
+            var fans = doc.SelectNodes("/YAMDCC_Config/FanConfs/FanConf");
+            if (fans is not { Count: 2 } || Steps(fans[0]!, out var cpuName) is not { } cpu || Steps(fans[1]!, out var gpuName) is not { } gpu)
+            {
+                return null;
+            }
+
+            names = $"CPU \"{cpuName}\", GPU \"{gpuName}\"";
+            return new FanTable { Cpu = cpu, Gpu = gpu };
+        }
+        catch (Exception ex) when (ex is XmlException or IOException or UnauthorizedAccessException or FormatException or OverflowException or System.Xml.XPath.XPathException)
+        {
+            return null;
+        }
+
+        static FanSteps? Steps(XmlNode fan, out string? name)
+        {
+            name = null;
+            var selected = int.Parse(fan.SelectSingleNode("CurveSel")?.InnerText ?? "", CultureInfo.InvariantCulture);
+            var curves = fan.SelectNodes("FanCurveConfs/FanCurveConf");
+            if (curves is null || selected < 0 || selected >= curves.Count || curves[selected] is not { } curve)
+            {
+                return null;
+            }
+
+            name = curve.SelectSingleNode("Name")?.InnerText;
+            var steps = curve.SelectNodes("TempThresholds/TempThreshold");
+            if (steps is not { Count: FanSteps.Count })
+            {
+                return null;
+            }
+
+            int Value(int i, string field) => int.Parse(steps[i]!.SelectSingleNode(field)?.InnerText ?? "", CultureInfo.InvariantCulture);
+            return new FanSteps
+            {
+                Speeds = [.. Enumerable.Range(0, FanSteps.Count).Select(i => Value(i, "FanSpeed"))],
+                Up = [.. Enumerable.Range(1, FanSteps.Thresholds).Select(i => Value(i, "UpThreshold"))],
+                Down = [.. Enumerable.Range(1, FanSteps.Thresholds).Select(i => Value(i, "DownThreshold"))],
+            };
+        }
+    }
+
+    private static string Hex(byte? value) => value is { } v ? $"0x{v:X2}" : "read failed";
+
+    private sealed class Report
+    {
+        private readonly StringBuilder _text = new();
+
+        public int Passed { get; private set; }
+        public int Failed { get; private set; }
+        public int Warnings { get; private set; }
+        public int Skipped { get; private set; }
+
+        public string Summary => $"{Passed} passed, {Failed} failed, {Warnings} warnings, {Skipped} skipped";
+
+        public void Line(string text) => _text.AppendLine(text);
+
+        public void Section(string title)
+        {
+            _text.AppendLine();
+            _text.AppendLine($"== {title}");
+        }
+
+        public bool Check(bool ok, string name, string detail = "")
+        {
+            if (ok)
+            {
+                Pass(name, detail);
+            }
+            else
+            {
+                Fail(name, detail);
+            }
+
+            return ok;
+        }
+
+        public void Pass(string name, string detail = "")
+        {
+            Passed++;
+            Add("PASS", name, detail);
+        }
+
+        public void Fail(string name, string detail = "")
+        {
+            Failed++;
+            Add("FAIL", name, detail);
+        }
+
+        public void Warn(string name, string detail = "")
+        {
+            Warnings++;
+            Add("WARN", name, detail);
+        }
+
+        public void Skip(string name, string detail = "")
+        {
+            Skipped++;
+            Add("SKIP", name, detail);
+        }
+
+        public void Info(string name, string detail = "") => Add("INFO", name, detail);
+
+        private void Add(string level, string name, string detail) =>
+            _text.AppendLine(detail.Length == 0 ? $"{level}  {name}" : $"{level}  {name}: {detail}");
+
+        public override string ToString() => _text.ToString();
+    }
+}

@@ -22,6 +22,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         FanEditor.Changed += UpdateFanProblem;
+        TableEditor.Changed += UpdateFanProblem;
         Simple.ExpertRequested += () => SetView(expert: true, save: true);
         SourceInitialized += (_, _) => WindowEffects.SetDarkTitleBar(new WindowInteropHelper(this).Handle);
         var app = App.Current;
@@ -905,16 +906,24 @@ public partial class SettingsWindow : Window
     // ---- Fan profiles tab ---------------------------------------------------------------------------
 
     private FanCurves? _firmwareCurves;
+    private FanTable? _firmwareTable; // set where the laptop takes whole tables: temperatures are edited too
     private FanProfile? _editingFan; // null while the built-in "Laptop default" is shown
+
+    private bool FullTables => _firmwareTable is not null;
 
     /// <summary>The laptop's fan table gives the editor its real temperature steps; read once per window.</summary>
     private async Task LoadFanProfilesAsync()
     {
-        _firmwareCurves = await Task.Run(App.Current.Hardware.ReadFanCurves);
+        (_firmwareCurves, _firmwareTable) = await Task.Run(() => (App.Current.Hardware.ReadFanCurves(), App.Current.Hardware.ReadFullFanTable()));
         RefreshFanProfileList();
     }
 
-    private FanSpeeds Factory() => App.Current.Store.Current.FactoryFanCurve?.Clone() ?? FanSpeeds.From(_firmwareCurves!);
+    private FanSpeeds Factory() => FullTables ? FactoryTable().ToSpeeds() : App.Current.Store.Current.FactoryFanCurve?.Clone() ?? FanSpeeds.From(_firmwareCurves!);
+
+    private FanTable FactoryTable() => App.Current.Store.Current.FactoryFanTable?.Clone() ?? _firmwareTable!.Clone();
+
+    /// <summary>A fan profile's whole table; one made with speeds only runs at the laptop's temperatures.</summary>
+    private FanTable TableOf(FanProfile fan) => fan.Table?.Clone() ?? FactoryTable().WithSpeeds(fan.Speeds);
 
     private void RefreshFanProfileList(string? select = null)
     {
@@ -938,7 +947,7 @@ public partial class SettingsWindow : Window
         FanTitle.Text = name;
         FanNameRow.Visibility = FanSaveButtons.Visibility = builtIn ? Visibility.Collapsed : Visibility.Visible;
         FanDeleteButton.IsEnabled = !builtIn;
-        if (_firmwareCurves is not { } firmware)
+        if (_firmwareCurves is null && _firmwareTable is null)
         {
             FanEditorPanel.Visibility = Visibility.Collapsed;
             FanNewButton.IsEnabled = FanDuplicateButton.IsEnabled = false;
@@ -949,30 +958,48 @@ public partial class SettingsWindow : Window
         FanEditorPanel.Visibility = Visibility.Visible;
         FanNewButton.IsEnabled = FanDuplicateButton.IsEnabled = true;
         FanIntro.Text = builtIn
-            ? "The curve your laptop came with. It can't be changed here: duplicate it to make your own."
-            : "Each fan's speed at each of the laptop's temperature steps. Choose this fan profile for a profile in Profiles › Fans.";
+            ? FullTables
+                ? "The table the controller held when Wattkin first read it (if YAMDCC ran before, its table). It can't be changed here: duplicate it to make your own."
+                : "The curve your laptop came with. It can't be changed here: duplicate it to make your own."
+            : FullTables
+                ? "Each fan's speed at each step, the temperature that starts the step and the one under which the fan drops back. Choose this fan profile for a profile in Profiles › Fans."
+                : "Each fan's speed at each of the laptop's temperature steps. Choose this fan profile for a profile in Profiles › Fans.";
         FanName.Text = name;
-        FanEditor.Show(firmware, builtIn ? Factory() : _editingFan!.Speeds);
-        FanEditor.IsEnabled = !builtIn;
+        FanEditor.Visibility = FullTables ? Visibility.Collapsed : Visibility.Visible;
+        TableEditor.Visibility = FullTables ? Visibility.Visible : Visibility.Collapsed;
+        if (FullTables)
+        {
+            TableEditor.Show(builtIn ? FactoryTable() : TableOf(_editingFan!));
+            TableEditor.IsEnabled = !builtIn;
+        }
+        else
+        {
+            FanEditor.Show(_firmwareCurves!, builtIn ? Factory() : _editingFan!.Speeds);
+            FanEditor.IsEnabled = !builtIn;
+        }
+
         UpdateFanProblem();
     }
 
     /// <summary>Problems are shown as you drag.</summary>
     private void UpdateFanProblem()
     {
-        var problem = _editingFan is null ? null : FanEditor.Problem(App.Current.Store.Current.UnrestrictedFanCurves);
+        var unrestricted = App.Current.Store.Current.UnrestrictedFanCurves;
+        var problem = _editingFan is null ? null : FullTables ? TableEditor.Problem(unrestricted) : FanEditor.Problem(unrestricted);
         FanProblem.Text = problem ?? "";
         FanProblem.Visibility = problem is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
-    private void OnFanProfileNew(object sender, RoutedEventArgs e) => AddFanProfile(UniqueFanName("My fan profile"), Factory());
+    private void OnFanProfileNew(object sender, RoutedEventArgs e) =>
+        AddFanProfile(UniqueFanName("My fan profile"), Factory(), FullTables ? FactoryTable() : null);
 
     private void OnFanProfileDuplicate(object sender, RoutedEventArgs e) =>
-        AddFanProfile(UniqueFanName((FanProfileList.SelectedItem as string ?? "Fan profile") + " copy"), _editingFan?.Speeds.Clone() ?? Factory());
+        AddFanProfile(UniqueFanName((FanProfileList.SelectedItem as string ?? "Fan profile") + " copy"), _editingFan?.Speeds.Clone() ?? Factory(),
+            FullTables ? _editingFan is { } fan ? TableOf(fan) : FactoryTable() : _editingFan?.Table?.Clone());
 
-    private void AddFanProfile(string name, FanSpeeds speeds)
+    private void AddFanProfile(string name, FanSpeeds speeds, FanTable? table)
     {
-        var fan = new FanProfile { Name = name, Speeds = speeds };
+        var fan = new FanProfile { Name = name, Speeds = table?.ToSpeeds() ?? speeds, Table = table };
         App.Current.Store.Update(s => s.FanProfiles = [.. s.FanProfiles, fan]);
         RefreshFanProfileList(select: name);
     }
@@ -1010,14 +1037,17 @@ public partial class SettingsWindow : Window
         var problem = name.Length == 0 ? "Give the fan profile a name."
             : FanProfile.IsBuiltIn(name) ? $"\"{name}\" is built in: choose another name."
             : !string.Equals(name, fan.Name, StringComparison.OrdinalIgnoreCase) && settings.FindFanProfile(name) is not null ? "A fan profile with that name already exists."
-            : FanEditor.Problem(settings.UnrestrictedFanCurves);
+            : FullTables ? TableEditor.Problem(settings.UnrestrictedFanCurves) : FanEditor.Problem(settings.UnrestrictedFanCurves);
         if (problem is not null)
         {
             MessageBox.Show(this, problem, "Fan profiles");
             return;
         }
 
-        var saved = new FanProfile { Name = name, Speeds = FanEditor.Value };
+        // Speeds-only editing keeps a whole table's temperatures, so the two never disagree.
+        var saved = FullTables
+            ? new FanProfile { Name = name, Speeds = TableEditor.Value.ToSpeeds(), Table = TableEditor.Value }
+            : new FanProfile { Name = name, Speeds = FanEditor.Value, Table = fan.Table?.WithSpeeds(FanEditor.Value) };
         var inUse = UsedByActiveProfile(fan.Name);
         App.Current.Store.Update(s =>
         {

@@ -182,6 +182,7 @@
                                     <Grid x:Name="FanNameRow" Style="{StaticResource Row}" Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                         <TextBlock Text="Name" Style="{StaticResource Lc.Label}" /><TextBox x:Name="FanName" Grid.Column="1" /></Grid>
                                     <ui:FanCurveEditor x:Name="FanEditor" />
+                                    <ui:FanTableEditor x:Name="TableEditor" Visibility="Collapsed" />
                                     <TextBlock x:Name="FanProblem" Foreground="{DynamicResource Lc.Bad}" TextWrapping="Wrap" Margin="0,8,0,0" Visibility="Collapsed" />
                                     <StackPanel x:Name="FanSaveButtons" Orientation="Horizontal" Margin="0,12,0,0">
                                         <Button Content="Save" Click="OnFanProfileSave" MinWidth="80" Margin="0,0,8,0" />
@@ -194,7 +195,7 @@
                             <StackPanel>
                                 <TextBlock Text="Experimental" Style="{StaticResource Lc.Section}" />
                                 <CheckBox x:Name="FanUnrestricted" Content="Allow fan profiles that let the laptop run hot, and the Off setting" Click="OnFanUnrestricted" />
-                                <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" Text="Normally every fan profile must reach full speed by its hottest step you can edit. With this on, anything goes, including fans off until the firmware's last step (95°C on the Prestige 16 Studio). A laptop that gets too hot slows itself down (thermal throttling). Keep an eye on your temperatures." />
+                                <TextBlock Style="{StaticResource Lc.Hint}" Margin="0,6,0,0" Text="Normally every fan profile must keep the fans ahead of the heat: speeds that never drop as it gets hotter, and full speed by the hottest step you can edit (where you set the temperatures too, as on the Stealth 15M: running by the step before the hottest, and 80% or more from 90°C at the latest). With this on, anything goes, including fans off until the last step. Temperatures always rise from step to step, and each step drops back 1–30°C below where it starts. A laptop that gets too hot slows itself down (thermal throttling). Keep an eye on your temperatures." />
                             </StackPanel>
                         </Border>
                     </StackPanel>

@@ -91,7 +91,7 @@ public sealed partial class HardwareService
                 break;
             case FanForce.Curve:
                 ec.SetCoolerBoost(false);
-                ec.SetFanMode(FanMode.Custom, _store.Current.FactoryFanCurve);
+                ec.SetFanMode(FanMode.Custom, _store.Current.FactoryFanCurve, table: _store.Current.FactoryFanTable);
                 break;
             default:
                 if (profile is null)
@@ -99,10 +99,12 @@ public sealed partial class HardwareService
                     return;
                 }
 
-                // The profile's fan profile, else the laptop's factory curve. No usable fan table (or a
-                // curve the safety rules refuse): the quietest built-in curve instead.
+                // The profile's fan profile, else the laptop's factory curve (a whole table, temperatures
+                // included, where the laptop takes one). No usable fan table (or a curve the safety rules
+                // refuse): the quietest built-in curve instead.
                 var (curve, unrestricted) = _store.Current.ResolveFanCurve(profile);
-                if (profile.Fan is { } fan && !ec.SetFanMode(fan, curve, unrestricted) && fan == FanMode.Custom)
+                var table = ec.HasFullFanTable ? _store.Current.ResolveFanTable(profile) : null;
+                if (profile.Fan is { } fan && !ec.SetFanMode(fan, curve, unrestricted, table) && fan == FanMode.Custom)
                 {
                     ec.SetFanMode(FanMode.Silent);
                 }
@@ -119,6 +121,13 @@ public sealed partial class HardwareService
     /// </summary>
     private void CaptureFactoryFanCurve(EmbeddedController ec)
     {
+        // The whole table too, where the laptop takes one: the temperatures are the user's to change there.
+        if (_store.Current.FactoryFanTable is null && ec.HasFullFanTable && ec.ReadFullFanTable() is { } table && table.Problem(unrestricted: true) is null)
+        {
+            _store.Update(s => s.FactoryFanTable = table);
+            Log.Info($"Factory fan table saved: CPU {table.Cpu.Describe()}; GPU {table.Gpu.Describe()}.");
+        }
+
         if (_store.Current.FactoryFanCurve is not null || !ec.HasFanCurves || ec.ReadFanCurves() is not { Sane: true } curves)
         {
             return;
@@ -140,6 +149,9 @@ public sealed partial class HardwareService
 
     /// <summary>The laptop's fan tables now, for the profile editor; null without hardware access.</summary>
     public FanCurves? ReadFanCurves() => _ec?.ReadFanCurves();
+
+    /// <summary>The laptop's whole fan table now, temperatures included; null unless the laptop takes whole tables.</summary>
+    public FanTable? ReadFullFanTable() => _ec is { HasFullFanTable: true } ec ? ec.ReadFullFanTable() : null;
 
     /// <summary>Monitor thread: a forced mode ends by itself.</summary>
     private void ExpireFanForce()
@@ -413,7 +425,14 @@ public sealed partial class HardwareService
         Row(0x2C, $"keyboard auto-off: {OnOff(ec.GetKeyboardAutoOff())} (also the mic-mute light)");
         Row(0x2D, "mute light");
         Row(0xD9, $"Fn lock: {OnOff(ec.GetFnLock())}");
-        if (ec.ReadFanCurves() is { } curves)
+        if (ec.HasFullFanTable && ec.ReadFullFanTable() is { } table)
+        {
+            sb.AppendLine();
+            sb.AppendLine($"Fan table (used only in curve mode){(table.Problem(unrestricted: true) is { } problem ? $": {problem}" : "")}");
+            sb.AppendLine($"  CPU fan  {table.Cpu.Describe()}");
+            sb.AppendLine($"  GPU fan  {table.Gpu.Describe()}");
+        }
+        else if (ec.ReadFanCurves() is { } curves)
         {
             sb.AppendLine();
             sb.AppendLine($"Fan curve (used only in curve mode){(curves.Sane ? "" : ": doesn't look safe, so Wattkin won't use it")}");
