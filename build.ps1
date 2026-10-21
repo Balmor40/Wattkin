@@ -1,4 +1,6 @@
 # Builds a release into .\dist (framework-dependent single file; needs the .NET 10 Desktop Runtime).
+#   powershell -ExecutionPolicy Bypass -File .\build.ps1
+# (-ExecutionPolicy Bypass because Windows blocks scripts by default; it applies to that run only.)
 $ErrorActionPreference = 'Stop'
 $dotnet = (Get-Command dotnet -ErrorAction SilentlyContinue).Source
 $userSdk = Join-Path $env:LOCALAPPDATA 'Microsoft\dotnet-sdk\dotnet.exe'

@@ -40,7 +40,7 @@ This is a fork of [CoppingEthan/Wattkin](https://github.com/CoppingEthan/Wattkin
 
 ## Install
 
-Build it from source (see [Building from source](#building-from-source)), then run `.\install.ps1`, or run `dist\Wattkin.exe` and click **Install**.
+Build it from source (see [Building from source](#building-from-source)), then run `powershell -ExecutionPolicy Bypass -File .\install.ps1`, or run `dist\Wattkin.exe` and click **Install**.
 
 Wattkin installs itself and starts with Windows. To update, build the newer version and install it the same way. It needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0), which Windows offers to download if it's missing.
 
@@ -104,8 +104,8 @@ You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). I
 ```powershell
 git clone https://github.com/Balmor40/Wattkin.git
 cd Wattkin
-.\build.ps1     # runs the tests, then builds .\dist\Wattkin.exe
-.\install.ps1   # installs your build
+powershell -ExecutionPolicy Bypass -File .\build.ps1     # runs the tests, then builds .\dist\Wattkin.exe
+powershell -ExecutionPolicy Bypass -File .\install.ps1   # installs your build
 ```
 
 ### Hardware self-test
