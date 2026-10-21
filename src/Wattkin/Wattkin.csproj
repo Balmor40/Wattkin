@@ -12,7 +12,7 @@
     <ApplicationIcon>Assets\Wattkin.ico</ApplicationIcon>
     <AssemblyName>Wattkin</AssemblyName>
     <RootNamespace>Wattkin</RootNamespace>
-    <Version>1.3.0</Version>
+    <Version>1.3.1</Version>
     <Product>Wattkin</Product>
     <Description>Lightweight control center for MSI laptops</Description>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
